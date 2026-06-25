@@ -39,6 +39,8 @@ checks that the ingress side accepts the burst without stalls.
   - FIFO level
 - Regression coverage for a full packet delivered as a no-stall 512-bit burst.
 - Same normalized parser output checked against generated reference vectors.
+- First-beat parallel boundary scanner for MoldUDP64 sequence/message count and
+  early ITCH message-length candidates.
 
 ## What Still Blocks True Sustained 100G Parsing
 
@@ -48,10 +50,10 @@ stream would eventually backpressure the ingress unless the FIFO is large enough
 for the burst profile.
 
 To make the parser itself sustained-line-rate capable, the next architecture
-step is a parallel frontend:
+step is expanding the parallel frontend:
 
-1. Detect MoldUDP64 header fields and message length boundaries across 64 byte
-   lanes per cycle.
+1. Extend boundary scanning beyond the first beat and carry state across packet
+   beats.
 2. Track message offsets when an ITCH message starts in one lane and ends in a
    later lane or later beat.
 3. Extract multiple candidate fields from a wide beat in parallel.

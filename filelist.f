@@ -3,7 +3,9 @@ rtl/market_parser.sv
 rtl/market_parser_axis_adapter.sv
 rtl/market_parser_64.sv
 rtl/market_parser_100g_ingress.sv
+rtl/market_parser_512_boundary_scan.sv
 verification/market_parser_tb.sv
 verification/market_parser_64_tb.sv
 verification/market_parser_axis_adapter_tb.sv
 verification/market_parser_100g_ingress_tb.sv
+verification/market_parser_512_boundary_scan_tb.sv

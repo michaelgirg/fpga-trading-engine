@@ -23,6 +23,7 @@ interfaces, and self-checking SystemVerilog testbenches.
 - 64-bit wrapper simulation using packed `tdata` and `tkeep` beats.
 - Parameterized AXI-stream-style adapter tested at 64-, 256-, and 512-bit input widths.
 - 512-bit 100G-facing ingress shell with FIFO, ingress counters, and no-stall burst test.
+- First-beat 512-bit boundary scanner for MoldUDP64 header fields and early ITCH message-length candidates.
 - Lightweight counter and latency reports in the Questa transcript.
 
 ## Event Format
@@ -51,11 +52,13 @@ market_parser/
     market_parser_axis_adapter.sv
     market_parser_64.sv
     market_parser_100g_ingress.sv
+    market_parser_512_boundary_scan.sv
   verification/
     market_parser_tb.sv
     market_parser_64_tb.sv
     market_parser_axis_adapter_tb.sv
     market_parser_100g_ingress_tb.sv
+    market_parser_512_boundary_scan_tb.sv
     vectors/
   tools/
     itch_packets.py
@@ -91,6 +94,7 @@ Core tests passed: 63
 Wrapper tests passed: 21
 AXI adapter profile tests passed: 66
 100G ingress tests passed: 26
+512-bit boundary scan tests passed: 17
 Tests failed: 0
 Errors: 0, Warnings: 0
 ```

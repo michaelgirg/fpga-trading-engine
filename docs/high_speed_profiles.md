@@ -30,6 +30,8 @@ All profiles use the same packet vectors and expected normalized event words.
   widths.
 - The 100G ingress shell can accept a complete test packet as consecutive
   512-bit beats with no input stalls.
+- The 512-bit boundary scanner decodes the first MoldUDP64 header and discovers
+  ITCH message-length candidates near beat boundaries.
 
 ## What This Does Not Claim
 
