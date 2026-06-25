@@ -49,6 +49,10 @@ module market_parser_tb #(
 
     int passed;
     int failed;
+    int rand_seed;
+    int random_bp_events;
+    int random_bp_total_cycles;
+    int random_bp_max_cycles_seen;
 
     byte_t       add_order_packet_mem  [ADD_ORDER_PACKET_BYTES];
     byte_t       gap_system_packet_mem [GAP_SYSTEM_PACKET_BYTES];
@@ -209,6 +213,44 @@ module market_parser_tb #(
         data_out_ready = 1'b0;
     endtask
 
+    task automatic wait_for_event_random_bp(output logic [OUTPUT_BUS_WIDTH-1:0] event_data,
+                                            input int max_stall_cycles,
+                                            input string msg);
+        int cycles;
+        int stall_cycles;
+        bit stable_ok;
+        logic [OUTPUT_BUS_WIDTH-1:0] held_data;
+
+        cycles = 0;
+        data_out_ready = 1'b0;
+        while (!data_out_valid && cycles < 200) begin
+            @(posedge clk);
+            cycles++;
+        end
+        check(data_out_valid, {msg, " became valid"});
+
+        rand_seed = (rand_seed * 1103515245) + 12345;
+        stall_cycles = (rand_seed >> 16) % (max_stall_cycles + 1);
+        held_data = data_out_data;
+        stable_ok = 1'b1;
+        repeat (stall_cycles) begin
+            @(posedge clk);
+            if (!data_out_valid || data_out_data != held_data) stable_ok = 1'b0;
+        end
+        check(stable_ok, {msg, " held stable during randomized backpressure"});
+
+        event_data = data_out_data;
+        data_out_ready = 1'b1;
+        @(posedge clk);
+        @(negedge clk);
+        data_out_ready = 1'b0;
+
+        random_bp_events++;
+        random_bp_total_cycles += stall_cycles;
+        if (stall_cycles > random_bp_max_cycles_seen) random_bp_max_cycles_seen = stall_cycles;
+        $display("Random BP: %s stalled %0d cycles", msg, stall_cycles);
+    endtask
+
     task automatic check_no_event(input int cycles, input string msg);
         bit saw_event;
         saw_event = 1'b0;
@@ -225,6 +267,10 @@ module market_parser_tb #(
 
         passed = 0;
         failed = 0;
+        rand_seed = 32'h4D41524B;
+        random_bp_events = 0;
+        random_bp_total_cycles = 0;
+        random_bp_max_cycles_seen = 0;
         reset_dut();
         load_vectors();
 
@@ -261,7 +307,8 @@ module market_parser_tb #(
             send_packet_from_mem(MIXED_PACKET_BYTES, mixed_packet_mem);
             begin
                 for (int i = 2; i < EXPECTED_EVENTS; i++) begin
-                    wait_for_event(event_data);
+                    wait_for_event_random_bp(event_data, 7,
+                                             $sformatf("mixed event %0d", i - 2));
                     check(event_data == expected_event_mem[i],
                           $sformatf("mixed event %0d matches generated vector", i - 2));
                 end
@@ -277,6 +324,9 @@ module market_parser_tb #(
         check(expected_event_mem[9][7:0] == EVENT_UNKNOWN, "unknown event generated");
         check((expected_event_mem[9][239:232] & FLAG_UNKNOWN) != 8'h00, "unknown event vector has unknown flag");
         check(unknown_msg_type, "sticky unknown message output set");
+        check(random_bp_events == EXPECTED_EVENTS - 2, "random backpressure covered all mixed events");
+        check(random_bp_total_cycles > 0, "random backpressure inserted stalls");
+        check(random_bp_max_cycles_seen <= 7, "random backpressure respected max stall");
 
         send_packet_from_mem(TRUNCATED_PACKET_BYTES, truncated_packet_mem);
         repeat (10) @(posedge clk);
