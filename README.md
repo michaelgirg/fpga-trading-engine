@@ -17,7 +17,8 @@ interfaces, and self-checking SystemVerilog testbenches.
 - Gap detection.
 - ITCH message splitting by MoldUDP64 length.
 - Normalized 256-bit event output.
-- Self-checking testbench for Add Order and System Event packets.
+- Self-checking testbench using generated Add Order and System Event packet vectors.
+- Gap, output-backpressure, and zero-length malformed-message smoke checks.
 
 ## Event Format
 
@@ -84,9 +85,9 @@ python tools/generate_vectors.py
 
 ## Next Build Steps
 
-1. Feed the generated hex vectors directly from the SystemVerilog testbench.
-2. Add more ITCH message checks to the reference model and testbench.
-3. Add malformed packet tests.
-4. Add random backpressure tests on the output stream.
-5. Add a 64-bit input packing wrapper.
+1. Add more ITCH message vectors to the Python reference model and testbench.
+2. Add truncated packet and unknown-message tests.
+3. Add randomized output backpressure tests.
+4. Add a 64-bit input packing wrapper.
+5. Add a lightweight latency/counter report in the testbench.
 6. Add ZedBoard integration wrapper after simulation behavior is stable.

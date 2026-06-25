@@ -5,11 +5,18 @@ import market_parser_pkg::*;
 // Module: market_parser_tb
 // =============================================================================
 module market_parser_tb #(
-    parameter realtime CLK_PERIOD = 10ns
+    parameter realtime CLK_PERIOD = 10ns,
+    parameter string   VECTOR_DIR = "verification/vectors"
 );
     localparam realtime HALF_CLK_PERIOD = CLK_PERIOD / 2.0;
     localparam int INPUT_BUS_WIDTH = 8;
     localparam int OUTPUT_BUS_WIDTH = 256;
+    localparam int ADD_ORDER_PACKET_BYTES = 58;
+    localparam int GAP_SYSTEM_PACKET_BYTES = 34;
+    localparam int EXPECTED_EVENTS = 2;
+
+    typedef logic [7:0] byte_t;
+    typedef logic [OUTPUT_BUS_WIDTH-1:0] event_word_t;
 
     logic clk = 1'b0;
     logic rst;
@@ -38,6 +45,10 @@ module market_parser_tb #(
 
     int passed;
     int failed;
+
+    byte_t       add_order_packet_mem  [ADD_ORDER_PACKET_BYTES];
+    byte_t       gap_system_packet_mem [GAP_SYSTEM_PACKET_BYTES];
+    event_word_t expected_event_mem    [EXPECTED_EVENTS];
 
     market_parser #(
         .INPUT_BUS_WIDTH (INPUT_BUS_WIDTH),
@@ -106,25 +117,27 @@ module market_parser_tb #(
         data_in_last  = 1'b0;
     endtask
 
+    task automatic load_vectors();
+        string add_path;
+        string gap_path;
+        string expected_path;
+        add_path      = {VECTOR_DIR, "/add_order_packet.hex"};
+        gap_path      = {VECTOR_DIR, "/gap_system_event_packet.hex"};
+        expected_path = {VECTOR_DIR, "/expected_events.hex"};
+        $readmemh(add_path, add_order_packet_mem);
+        $readmemh(gap_path, gap_system_packet_mem);
+        $readmemh(expected_path, expected_event_mem);
+    endtask
+
+    task automatic send_packet_from_mem(input int packet_bytes, input byte_t packet_mem[]);
+        for (int i = 0; i < packet_bytes; i++) begin
+            send_byte(packet_mem[i], i == packet_bytes - 1);
+        end
+    endtask
+
     task automatic send_be16(input logic [15:0] value, input bit last);
         send_byte(value[15:8], 1'b0);
         send_byte(value[7:0], last);
-    endtask
-
-    task automatic send_be32(input logic [31:0] value, input bit last);
-        send_byte(value[31:24], 1'b0);
-        send_byte(value[23:16], 1'b0);
-        send_byte(value[15:8], 1'b0);
-        send_byte(value[7:0], last);
-    endtask
-
-    task automatic send_be48(input logic [47:0] value);
-        send_byte(value[47:40], 1'b0);
-        send_byte(value[39:32], 1'b0);
-        send_byte(value[31:24], 1'b0);
-        send_byte(value[23:16], 1'b0);
-        send_byte(value[15:8], 1'b0);
-        send_byte(value[7:0], 1'b0);
     endtask
 
     task automatic send_be64(input logic [63:0] value);
@@ -153,46 +166,24 @@ module market_parser_tb #(
         send_be16(msg_count, 1'b0);
     endtask
 
-    task automatic send_add_order_packet(input logic [63:0] seq_num);
+    task automatic send_zero_length_message_packet(input logic [63:0] seq_num);
         send_header(seq_num, 16'd1);
-        send_be16(16'd36, 1'b0);
-        send_byte("A", 1'b0);
-        send_be16(16'h1234, 1'b0);
-        send_be16(16'h5678, 1'b0);
-        send_be48(48'h0102_0304_0506);
-        send_be64(64'h1111_2222_3333_4444);
-        send_byte("B", 1'b0);
-        send_be32(32'd100, 1'b0);
-        send_byte("A", 1'b0);
-        send_byte("B", 1'b0);
-        send_byte("C", 1'b0);
-        send_byte("D", 1'b0);
-        send_byte(" ", 1'b0);
-        send_byte(" ", 1'b0);
-        send_byte(" ", 1'b0);
-        send_byte(" ", 1'b0);
-        send_be32(32'd1234500, 1'b1);
+        send_be16(16'd0, 1'b1);
     endtask
 
-    task automatic send_system_event_packet(input logic [63:0] seq_num);
-        send_header(seq_num, 16'd1);
-        send_be16(16'd12, 1'b0);
-        send_byte("S", 1'b0);
-        send_be16(16'h0001, 1'b0);
-        send_be16(16'h0002, 1'b0);
-        send_be48(48'h0000_0000_0010);
-        send_byte("O", 1'b1);
-    endtask
-
-    task automatic wait_for_event(output logic [OUTPUT_BUS_WIDTH-1:0] event_data);
+    task automatic wait_for_event(output logic [OUTPUT_BUS_WIDTH-1:0] event_data,
+                                  input int ready_stall_cycles = 0);
         int cycles;
         cycles = 0;
+        if (ready_stall_cycles > 0) data_out_ready = 1'b0;
         while (!data_out_valid && cycles < 200) begin
             @(posedge clk);
             cycles++;
         end
         check(data_out_valid, "event became valid");
+        repeat (ready_stall_cycles) @(posedge clk);
         event_data = data_out_data;
+        data_out_ready = 1'b1;
         @(posedge clk);
     endtask
 
@@ -202,13 +193,15 @@ module market_parser_tb #(
         passed = 0;
         failed = 0;
         reset_dut();
+        load_vectors();
 
         $display("\n========================================================");
         $display("MARKET PARSER TESTS");
         $display("========================================================");
 
-        send_add_order_packet(64'd1);
+        send_packet_from_mem(ADD_ORDER_PACKET_BYTES, add_order_packet_mem);
         wait_for_event(event_data);
+        check(event_data == expected_event_mem[0], "add order event matches generated vector");
         check(event_data[7:0]     == EVENT_ADD, "add order classified");
         check(event_data[15:8]    == "A", "ITCH message type A preserved");
         check(event_data[31:16]   == 16'h1234, "stock locate decoded");
@@ -219,15 +212,22 @@ module market_parser_tb #(
         check(event_data[223:192] == 32'd1234500, "price decoded");
         check(event_data[231:224] == "B", "side decoded");
 
-        send_system_event_packet(64'd3);
-        wait_for_event(event_data);
+        send_packet_from_mem(GAP_SYSTEM_PACKET_BYTES, gap_system_packet_mem);
+        wait_for_event(event_data, 3);
+        check(event_data == expected_event_mem[1], "gap system event matches generated vector");
         check(event_data[7:0] == EVENT_SYSTEM, "system event classified");
         check((event_data[239:232] & FLAG_GAP) != 8'h00, "gap flag set on skipped sequence");
         check(gap_error, "sticky gap error output set");
+        check(data_out_valid == 1'b0, "output handshake completed after backpressure");
 
-        check(packet_count == 32'd2, "packet counter");
+        send_zero_length_message_packet(64'd4);
+        repeat (10) @(posedge clk);
+        check(malformed_error, "zero-length message sets malformed error");
+
+        check(packet_count == 32'd3, "packet counter");
         check(message_count == 32'd2, "message counter");
         check(event_count == 32'd2, "event counter");
+        check(error_count == 32'd2, "gap plus malformed error counter");
 
         $display("========================================================");
         $display("Tests passed: %0d", passed);
