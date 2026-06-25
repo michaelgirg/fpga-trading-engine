@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from itch_packets import (
+    end_session,
+    heartbeat,
     itch_add_order,
     itch_order_cancel,
     itch_order_delete,
@@ -49,11 +51,15 @@ def main() -> None:
     events2, next_seq = parse_mold_packet(pkt2, expected_sequence=5)
 
     pkt3 = truncated_payload_packet(next_seq)
+    pkt4 = heartbeat(next_seq + 1)
+    pkt5 = end_session(next_seq + 1)
 
     write_hex_bytes(OUT_DIR / "add_order_packet.hex", pkt0)
     write_hex_bytes(OUT_DIR / "gap_system_event_packet.hex", pkt1)
     write_hex_bytes(OUT_DIR / "mixed_messages_packet.hex", pkt2)
     write_hex_bytes(OUT_DIR / "truncated_packet.hex", pkt3)
+    write_hex_bytes(OUT_DIR / "heartbeat_packet.hex", pkt4)
+    write_hex_bytes(OUT_DIR / "end_session_packet.hex", pkt5)
 
     expected = [*events0, *events1, *events2]
     lines = [f"{event.pack_u256():064x}" for event in expected]

@@ -15,6 +15,8 @@ module market_parser_tb #(
     localparam int GAP_SYSTEM_PACKET_BYTES = 34;
     localparam int MIXED_PACKET_BYTES = 276;
     localparam int TRUNCATED_PACKET_BYTES = 27;
+    localparam int HEARTBEAT_PACKET_BYTES = 20;
+    localparam int END_SESSION_PACKET_BYTES = 20;
     localparam int EXPECTED_EVENTS = 10;
 
     typedef logic [7:0] byte_t;
@@ -52,6 +54,8 @@ module market_parser_tb #(
     byte_t       gap_system_packet_mem [GAP_SYSTEM_PACKET_BYTES];
     byte_t       mixed_packet_mem      [MIXED_PACKET_BYTES];
     byte_t       truncated_packet_mem  [TRUNCATED_PACKET_BYTES];
+    byte_t       heartbeat_packet_mem  [HEARTBEAT_PACKET_BYTES];
+    byte_t       end_session_packet_mem[END_SESSION_PACKET_BYTES];
     event_word_t expected_event_mem    [EXPECTED_EVENTS];
 
     market_parser #(
@@ -126,16 +130,22 @@ module market_parser_tb #(
         string gap_path;
         string mixed_path;
         string truncated_path;
+        string heartbeat_path;
+        string end_session_path;
         string expected_path;
         add_path       = {VECTOR_DIR, "/add_order_packet.hex"};
         gap_path       = {VECTOR_DIR, "/gap_system_event_packet.hex"};
         mixed_path     = {VECTOR_DIR, "/mixed_messages_packet.hex"};
         truncated_path = {VECTOR_DIR, "/truncated_packet.hex"};
+        heartbeat_path = {VECTOR_DIR, "/heartbeat_packet.hex"};
+        end_session_path = {VECTOR_DIR, "/end_session_packet.hex"};
         expected_path  = {VECTOR_DIR, "/expected_events.hex"};
         $readmemh(add_path, add_order_packet_mem);
         $readmemh(gap_path, gap_system_packet_mem);
         $readmemh(mixed_path, mixed_packet_mem);
         $readmemh(truncated_path, truncated_packet_mem);
+        $readmemh(heartbeat_path, heartbeat_packet_mem);
+        $readmemh(end_session_path, end_session_packet_mem);
         $readmemh(expected_path, expected_event_mem);
     endtask
 
@@ -197,6 +207,17 @@ module market_parser_tb #(
         @(posedge clk);
         @(negedge clk);
         data_out_ready = 1'b0;
+    endtask
+
+    task automatic check_no_event(input int cycles, input string msg);
+        bit saw_event;
+        saw_event = 1'b0;
+        data_out_ready = 1'b0;
+        repeat (cycles) begin
+            @(posedge clk);
+            if (data_out_valid) saw_event = 1'b1;
+        end
+        check(!saw_event, msg);
     endtask
 
     initial begin : run_tests
@@ -261,7 +282,14 @@ module market_parser_tb #(
         repeat (10) @(posedge clk);
         check(malformed_error, "truncated message keeps malformed error set");
 
-        check(packet_count == 32'd5, "packet counter");
+        send_packet_from_mem(HEARTBEAT_PACKET_BYTES, heartbeat_packet_mem);
+        check_no_event(10, "heartbeat emits no event");
+        check(expected_sequence == 64'd14, "heartbeat preserves next expected sequence");
+
+        send_packet_from_mem(END_SESSION_PACKET_BYTES, end_session_packet_mem);
+        check_no_event(10, "end-of-session emits no event");
+
+        check(packet_count == 32'd7, "packet counter");
         check(message_count == 32'd10, "message counter");
         check(event_count == 32'd10, "event counter");
         check(error_count == 32'd4, "gap, zero-length, unknown, truncated error counter");

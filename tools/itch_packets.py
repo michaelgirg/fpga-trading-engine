@@ -84,6 +84,10 @@ def heartbeat(sequence: int, session: bytes = SESSION) -> bytes:
     return session + _u64(sequence) + _u16(0)
 
 
+def end_session(sequence: int, session: bytes = SESSION) -> bytes:
+    return session + _u64(sequence) + _u16(0xFFFF)
+
+
 def itch_system_event(
     stock_locate: int = 1,
     tracking_number: int = 2,

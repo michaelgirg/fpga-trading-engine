@@ -19,7 +19,7 @@ interfaces, and self-checking SystemVerilog testbenches.
 - Normalized 256-bit event output.
 - Self-checking testbench using generated Add Order and System Event packet vectors.
 - Generated vectors for `A`, `F`, `E`, `C`, `X`, `D`, `U`, `P`, and unknown-message handling.
-- Gap, output-backpressure, zero-length malformed-message, and truncated-packet smoke checks.
+- Gap, output-backpressure, zero-length malformed-message, truncated-packet, heartbeat, and end-of-session smoke checks.
 
 ## Event Format
 
@@ -75,7 +75,7 @@ xsim market_parser_tb -runall
 Current Questa FSE smoke result:
 
 ```text
-Tests passed: 49
+Tests passed: 52
 Tests failed: 0
 Errors: 0, Warnings: 0
 ```
@@ -92,7 +92,6 @@ python tools/generate_vectors.py
 ## Next Build Steps
 
 1. Add randomized output backpressure tests.
-2. Add heartbeat and end-of-session packet tests.
-3. Add a 64-bit input packing wrapper.
-4. Add a lightweight latency/counter report in the testbench.
-5. Add ZedBoard integration wrapper after simulation behavior is stable.
+2. Add a 64-bit input packing wrapper.
+3. Add a lightweight latency/counter report in the testbench.
+4. Add ZedBoard integration wrapper after simulation behavior is stable.
