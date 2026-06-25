@@ -1,5 +1,6 @@
 `timescale 1ns / 100ps
 `default_nettype none
+import market_parser_pkg::*;
 // =============================================================================
 // Module: market_parser_tb
 // =============================================================================
@@ -9,10 +10,6 @@ module market_parser_tb #(
     localparam realtime HALF_CLK_PERIOD = CLK_PERIOD / 2.0;
     localparam int INPUT_BUS_WIDTH = 8;
     localparam int OUTPUT_BUS_WIDTH = 256;
-
-    localparam logic [7:0] EVENT_SYSTEM = 8'd1;
-    localparam logic [7:0] EVENT_ADD    = 8'd3;
-    localparam logic [7:0] FLAG_GAP     = 8'h01;
 
     logic clk = 1'b0;
     logic rst;

@@ -40,9 +40,14 @@ interfaces, and self-checking SystemVerilog testbenches.
 ```text
 market_parser/
   rtl/
+    market_parser_pkg.sv
     market_parser.sv
   verification/
     market_parser_tb.sv
+    vectors/
+  tools/
+    itch_packets.py
+    generate_vectors.py
   docs/
     architecture.md
     references.md
@@ -53,14 +58,14 @@ market_parser/
 Questa/ModelSim:
 
 ```tcl
-vlog -sv rtl/market_parser.sv verification/market_parser_tb.sv
+vlog -sv rtl/market_parser_pkg.sv rtl/market_parser.sv verification/market_parser_tb.sv
 vsim -c market_parser_tb -do "run -all; quit"
 ```
 
 Vivado xsim:
 
 ```tcl
-xvlog -sv rtl/market_parser.sv verification/market_parser_tb.sv
+xvlog -sv rtl/market_parser_pkg.sv rtl/market_parser.sv verification/market_parser_tb.sv
 xelab market_parser_tb -debug typical
 xsim market_parser_tb -runall
 ```
@@ -68,10 +73,20 @@ xsim market_parser_tb -runall
 I could not run these locally because no HDL simulator was available on PATH in
 this workspace.
 
+## Test Vector Generation
+
+The Python helper creates deterministic MoldUDP64/ITCH packets and the expected
+normalized event words:
+
+```powershell
+python tools/generate_vectors.py
+```
+
 ## Next Build Steps
 
-1. Add more ITCH message checks to the testbench.
-2. Add malformed packet tests.
-3. Add random backpressure tests on the output stream.
-4. Add a 64-bit input packing wrapper.
-5. Add ZedBoard integration wrapper after simulation behavior is stable.
+1. Feed the generated hex vectors directly from the SystemVerilog testbench.
+2. Add more ITCH message checks to the reference model and testbench.
+3. Add malformed packet tests.
+4. Add random backpressure tests on the output stream.
+5. Add a 64-bit input packing wrapper.
+6. Add ZedBoard integration wrapper after simulation behavior is stable.
