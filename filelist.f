@@ -2,6 +2,8 @@ rtl/market_parser_pkg.sv
 rtl/market_parser.sv
 rtl/market_parser_axis_adapter.sv
 rtl/market_parser_64.sv
+rtl/market_parser_100g_ingress.sv
 verification/market_parser_tb.sv
 verification/market_parser_64_tb.sv
 verification/market_parser_axis_adapter_tb.sv
+verification/market_parser_100g_ingress_tb.sv

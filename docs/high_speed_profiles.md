@@ -16,6 +16,7 @@ keeping the parsing core independent from the transport.
 | ZedBoard-friendly | 64 bits | 8 bytes | Small stream width for board-oriented integration work. |
 | Wide MAC model | 256 bits | 32 bytes | Conceptual profile for wider low-latency networking datapaths. |
 | 100G-style model | 512 bits | 64 bytes | Conceptual profile for very wide MAC-facing stream verification. |
+| 100G ingress shell | 512 bits | 64 bytes | Hardware-facing RX stream with FIFO and ingress counters. |
 
 All profiles use the same packet vectors and expected normalized event words.
 
@@ -27,6 +28,8 @@ All profiles use the same packet vectors and expected normalized event words.
   64-, 256-, and 512-bit stream profiles.
 - Counters, sticky error flags, and event outputs remain stable across frontend
   widths.
+- The 100G ingress shell can accept a complete test packet as consecutive
+  512-bit beats with no input stalls.
 
 ## What This Does Not Claim
 

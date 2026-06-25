@@ -52,6 +52,11 @@ frontend compatibility profile, not a true line-rate 100G parser. A production
 line-rate frontend would need parallel boundary detection and multi-lane message
 extraction before the normalized event stage.
 
+The `market_parser_100g_ingress` block adds the hardware-facing 512-bit stream
+boundary and FIFO that a 100G-capable board would need before the parser. It is
+the correct place to attach a 100G MAC RX stream, while the backend parser
+remains the part that must be parallelized for sustained worst-case line rate.
+
 ## ZedBoard Path
 
 The eventual ZedBoard demo should not claim to be production networking. The
