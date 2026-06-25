@@ -12,6 +12,9 @@ can be simulated first and later wrapped for ZedBoard.
 MoldUDP64 packet stream
         |
         v
+AXI-stream width adapter
+        |
+        v
 MoldUDP64 header parser
         |
         v
@@ -34,6 +37,20 @@ normalized event stream
 - Emit normalized events instead of exposing raw parser internals.
 - Use ready/valid interfaces everywhere.
 - Keep transport details outside the core parser.
+- Verify frontend width changes without changing parser behavior.
+
+## High-Speed Stream Profiles
+
+The ZedBoard path is a functional hardware-demo path, not a 25G/100G networking
+path. To still practice the architecture used around faster MACs, the project
+includes a parameterized AXI-stream-style adapter that can be simulated at 64,
+256, and 512 bits.
+
+The current adapter serializes valid byte lanes into the byte parser. This keeps
+the parser reusable and easy to verify. It should be described as a wide
+frontend compatibility profile, not a true line-rate 100G parser. A production
+line-rate frontend would need parallel boundary detection and multi-lane message
+extraction before the normalized event stage.
 
 ## ZedBoard Path
 

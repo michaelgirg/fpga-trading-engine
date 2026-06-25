@@ -21,6 +21,7 @@ interfaces, and self-checking SystemVerilog testbenches.
 - Generated vectors for `A`, `F`, `E`, `C`, `X`, `D`, `U`, `P`, and unknown-message handling.
 - Gap, randomized output-backpressure, zero-length malformed-message, truncated-packet, heartbeat, and end-of-session smoke checks.
 - 64-bit wrapper simulation using packed `tdata` and `tkeep` beats.
+- Parameterized AXI-stream-style adapter tested at 64-, 256-, and 512-bit input widths.
 - Lightweight counter and latency reports in the Questa transcript.
 
 ## Event Format
@@ -46,16 +47,19 @@ market_parser/
   rtl/
     market_parser_pkg.sv
     market_parser.sv
+    market_parser_axis_adapter.sv
     market_parser_64.sv
   verification/
     market_parser_tb.sv
     market_parser_64_tb.sv
+    market_parser_axis_adapter_tb.sv
     vectors/
   tools/
     itch_packets.py
     generate_vectors.py
   docs/
     architecture.md
+    high_speed_profiles.md
     references.md
 ```
 
@@ -64,8 +68,8 @@ market_parser/
 Questa/ModelSim:
 
 ```tcl
-vlog -sv rtl/market_parser_pkg.sv rtl/market_parser.sv verification/market_parser_tb.sv
-vsim -c market_parser_tb -do "run -all; quit"
+cd verification
+vsim -c -do run_questa.do
 ```
 
 Vivado xsim:
@@ -81,6 +85,7 @@ Current Questa FSE smoke result:
 ```text
 Core tests passed: 63
 Wrapper tests passed: 21
+AXI adapter profile tests passed: 66
 Tests failed: 0
 Errors: 0, Warnings: 0
 ```
@@ -97,3 +102,4 @@ python tools/generate_vectors.py
 ## Next Build Steps
 
 1. Add ZedBoard integration wrapper after simulation behavior is stable.
+2. Prototype a true parallel boundary detector for a future line-rate frontend.
