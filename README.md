@@ -21,6 +21,7 @@ interfaces, and self-checking SystemVerilog testbenches.
 - Generated vectors for `A`, `F`, `E`, `C`, `X`, `D`, `U`, `P`, and unknown-message handling.
 - Gap, randomized output-backpressure, zero-length malformed-message, truncated-packet, heartbeat, and end-of-session smoke checks.
 - 64-bit wrapper simulation using packed `tdata` and `tkeep` beats.
+- Lightweight counter and latency reports in the Questa transcript.
 
 ## Event Format
 
@@ -95,5 +96,4 @@ python tools/generate_vectors.py
 
 ## Next Build Steps
 
-1. Add a lightweight latency/counter report in the testbench.
-2. Add ZedBoard integration wrapper after simulation behavior is stable.
+1. Add ZedBoard integration wrapper after simulation behavior is stable.

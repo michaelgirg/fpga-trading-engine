@@ -53,6 +53,16 @@ module market_parser_tb #(
     int random_bp_events;
     int random_bp_total_cycles;
     int random_bp_max_cycles_seen;
+    longint cycle_count;
+    longint packet_start_cycle;
+    longint packet_event_total_cycles;
+    int packet_event_count;
+    int packet_event_min_cycles;
+    int packet_event_max_cycles;
+    int event_wait_total_cycles;
+    int event_wait_count;
+    int event_wait_min_cycles;
+    int event_wait_max_cycles;
 
     byte_t       add_order_packet_mem  [ADD_ORDER_PACKET_BYTES];
     byte_t       gap_system_packet_mem [GAP_SYSTEM_PACKET_BYTES];
@@ -91,6 +101,11 @@ module market_parser_tb #(
 
     initial begin : generate_clock
         forever #HALF_CLK_PERIOD clk <= ~clk;
+    end
+
+    always_ff @(posedge clk) begin
+        if (rst) cycle_count <= 0;
+        else cycle_count <= cycle_count + 1;
     end
 
     task automatic reset_dut();
@@ -154,6 +169,7 @@ module market_parser_tb #(
     endtask
 
     task automatic send_packet_from_mem(input int packet_bytes, input byte_t packet_mem[]);
+        packet_start_cycle = cycle_count;
         for (int i = 0; i < packet_bytes; i++) begin
             send_byte(packet_mem[i], i == packet_bytes - 1);
         end
@@ -205,6 +221,7 @@ module market_parser_tb #(
             cycles++;
         end
         check(data_out_valid, "event became valid");
+        record_event_latency(cycles);
         repeat (ready_stall_cycles) @(posedge clk);
         event_data = data_out_data;
         data_out_ready = 1'b1;
@@ -228,6 +245,7 @@ module market_parser_tb #(
             cycles++;
         end
         check(data_out_valid, {msg, " became valid"});
+        record_event_latency(cycles);
 
         rand_seed = (rand_seed * 1103515245) + 12345;
         stall_cycles = (rand_seed >> 16) % (max_stall_cycles + 1);
@@ -262,6 +280,47 @@ module market_parser_tb #(
         check(!saw_event, msg);
     endtask
 
+    task automatic record_event_latency(input int wait_cycles);
+        int packet_latency;
+        packet_latency = int'(cycle_count - packet_start_cycle);
+        if (packet_event_count == 0 || packet_latency < packet_event_min_cycles) begin
+            packet_event_min_cycles = packet_latency;
+        end
+        if (packet_latency > packet_event_max_cycles) packet_event_max_cycles = packet_latency;
+        packet_event_total_cycles += packet_latency;
+        packet_event_count++;
+
+        if (event_wait_count == 0 || wait_cycles < event_wait_min_cycles) begin
+            event_wait_min_cycles = wait_cycles;
+        end
+        if (wait_cycles > event_wait_max_cycles) event_wait_max_cycles = wait_cycles;
+        event_wait_total_cycles += wait_cycles;
+        event_wait_count++;
+    endtask
+
+    task automatic report_stats();
+        $display("========================================================");
+        $display("MARKET PARSER COUNTER / LATENCY REPORT");
+        $display("========================================================");
+        $display("DUT counters: packets=%0d messages=%0d events=%0d errors=%0d",
+                 packet_count, message_count, event_count, error_count);
+        $display("Sticky flags: gap=%0b malformed=%0b unknown=%0b",
+                 gap_error, malformed_error, unknown_msg_type);
+        if (packet_event_count > 0) begin
+            $display("Packet-to-event latency: min=%0d max=%0d avg=%0d cycles over %0d events",
+                     packet_event_min_cycles, packet_event_max_cycles,
+                     packet_event_total_cycles / packet_event_count, packet_event_count);
+        end
+        if (event_wait_count > 0) begin
+            $display("Event wait after request: min=%0d max=%0d avg=%0d cycles over %0d waits",
+                     event_wait_min_cycles, event_wait_max_cycles,
+                     event_wait_total_cycles / event_wait_count, event_wait_count);
+        end
+        $display("Random backpressure: events=%0d total_stall=%0d max_stall=%0d",
+                 random_bp_events, random_bp_total_cycles, random_bp_max_cycles_seen);
+        $display("========================================================");
+    endtask
+
     initial begin : run_tests
         logic [OUTPUT_BUS_WIDTH-1:0] event_data;
 
@@ -271,6 +330,15 @@ module market_parser_tb #(
         random_bp_events = 0;
         random_bp_total_cycles = 0;
         random_bp_max_cycles_seen = 0;
+        packet_start_cycle = 0;
+        packet_event_total_cycles = 0;
+        packet_event_count = 0;
+        packet_event_min_cycles = 0;
+        packet_event_max_cycles = 0;
+        event_wait_total_cycles = 0;
+        event_wait_count = 0;
+        event_wait_min_cycles = 0;
+        event_wait_max_cycles = 0;
         reset_dut();
         load_vectors();
 
@@ -348,6 +416,7 @@ module market_parser_tb #(
         $display("Tests passed: %0d", passed);
         $display("Tests failed: %0d", failed);
         $display("========================================================\n");
+        report_stats();
 
         if (failed == 0) $finish;
         else $fatal(1, "market_parser_tb failed");
