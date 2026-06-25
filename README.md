@@ -11,7 +11,7 @@ interfaces, and self-checking SystemVerilog testbenches.
 ## Current V1 Scope
 
 - One MoldUDP64 packet per input stream frame.
-- Byte-wide input stream for readable first-pass RTL.
+- Byte-wide parser core plus 64-bit input wrapper.
 - MoldUDP64 header parsing.
 - Message count and sequence tracking.
 - Gap detection.
@@ -20,6 +20,7 @@ interfaces, and self-checking SystemVerilog testbenches.
 - Self-checking testbench using generated Add Order and System Event packet vectors.
 - Generated vectors for `A`, `F`, `E`, `C`, `X`, `D`, `U`, `P`, and unknown-message handling.
 - Gap, randomized output-backpressure, zero-length malformed-message, truncated-packet, heartbeat, and end-of-session smoke checks.
+- 64-bit wrapper simulation using packed `tdata` and `tkeep` beats.
 
 ## Event Format
 
@@ -44,8 +45,10 @@ market_parser/
   rtl/
     market_parser_pkg.sv
     market_parser.sv
+    market_parser_64.sv
   verification/
     market_parser_tb.sv
+    market_parser_64_tb.sv
     vectors/
   tools/
     itch_packets.py
@@ -75,7 +78,8 @@ xsim market_parser_tb -runall
 Current Questa FSE smoke result:
 
 ```text
-Tests passed: 63
+Core tests passed: 63
+Wrapper tests passed: 21
 Tests failed: 0
 Errors: 0, Warnings: 0
 ```
@@ -91,6 +95,5 @@ python tools/generate_vectors.py
 
 ## Next Build Steps
 
-1. Add a 64-bit input packing wrapper.
-2. Add a lightweight latency/counter report in the testbench.
-3. Add ZedBoard integration wrapper after simulation behavior is stable.
+1. Add a lightweight latency/counter report in the testbench.
+2. Add ZedBoard integration wrapper after simulation behavior is stable.
