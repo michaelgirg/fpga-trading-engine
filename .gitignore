@@ -1,0 +1,20 @@
+# Simulation/build artifacts
+work/
+xsim.dir/
+.Xil/
+*.jou
+*.log
+*.pb
+*.wdb
+*.vcd
+*.wlf
+transcript
+
+# Local class/course references. Keep these on disk, but do not publish them.
+refernces/
+references/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+*.swp
