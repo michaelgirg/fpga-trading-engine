@@ -185,6 +185,7 @@ module market_parser_tb #(
         event_data = data_out_data;
         data_out_ready = 1'b1;
         @(posedge clk);
+        @(negedge clk);
     endtask
 
     initial begin : run_tests

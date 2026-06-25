@@ -13,17 +13,17 @@ module market_parser #(
     parameter int INPUT_BUS_WIDTH  = 8,
     parameter int OUTPUT_BUS_WIDTH = 256
 ) (
-    input  logic                            clk,
-    input  logic                            rst,
+    input  wire logic                       clk,
+    input  wire logic                       rst,
 
-    input  logic                            data_in_valid,
+    input  wire logic                       data_in_valid,
     output logic                            data_in_ready,
-    input  logic [   INPUT_BUS_WIDTH-1:0]   data_in_data,
-    input  logic [ INPUT_BUS_WIDTH/8-1:0]   data_in_keep,
-    input  logic                            data_in_last,
+    input  wire logic [   INPUT_BUS_WIDTH-1:0] data_in_data,
+    input  wire logic [ INPUT_BUS_WIDTH/8-1:0] data_in_keep,
+    input  wire logic                       data_in_last,
 
     output logic                            data_out_valid,
-    input  logic                            data_out_ready,
+    input  wire logic                       data_out_ready,
     output logic [  OUTPUT_BUS_WIDTH-1:0]   data_out_data,
     output logic [OUTPUT_BUS_WIDTH/8-1:0]   data_out_keep,
     output logic                            data_out_last,
@@ -270,14 +270,14 @@ module market_parser #(
                             16'd8:  timestamp_r[23:16] <= input_byte;
                             16'd9:  timestamp_r[15:8] <= input_byte;
                             16'd10: timestamp_r[7:0] <= input_byte;
-                            16'd11: order_ref_r[63:56] <= input_byte;
-                            16'd12: order_ref_r[55:48] <= input_byte;
-                            16'd13: order_ref_r[47:40] <= input_byte;
-                            16'd14: order_ref_r[39:32] <= input_byte;
-                            16'd15: order_ref_r[31:24] <= input_byte;
-                            16'd16: order_ref_r[23:16] <= input_byte;
-                            16'd17: order_ref_r[15:8] <= input_byte;
-                            16'd18: order_ref_r[7:0] <= input_byte;
+                            16'd11: if (has_order_ref(msg_type_r)) order_ref_r[63:56] <= input_byte;
+                            16'd12: if (has_order_ref(msg_type_r)) order_ref_r[55:48] <= input_byte;
+                            16'd13: if (has_order_ref(msg_type_r)) order_ref_r[47:40] <= input_byte;
+                            16'd14: if (has_order_ref(msg_type_r)) order_ref_r[39:32] <= input_byte;
+                            16'd15: if (has_order_ref(msg_type_r)) order_ref_r[31:24] <= input_byte;
+                            16'd16: if (has_order_ref(msg_type_r)) order_ref_r[23:16] <= input_byte;
+                            16'd17: if (has_order_ref(msg_type_r)) order_ref_r[15:8] <= input_byte;
+                            16'd18: if (has_order_ref(msg_type_r)) order_ref_r[7:0] <= input_byte;
                             16'd19: begin
                                 if (msg_type_r == ITCH_ADD_ORDER || msg_type_r == ITCH_ADD_ORDER_MP ||
                                     msg_type_r == ITCH_TRADE) begin

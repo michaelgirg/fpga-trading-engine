@@ -54,6 +54,20 @@ package market_parser_pkg;
         is_supported_msg = (classify_msg(msg_type) != EVENT_UNKNOWN);
     endfunction
 
+    function automatic logic has_order_ref(input logic [7:0] msg_type);
+        case (msg_type)
+            ITCH_ADD_ORDER:    has_order_ref = 1'b1;
+            ITCH_ADD_ORDER_MP: has_order_ref = 1'b1;
+            ITCH_EXECUTED:     has_order_ref = 1'b1;
+            ITCH_EXEC_PRICE:   has_order_ref = 1'b1;
+            ITCH_CANCEL:       has_order_ref = 1'b1;
+            ITCH_DELETE:       has_order_ref = 1'b1;
+            ITCH_REPLACE:      has_order_ref = 1'b1;
+            ITCH_TRADE:        has_order_ref = 1'b1;
+            default:           has_order_ref = 1'b0;
+        endcase
+    endfunction
+
     function automatic logic [EVENT_W-1:0] pack_event(
         input logic [ 7:0] event_kind,
         input logic [ 7:0] msg_type,

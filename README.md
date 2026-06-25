@@ -71,8 +71,13 @@ xelab market_parser_tb -debug typical
 xsim market_parser_tb -runall
 ```
 
-I could not run these locally because no HDL simulator was available on PATH in
-this workspace.
+Current Questa FSE smoke result:
+
+```text
+Tests passed: 22
+Tests failed: 0
+Errors: 0, Warnings: 0
+```
 
 ## Test Vector Generation
 
