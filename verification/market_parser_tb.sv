@@ -13,7 +13,9 @@ module market_parser_tb #(
     localparam int OUTPUT_BUS_WIDTH = 256;
     localparam int ADD_ORDER_PACKET_BYTES = 58;
     localparam int GAP_SYSTEM_PACKET_BYTES = 34;
-    localparam int EXPECTED_EVENTS = 2;
+    localparam int MIXED_PACKET_BYTES = 276;
+    localparam int TRUNCATED_PACKET_BYTES = 27;
+    localparam int EXPECTED_EVENTS = 10;
 
     typedef logic [7:0] byte_t;
     typedef logic [OUTPUT_BUS_WIDTH-1:0] event_word_t;
@@ -48,6 +50,8 @@ module market_parser_tb #(
 
     byte_t       add_order_packet_mem  [ADD_ORDER_PACKET_BYTES];
     byte_t       gap_system_packet_mem [GAP_SYSTEM_PACKET_BYTES];
+    byte_t       mixed_packet_mem      [MIXED_PACKET_BYTES];
+    byte_t       truncated_packet_mem  [TRUNCATED_PACKET_BYTES];
     event_word_t expected_event_mem    [EXPECTED_EVENTS];
 
     market_parser #(
@@ -87,7 +91,7 @@ module market_parser_tb #(
         data_in_data   = '0;
         data_in_keep   = '0;
         data_in_last   = 1'b0;
-        data_out_ready = 1'b1;
+        data_out_ready = 1'b0;
         repeat (5) @(posedge clk);
         rst = 1'b0;
         repeat (2) @(posedge clk);
@@ -120,12 +124,18 @@ module market_parser_tb #(
     task automatic load_vectors();
         string add_path;
         string gap_path;
+        string mixed_path;
+        string truncated_path;
         string expected_path;
-        add_path      = {VECTOR_DIR, "/add_order_packet.hex"};
-        gap_path      = {VECTOR_DIR, "/gap_system_event_packet.hex"};
-        expected_path = {VECTOR_DIR, "/expected_events.hex"};
+        add_path       = {VECTOR_DIR, "/add_order_packet.hex"};
+        gap_path       = {VECTOR_DIR, "/gap_system_event_packet.hex"};
+        mixed_path     = {VECTOR_DIR, "/mixed_messages_packet.hex"};
+        truncated_path = {VECTOR_DIR, "/truncated_packet.hex"};
+        expected_path  = {VECTOR_DIR, "/expected_events.hex"};
         $readmemh(add_path, add_order_packet_mem);
         $readmemh(gap_path, gap_system_packet_mem);
+        $readmemh(mixed_path, mixed_packet_mem);
+        $readmemh(truncated_path, truncated_packet_mem);
         $readmemh(expected_path, expected_event_mem);
     endtask
 
@@ -175,7 +185,7 @@ module market_parser_tb #(
                                   input int ready_stall_cycles = 0);
         int cycles;
         cycles = 0;
-        if (ready_stall_cycles > 0) data_out_ready = 1'b0;
+        data_out_ready = 1'b0;
         while (!data_out_valid && cycles < 200) begin
             @(posedge clk);
             cycles++;
@@ -186,6 +196,7 @@ module market_parser_tb #(
         data_out_ready = 1'b1;
         @(posedge clk);
         @(negedge clk);
+        data_out_ready = 1'b0;
     endtask
 
     initial begin : run_tests
@@ -225,10 +236,35 @@ module market_parser_tb #(
         repeat (10) @(posedge clk);
         check(malformed_error, "zero-length message sets malformed error");
 
-        check(packet_count == 32'd3, "packet counter");
-        check(message_count == 32'd2, "message counter");
-        check(event_count == 32'd2, "event counter");
-        check(error_count == 32'd2, "gap plus malformed error counter");
+        fork
+            send_packet_from_mem(MIXED_PACKET_BYTES, mixed_packet_mem);
+            begin
+                for (int i = 2; i < EXPECTED_EVENTS; i++) begin
+                    wait_for_event(event_data);
+                    check(event_data == expected_event_mem[i],
+                          $sformatf("mixed event %0d matches generated vector", i - 2));
+                end
+            end
+        join
+        check(expected_event_mem[2][7:0] == EVENT_ADD, "MPID add order event generated");
+        check(expected_event_mem[3][7:0] == EVENT_EXECUTE, "execute event generated");
+        check(expected_event_mem[4][7:0] == EVENT_EXECUTE, "execute-with-price event generated");
+        check(expected_event_mem[5][7:0] == EVENT_CANCEL, "cancel event generated");
+        check(expected_event_mem[6][7:0] == EVENT_DELETE, "delete event generated");
+        check(expected_event_mem[7][7:0] == EVENT_REPLACE, "replace event generated");
+        check(expected_event_mem[8][7:0] == EVENT_TRADE, "trade event generated");
+        check(expected_event_mem[9][7:0] == EVENT_UNKNOWN, "unknown event generated");
+        check((expected_event_mem[9][239:232] & FLAG_UNKNOWN) != 8'h00, "unknown event vector has unknown flag");
+        check(unknown_msg_type, "sticky unknown message output set");
+
+        send_packet_from_mem(TRUNCATED_PACKET_BYTES, truncated_packet_mem);
+        repeat (10) @(posedge clk);
+        check(malformed_error, "truncated message keeps malformed error set");
+
+        check(packet_count == 32'd5, "packet counter");
+        check(message_count == 32'd10, "message counter");
+        check(event_count == 32'd10, "event counter");
+        check(error_count == 32'd4, "gap, zero-length, unknown, truncated error counter");
 
         $display("========================================================");
         $display("Tests passed: %0d", passed);

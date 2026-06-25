@@ -94,6 +94,7 @@ def itch_system_event(
 
 
 def itch_add_order(
+    msg_type: bytes = b"A",
     stock_locate: int = 0x1234,
     tracking_number: int = 0x5678,
     timestamp: int = 0x010203040506,
@@ -103,12 +104,14 @@ def itch_add_order(
     stock: bytes = b"ABCD    ",
     price: int = 1234500,
 ) -> bytes:
+    if msg_type not in (b"A", b"F"):
+        raise ValueError("add order msg_type must be A or F")
     if len(side) != 1:
         raise ValueError("side must be one byte")
     if len(stock) != 8:
         raise ValueError("stock must be eight bytes")
-    return (
-        b"A"
+    msg = (
+        msg_type
         + _u16(stock_locate)
         + _u16(tracking_number)
         + _u48(timestamp)
@@ -118,6 +121,126 @@ def itch_add_order(
         + stock
         + _u32(price)
     )
+    if msg_type == b"F":
+        msg += b"ABCD"
+    return msg
+
+
+def itch_order_executed(
+    msg_type: bytes = b"E",
+    stock_locate: int = 0x0101,
+    tracking_number: int = 0x0102,
+    timestamp: int = 0x000102030405,
+    order_ref: int = 0x2222333344445555,
+    shares: int = 75,
+    match_number: int = 0x1011121314151617,
+    price: int = 555500,
+) -> bytes:
+    if msg_type not in (b"E", b"C"):
+        raise ValueError("executed msg_type must be E or C")
+    msg = (
+        msg_type
+        + _u16(stock_locate)
+        + _u16(tracking_number)
+        + _u48(timestamp)
+        + _u64(order_ref)
+        + _u32(shares)
+        + _u64(match_number)
+    )
+    if msg_type == b"C":
+        msg += b"Y" + _u32(price)
+    return msg
+
+
+def itch_order_cancel(
+    stock_locate: int = 0x0201,
+    tracking_number: int = 0x0202,
+    timestamp: int = 0x000203040506,
+    order_ref: int = 0x3333444455556666,
+    canceled_shares: int = 25,
+) -> bytes:
+    return (
+        b"X"
+        + _u16(stock_locate)
+        + _u16(tracking_number)
+        + _u48(timestamp)
+        + _u64(order_ref)
+        + _u32(canceled_shares)
+    )
+
+
+def itch_order_delete(
+    stock_locate: int = 0x0301,
+    tracking_number: int = 0x0302,
+    timestamp: int = 0x000304050607,
+    order_ref: int = 0x4444555566667777,
+) -> bytes:
+    return b"D" + _u16(stock_locate) + _u16(tracking_number) + _u48(timestamp) + _u64(order_ref)
+
+
+def itch_order_replace(
+    stock_locate: int = 0x0401,
+    tracking_number: int = 0x0402,
+    timestamp: int = 0x000405060708,
+    original_order_ref: int = 0x5555666677778888,
+    new_order_ref: int = 0x9999AAAABBBBCCCC,
+    shares: int = 200,
+    price: int = 7654300,
+) -> bytes:
+    return (
+        b"U"
+        + _u16(stock_locate)
+        + _u16(tracking_number)
+        + _u48(timestamp)
+        + _u64(original_order_ref)
+        + _u64(new_order_ref)
+        + _u32(shares)
+        + _u32(price)
+    )
+
+
+def itch_trade(
+    stock_locate: int = 0x0501,
+    tracking_number: int = 0x0502,
+    timestamp: int = 0x000506070809,
+    order_ref: int = 0x6666777788889999,
+    side: bytes = b"S",
+    shares: int = 300,
+    stock: bytes = b"WXYZ    ",
+    price: int = 432100,
+    match_number: int = 0x2021222324252627,
+) -> bytes:
+    if len(side) != 1:
+        raise ValueError("side must be one byte")
+    if len(stock) != 8:
+        raise ValueError("stock must be eight bytes")
+    return (
+        b"P"
+        + _u16(stock_locate)
+        + _u16(tracking_number)
+        + _u48(timestamp)
+        + _u64(order_ref)
+        + side
+        + _u32(shares)
+        + stock
+        + _u32(price)
+        + _u64(match_number)
+    )
+
+
+def itch_unknown(
+    stock_locate: int = 0x0601,
+    tracking_number: int = 0x0602,
+    timestamp: int = 0x00060708090A,
+    msg_type: bytes = b"Z",
+) -> bytes:
+    if len(msg_type) != 1:
+        raise ValueError("unknown msg_type must be one byte")
+    return msg_type + _u16(stock_locate) + _u16(tracking_number) + _u48(timestamp) + b"?"
+
+
+def truncated_payload_packet(sequence: int) -> bytes:
+    return SESSION + _u64(sequence) + _u16(1) + _u16(12) + b"S" + _u16(0x0701) + _u16(0x0702)
 
 
 def classify_msg(msg_type: int) -> int:
