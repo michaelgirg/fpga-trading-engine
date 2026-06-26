@@ -18,6 +18,7 @@ keeping the parsing core independent from the transport.
 | 100G-style model | 512 bits | 64 bytes | Conceptual profile for very wide MAC-facing stream verification. |
 | 100G ingress shell | 512 bits | 64 bytes | Hardware-facing RX stream with FIFO and ingress counters. |
 | 512-bit parallel pipeline | 512 bits | 64 bytes | Packet-buffered descriptor, window, and event extraction path. |
+| 512-bit pipeline + FIFO | 512 bits | 64 bytes | Parallel parser path with queued normalized-event output. |
 
 All profiles use the same packet vectors and expected normalized event words.
 
@@ -40,6 +41,8 @@ All profiles use the same packet vectors and expected normalized event words.
 - The integrated 512-bit pipeline connects descriptor generation, two-beat
   window buffering, and event extraction, then verifies event backpressure,
   bad-frame propagation, and truncated-packet handling.
+- The FIFO-backed pipeline proves that normalized events can be queued across
+  downstream stalls without changing golden event contents.
 
 ## What This Does Not Claim
 

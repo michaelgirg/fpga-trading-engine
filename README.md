@@ -27,6 +27,7 @@ interfaces, and self-checking SystemVerilog testbenches.
 - Multi-beat 512-bit descriptor frontend for packet-relative ITCH message descriptors.
 - Parallel 512-bit event extractor that turns descriptors plus a two-beat packet window into normalized events.
 - Packet-buffered 512-bit parallel pipeline that wires descriptor generation, two-beat window buffering, and event extraction into one event stream.
+- Output event FIFO wrapper that decouples normalized parser events from downstream consumer backpressure.
 - Optional cocotb verification scaffold and Verilator lint hook for industry-style Python/open-source checks.
 - Lightweight counter and latency reports in the Questa transcript.
 
@@ -61,6 +62,8 @@ market_parser/
     market_parser_512_event_extract.sv
     market_parser_512_window_buffer.sv
     market_parser_512_pipeline.sv
+    market_parser_event_fifo.sv
+    market_parser_512_pipeline_fifo.sv
   verification/
     market_parser_tb.sv
     market_parser_64_tb.sv
@@ -70,6 +73,7 @@ market_parser/
     market_parser_512_frontend_tb.sv
     market_parser_512_event_extract_tb.sv
     market_parser_512_pipeline_tb.sv
+    market_parser_512_pipeline_fifo_tb.sv
     run_verilator_lint.ps1
     cocotb/
     vectors/
@@ -114,6 +118,7 @@ AXI adapter profile tests passed: 66
 512-bit frontend tests passed: 88
 512-bit event extract tests passed: 42
 512-bit pipeline tests passed: 59
+512-bit pipeline FIFO tests passed: 80
 Tests failed: 0
 Errors: 0, Warnings: 0
 ```
@@ -160,3 +165,4 @@ python tools/generate_vectors.py
 
 1. Add a ZedBoard RTL wrapper with AXI-Lite register reads and an event FIFO.
 2. Evolve the 512-bit packet-buffered pipeline into a cut-through pipeline that overlaps ingress, descriptor extraction, and event egress.
+3. Add AXI-Lite-readable counters and a ZedBoard wrapper around the FIFO-backed event path.

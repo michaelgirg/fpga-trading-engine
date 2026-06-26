@@ -21,6 +21,8 @@ def rtl_sources(repo_root: Path) -> list[Path]:
         rtl / "market_parser_512_event_extract.sv",
         rtl / "market_parser_512_window_buffer.sv",
         rtl / "market_parser_512_pipeline.sv",
+        rtl / "market_parser_event_fifo.sv",
+        rtl / "market_parser_512_pipeline_fifo.sv",
     ]
 
 

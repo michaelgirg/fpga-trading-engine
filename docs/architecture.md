@@ -78,6 +78,10 @@ event stream. This first integrated version buffers one packet, drains
 descriptors, then emits events with ready/valid backpressure. It is the bridge
 between the correctness-first parser and a future cut-through line-rate parser.
 
+The `market_parser_512_pipeline_fifo` block adds a normalized event FIFO after
+the parallel parser. That makes the downstream boundary more production-like:
+events can be queued while software, DMA, or strategy logic temporarily stalls.
+
 ## ZedBoard Path
 
 The eventual ZedBoard demo should not claim to be production networking. The

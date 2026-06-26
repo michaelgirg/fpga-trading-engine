@@ -5,7 +5,8 @@
 The project now has a 512-bit AXI-stream-style ingress shell intended to sit
 behind a 100G-capable MAC on appropriate hardware. It also has an integrated
 512-bit packet-buffered parallel path that connects descriptor generation,
-two-beat packet-window buffering, and normalized event extraction.
+two-beat packet-window buffering, normalized event extraction, and an output
+event FIFO.
 
 This is the right integration boundary for future hardware such as a board with
 a 100G Ethernet MAC. It is not a claim that the current byte-serial parser can
@@ -48,18 +49,23 @@ checks that the ingress side accepts the burst without stalls.
 - Integrated `market_parser_512_pipeline` path that emits normalized events
   from 512-bit input beats using the descriptor frontend, window buffer, and
   extractor.
+- `market_parser_512_pipeline_fifo` wrapper that queues normalized events
+  independently from downstream consumer readiness.
 - SystemVerilog regression for mixed messages, output backpressure stability,
   bad-frame propagation, and truncated-packet/incomplete-window handling.
+- Event FIFO regression that stalls the consumer, queues two mixed-message
+  packets, then drains and compares all 16 events against golden vectors.
 - Optional cocotb and Verilator tooling hooks for Python randomized verification
   and open-source linting.
 
 ## What Still Blocks True Sustained 100G Parsing
 
 The byte-serial parser still remains the mature golden correctness path. The
-new 512-bit parallel path is integrated, but it is packet-buffered: it captures
-a packet, drains descriptors, then emits events. That is a real architecture
-milestone, but it is not yet a cut-through parser that sustains worst-case 100G
-while overlapping packet ingress and event egress.
+new 512-bit parallel path is integrated and has an output event FIFO, but it is
+still packet-buffered: it captures a packet, drains descriptors, then emits
+events into the FIFO. That is a real architecture milestone, but it is not yet
+a cut-through parser that sustains worst-case 100G while overlapping packet
+ingress and event egress.
 
 To make the parser itself sustained-line-rate capable, the next architecture
 step is expanding the integrated parallel path:

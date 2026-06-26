@@ -11,7 +11,9 @@ $RtlFiles = @(
     "$Root\rtl\market_parser_512_frontend.sv",
     "$Root\rtl\market_parser_512_event_extract.sv",
     "$Root\rtl\market_parser_512_window_buffer.sv",
-    "$Root\rtl\market_parser_512_pipeline.sv"
+    "$Root\rtl\market_parser_512_pipeline.sv",
+    "$Root\rtl\market_parser_event_fifo.sv",
+    "$Root\rtl\market_parser_512_pipeline_fifo.sv"
 )
 
 verilator --lint-only -sv --timing -Wall `

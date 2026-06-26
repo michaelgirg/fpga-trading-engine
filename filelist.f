@@ -8,6 +8,8 @@ rtl/market_parser_512_frontend.sv
 rtl/market_parser_512_event_extract.sv
 rtl/market_parser_512_window_buffer.sv
 rtl/market_parser_512_pipeline.sv
+rtl/market_parser_event_fifo.sv
+rtl/market_parser_512_pipeline_fifo.sv
 verification/market_parser_tb.sv
 verification/market_parser_64_tb.sv
 verification/market_parser_axis_adapter_tb.sv
@@ -16,3 +18,4 @@ verification/market_parser_512_boundary_scan_tb.sv
 verification/market_parser_512_frontend_tb.sv
 verification/market_parser_512_event_extract_tb.sv
 verification/market_parser_512_pipeline_tb.sv
+verification/market_parser_512_pipeline_fifo_tb.sv
