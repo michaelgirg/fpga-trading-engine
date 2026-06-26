@@ -4,7 +4,8 @@
 
 This project should look like the beginning of a real FPGA feed handler, not a
 toy decoder. The parser core is kept independent from the final transport so it
-can be simulated first and later wrapped for ZedBoard.
+can be simulated first, observed through production-style registers, and later
+wrapped for ZedBoard.
 
 ## Pipeline Shape
 
@@ -81,6 +82,11 @@ between the correctness-first parser and a future cut-through line-rate parser.
 The `market_parser_512_pipeline_fifo` block adds a normalized event FIFO after
 the parallel parser. That makes the downstream boundary more production-like:
 events can be queued while software, DMA, or strategy logic temporarily stalls.
+
+The `market_parser_512_system` block is the current pre-hardware top level. It
+connects the FIFO-backed 512-bit parser to `market_parser_axi_lite_regs`, which
+adds parser enable control, software-visible counters, FIFO status, sticky
+error flags, and clear-by-baseline behavior through an AXI-Lite slave.
 
 ## ZedBoard Path
 

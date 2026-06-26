@@ -28,6 +28,7 @@ interfaces, and self-checking SystemVerilog testbenches.
 - Parallel 512-bit event extractor that turns descriptors plus a two-beat packet window into normalized events.
 - Packet-buffered 512-bit parallel pipeline that wires descriptor generation, two-beat window buffering, and event extraction into one event stream.
 - Output event FIFO wrapper that decouples normalized parser events from downstream consumer backpressure.
+- Pre-hardware 512-bit system wrapper with AXI-Lite control/status registers, parser enable, sticky error flags, software-visible counter clear, and event FIFO status.
 - Optional cocotb verification scaffold and Verilator lint hook for industry-style Python/open-source checks.
 - Lightweight counter and latency reports in the Questa transcript.
 
@@ -64,6 +65,8 @@ market_parser/
     market_parser_512_pipeline.sv
     market_parser_event_fifo.sv
     market_parser_512_pipeline_fifo.sv
+    market_parser_axi_lite_regs.sv
+    market_parser_512_system.sv
   verification/
     market_parser_tb.sv
     market_parser_64_tb.sv
@@ -74,6 +77,7 @@ market_parser/
     market_parser_512_event_extract_tb.sv
     market_parser_512_pipeline_tb.sv
     market_parser_512_pipeline_fifo_tb.sv
+    market_parser_512_system_tb.sv
     run_verilator_lint.ps1
     cocotb/
     vectors/
@@ -119,6 +123,7 @@ AXI adapter profile tests passed: 66
 512-bit event extract tests passed: 42
 512-bit pipeline tests passed: 59
 512-bit pipeline FIFO tests passed: 80
+512-bit system / AXI-Lite tests passed: 48
 Tests failed: 0
 Errors: 0, Warnings: 0
 ```
@@ -161,8 +166,9 @@ normalized event words:
 python tools/generate_vectors.py
 ```
 
-## Next Build Steps
+## Pre-Hardware Next Build Steps
 
-1. Add a ZedBoard RTL wrapper with AXI-Lite register reads and an event FIFO.
-2. Evolve the 512-bit packet-buffered pipeline into a cut-through pipeline that overlaps ingress, descriptor extraction, and event egress.
-3. Add AXI-Lite-readable counters and a ZedBoard wrapper around the FIFO-backed event path.
+1. Evolve the 512-bit packet-buffered pipeline into a cut-through pipeline that overlaps ingress, descriptor extraction, and event egress.
+2. Expand the two-beat extraction window for larger messages and deeper burst stress cases.
+3. Add more cocotb randomized packet/backpressure tests around the AXI-Lite system wrapper.
+4. Only after the simulation story is stronger, add the ZedBoard-specific wrapper and software demo.

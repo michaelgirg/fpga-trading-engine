@@ -20,19 +20,20 @@ a 512-bit MAC-facing ingress shell, a multi-beat 512-bit descriptor frontend
 that tracks ITCH message boundaries across packet beats, and a parallel
 extractor that packs descriptor-selected fields into normalized events. I then
 wired those blocks into a packet-buffered 512-bit event pipeline and verified it
-against the same golden event vectors. I also added an event FIFO boundary so
-the normalized event stream can absorb downstream stalls. That does not pretend
-to be a finished 100G trading NIC; it shows the right interface boundary,
-buffering, observability, and parallel parsing stages needed for one.
+against the same golden event vectors. I also added an event FIFO boundary and
+an AXI-Lite control/status block so software can enable the parser, read
+counters, clear sticky error flags, and observe FIFO state. That does not
+pretend to be a finished 100G trading NIC; it shows the right interface
+boundary, buffering, observability, and parallel parsing stages needed for one.
 
 ## Strong Resume Bullet
 
 Built a SystemVerilog FPGA market-data parser for Nasdaq MoldUDP64/ITCH with
 sequence tracking, gap/error detection, normalized event output, AXI-stream-style
 interfaces, generated reference vectors, randomized backpressure verification,
-cycle-level latency reports, and 512-bit 100G-facing descriptor/event-extraction
-frontend blocks integrated into a packet-buffered parallel event pipeline with
-queued normalized-event output.
+cycle-level latency reports, AXI-Lite control/status registers, and 512-bit
+100G-facing descriptor/event-extraction frontend blocks integrated into a
+packet-buffered parallel event pipeline with queued normalized-event output.
 
 ## What To Emphasize
 
@@ -40,8 +41,8 @@ queued normalized-event output.
 - Protocol awareness: MoldUDP64 sequence/message count and ITCH message lengths.
 - Verification discipline: self-checking testbenches, generated vectors, bad
   packet cases, and zero-warning Questa regressions.
-- Production mindset: counters, sticky error flags, register-map planning, and
-  honest documentation of what is and is not line-rate.
+- Production mindset: counters, sticky error flags, implemented AXI-Lite
+  register map, and honest documentation of what is and is not line-rate.
 - Growth path: byte-serial golden parser first, then wide frontend descriptors,
   then parallel field extraction, then integrated packet-buffered event
   pipeline, then cut-through sustained-line-rate parsing.

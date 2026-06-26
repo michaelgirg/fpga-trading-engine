@@ -17,6 +17,8 @@ rtl_files=(
     "$repo_root/rtl/market_parser_512_pipeline.sv"
     "$repo_root/rtl/market_parser_event_fifo.sv"
     "$repo_root/rtl/market_parser_512_pipeline_fifo.sv"
+    "$repo_root/rtl/market_parser_axi_lite_regs.sv"
+    "$repo_root/rtl/market_parser_512_system.sv"
 )
 
 tops=(
@@ -30,6 +32,8 @@ tops=(
     market_parser_512_pipeline
     market_parser_event_fifo
     market_parser_512_pipeline_fifo
+    market_parser_axi_lite_regs
+    market_parser_512_system
 )
 
 for top in "${tops[@]}"; do
