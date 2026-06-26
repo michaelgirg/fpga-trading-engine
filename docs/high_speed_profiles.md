@@ -34,16 +34,19 @@ All profiles use the same packet vectors and expected normalized event words.
   ITCH message-length candidates near beat boundaries.
 - The 512-bit frontend carries packet byte offsets across beats and emits
   message descriptors for downstream parallel field extraction.
+- The event extractor consumes descriptors and a two-beat packet window to emit
+  golden-compatible normalized events.
 
 ## What This Does Not Claim
 
 The current adapter serializes valid byte lanes into the byte-oriented parser
-core. The newer 512-bit descriptor frontend is the first non-serial parser
-stage, but it stops at message descriptors rather than full normalized events.
+core. The newer 512-bit descriptor frontend and event extractor form the first
+non-serial parser stages, but they are not yet wired together as a streaming
+pipeline.
 
 A true line-rate design would need a more parallel frontend, such as:
 
-1. Extracting ITCH fields from descriptor-selected byte lanes in parallel.
+1. Carrying packet-window data alongside descriptors through a streaming path.
 2. Packing normalized events independently from packet ingestion.
 3. Applying backpressure without losing beat-level alignment.
 4. Closing timing at the MAC clock rate on the target FPGA.

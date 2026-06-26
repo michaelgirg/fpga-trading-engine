@@ -67,6 +67,11 @@ tracks packet-relative byte offsets, handles length fields split at beat
 boundaries, and emits one descriptor per ITCH message for a future parallel
 field extractor.
 
+The `market_parser_512_event_extract` block consumes those descriptor fields
+plus a two-beat packet window and packs the same 256-bit normalized event format
+as the byte-serial parser. This keeps the serial parser as the golden reference
+while proving the next parallel event-generation stage.
+
 ## ZedBoard Path
 
 The eventual ZedBoard demo should not claim to be production networking. The

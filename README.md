@@ -25,6 +25,7 @@ interfaces, and self-checking SystemVerilog testbenches.
 - 512-bit 100G-facing ingress shell with FIFO, ingress counters, and no-stall burst test.
 - First-beat 512-bit boundary scanner for MoldUDP64 header fields and early ITCH message-length candidates.
 - Multi-beat 512-bit descriptor frontend for packet-relative ITCH message descriptors.
+- Parallel 512-bit event extractor that turns descriptors plus a two-beat packet window into normalized events.
 - Lightweight counter and latency reports in the Questa transcript.
 
 ## Event Format
@@ -55,6 +56,7 @@ market_parser/
     market_parser_100g_ingress.sv
     market_parser_512_boundary_scan.sv
     market_parser_512_frontend.sv
+    market_parser_512_event_extract.sv
   verification/
     market_parser_tb.sv
     market_parser_64_tb.sv
@@ -62,6 +64,7 @@ market_parser/
     market_parser_100g_ingress_tb.sv
     market_parser_512_boundary_scan_tb.sv
     market_parser_512_frontend_tb.sv
+    market_parser_512_event_extract_tb.sv
     vectors/
   tools/
     itch_packets.py
@@ -102,6 +105,7 @@ AXI adapter profile tests passed: 66
 100G ingress tests passed: 26
 512-bit boundary scan tests passed: 17
 512-bit frontend tests passed: 88
+512-bit event extract tests passed: 42
 Tests failed: 0
 Errors: 0, Warnings: 0
 ```
@@ -118,4 +122,4 @@ python tools/generate_vectors.py
 ## Next Build Steps
 
 1. Add a ZedBoard RTL wrapper with AXI-Lite register reads and an event FIFO.
-2. Extend the 512-bit frontend from message descriptors to parallel ITCH field extraction.
+2. Connect the 512-bit descriptor frontend and event extractor into a streaming parallel parser path.

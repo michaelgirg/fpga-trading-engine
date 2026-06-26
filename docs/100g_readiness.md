@@ -43,25 +43,28 @@ checks that the ingress side accepts the burst without stalls.
   early ITCH message-length candidates.
 - Multi-beat 512-bit descriptor frontend that carries packet byte offset across
   beats and emits message descriptors for downstream parallel field extraction.
+- Parallel 512-bit event extractor that consumes descriptors plus a two-beat
+  packet window and emits the same normalized event format as the golden parser.
 
 ## What Still Blocks True Sustained 100G Parsing
 
-The event-producing parser behind the ingress shell is still byte-serial. The
-new descriptor frontend removes the first bottleneck by finding message
-boundaries across 512-bit beats, but it does not yet extract every ITCH field or
-emit normalized events in parallel.
+The byte-serial parser still remains the integrated golden path. The parallel
+path now has descriptor generation and event extraction blocks, but they are not
+yet connected into a single streaming event pipeline.
 
 To make the parser itself sustained-line-rate capable, the next architecture
 step is expanding the parallel frontend:
 
-1. Extract multiple candidate ITCH fields from a wide beat in parallel.
+1. Connect descriptor output to the parallel event extractor with packet-window
+   buffering.
 2. Queue normalized events independently from packet ingestion.
-3. Connect descriptor output to a parallel event packer.
+3. Add backpressure handling between descriptor, extractor, and event FIFO.
 4. Prove timing at the selected 100G MAC user clock on the target FPGA.
 
 ## Honest Interview Summary
 
 This repository is now ready to discuss as a 100G-facing parser architecture:
-the interface boundary, buffering, counters, verification profile, and
-multi-beat descriptor frontend are in place. The remaining production step is
-parallel ITCH field extraction and normalized event generation.
+the interface boundary, buffering, counters, verification profile, multi-beat
+descriptor frontend, and parallel event extraction block are in place. The
+remaining production step is integrating those blocks into a streaming parallel
+event path and proving timing.
