@@ -10,6 +10,7 @@ xsim.dir/
 *.vcd
 *.wlf
 transcript
+dfx_runtime.txt
 __pycache__/
 *.pyc
 verification/cocotb/modelsim.ini

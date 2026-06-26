@@ -17,6 +17,14 @@ if {$argc >= 2} {
     set part_name xc7z020clg484-1
 }
 
+if {$argc >= 3} {
+    set clock_period_ns [lindex $argv 2]
+} elseif {[info exists ::env(MARKET_PARSER_CLOCK_PERIOD_NS)]} {
+    set clock_period_ns $::env(MARKET_PARSER_CLOCK_PERIOD_NS)
+} else {
+    set clock_period_ns 3.102
+}
+
 set out_dir [file normalize [file join $repo_root "build" "vivado_ooc" $top_name]]
 file mkdir $out_dir
 
@@ -41,10 +49,17 @@ puts "Market Parser Vivado OOC synthesis"
 puts "Repo: $repo_root"
 puts "Top:  $top_name"
 puts "Part: $part_name"
+puts "Clock period: $clock_period_ns ns"
 
 foreach rtl_file $rtl_files {
     read_verilog -sv [file join $repo_root $rtl_file]
 }
+
+set xdc_path [file join $out_dir "ooc_constraints.xdc"]
+set xdc_file [open $xdc_path "w"]
+puts $xdc_file "create_clock -name clk -period $clock_period_ns \[get_ports clk\]"
+close $xdc_file
+read_xdc $xdc_path
 
 synth_design -top $top_name -part $part_name -mode out_of_context -flatten_hierarchy rebuilt
 

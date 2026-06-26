@@ -180,10 +180,16 @@ The default top is `market_parser_512_system` and the default part is the
 ZedBoard `xc7z020clg484-1`. For a different board or a narrower top:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\tools\run_vivado_ooc.ps1 -Top market_parser_512_pipeline -Part <xilinx-part>
+powershell -ExecutionPolicy Bypass -File .\tools\run_vivado_ooc.ps1 -Top market_parser_512_pipeline -Part <xilinx-part> -ClockPeriodNs 3.102
 ```
 
 Reports are written under `build/vivado_ooc/<top>/`.
+
+Summarize generated Vivado reports:
+
+```powershell
+python tools/summarize_vivado_reports.py build/vivado_ooc/market_parser_512_pipeline
+```
 
 ## Test Vector Generation
 

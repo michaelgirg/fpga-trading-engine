@@ -53,9 +53,16 @@ module market_parser_512_event_extract #(
 
     function automatic logic range_valid(input int first_abs_offset, input int last_abs_offset);
         logic valid;
-        valid = 1'b1;
-        for (int i = first_abs_offset; i <= last_abs_offset; i++) begin
-            if (!offset_valid(i)) valid = 1'b0;
+        int abs_offset;
+        valid = (first_abs_offset <= last_abs_offset) &&
+                (first_abs_offset >= int'(window_base_byte)) &&
+                (last_abs_offset < (int'(window_base_byte) + WINDOW_BYTES));
+        for (int lane = 0; lane < WINDOW_BYTES; lane++) begin
+            abs_offset = int'(window_base_byte) + lane;
+            if (valid && abs_offset >= first_abs_offset && abs_offset <= last_abs_offset &&
+                !window_keep[lane]) begin
+                valid = 1'b0;
+            end
         end
         range_valid = valid;
     endfunction
