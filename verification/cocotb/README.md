@@ -17,6 +17,26 @@ cd verification/cocotb
 make SIM=questa
 ```
 
+If `make` is not available, use the Python runner:
+
+```powershell
+cd verification/cocotb
+python run_cocotb.py --sim questa
+```
+
+With cocotb installed inside WSL, the same runner can target Verilator:
+
+```bash
+cd /mnt/d/Market_Parser/verification/cocotb
+python3 run_cocotb.py --sim verilator
+```
+
+If WSL does not have `pip` or `venv` yet:
+
+```bash
+sudo apt-get install python3-pip python3.12-venv
+```
+
 The starter test drives the mixed MoldUDP64/ITCH vector over the 512-bit stream,
 randomizes input gaps and output `event_ready`, and compares normalized events
 against `verification/vectors/expected_events.hex`.

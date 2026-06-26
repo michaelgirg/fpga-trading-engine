@@ -46,10 +46,10 @@ module market_parser_512_window_buffer #(
                 beat_keep_r [i] <= '0;
                 beat_valid_r[i] <= 1'b0;
             end
-        end else if (beat_write_en && beat_write_index < PACKET_BEATS_MAX) begin
-            beat_data_r [beat_write_index] <= beat_write_data;
-            beat_keep_r [beat_write_index] <= beat_write_keep;
-            beat_valid_r[beat_write_index] <= 1'b1;
+        end else if (beat_write_en && int'(beat_write_index) < PACKET_BEATS_MAX) begin
+            beat_data_r [int'(beat_write_index)] <= beat_write_data;
+            beat_keep_r [int'(beat_write_index)] <= beat_write_keep;
+            beat_valid_r[int'(beat_write_index)] <= 1'b1;
         end
     end
 

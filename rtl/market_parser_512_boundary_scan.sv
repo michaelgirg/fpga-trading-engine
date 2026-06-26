@@ -56,6 +56,11 @@ module market_parser_512_boundary_scan #(
         candidate_start_byte = '0;
         candidate_length     = '0;
         candidate_end_byte   = '0;
+        len_lane             = 0;
+        payload_start        = 0;
+        payload_end          = 0;
+        msg_len              = '0;
+        continue_scan        = 1'b0;
 
         if (scan_valid && !truncated_header) begin
             packet_sequence = {

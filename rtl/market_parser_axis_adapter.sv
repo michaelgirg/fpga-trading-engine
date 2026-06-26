@@ -97,7 +97,7 @@ module market_parser_axis_adapter #(
                 ST_IDLE: begin
                     if (data_in_valid && data_in_ready) begin
                         word_data_r <= data_in_data;
-                        word_keep_r <= data_in_keep;
+                        word_keep_r <= KEEP_WIDTH'(data_in_keep);
                         word_last_r <= data_in_last;
                         lane_idx_r  <= '0;
                         state_r     <= (data_in_keep == '0) ? ST_IDLE : ST_SEND;

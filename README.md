@@ -126,11 +126,25 @@ cd verification/cocotb
 make SIM=questa
 ```
 
+Without `make`, use:
+
+```powershell
+cd verification/cocotb
+python run_cocotb.py --sim questa
+```
+
 Optional Verilator lint, when Verilator is installed:
 
 ```powershell
 cd verification
 powershell -ExecutionPolicy Bypass -File .\run_verilator_lint.ps1
+```
+
+If Verilator is installed in Ubuntu/WSL:
+
+```bash
+cd /mnt/d/Market_Parser
+bash verification/run_verilator_lint_wsl.sh
 ```
 
 ## Test Vector Generation

@@ -198,7 +198,7 @@ module market_parser #(
                                 end else begin
                                     packet_gap_r <= 1'b0;
                                 end
-                                expected_sequence_r       <= packet_sequence_build_r + header_msg_count_next;
+                                expected_sequence_r       <= packet_sequence_build_r + 64'(header_msg_count_next);
                                 expected_sequence_valid_r <= 1'b1;
                                 state_r                   <= ST_MSG_LEN_0;
                             end

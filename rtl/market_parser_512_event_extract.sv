@@ -90,11 +90,11 @@ module market_parser_512_event_extract #(
         event_supported     = 1'b0;
         extract_error_flags = '0;
 
-        if (desc_flags & (DESC_FLAG_MALFORMED | DESC_FLAG_TRUNCATED)) begin
+        if ((desc_flags & (DESC_FLAG_MALFORMED | DESC_FLAG_TRUNCATED)) != 8'h00) begin
             event_flags = event_flags | FLAG_MALFORMED;
             extract_error_flags = extract_error_flags | EXTRACT_ERR_MALFORMED;
         end
-        if (desc_flags & DESC_FLAG_BAD_FRAME) begin
+        if ((desc_flags & DESC_FLAG_BAD_FRAME) != 8'h00) begin
             event_flags = event_flags | FLAG_MALFORMED;
             extract_error_flags = extract_error_flags | EXTRACT_ERR_BAD_FRAME;
         end

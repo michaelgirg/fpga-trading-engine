@@ -92,7 +92,6 @@ module market_parser_512_pipeline #(
     logic                    packet_space_available;
     logic                    desc_space_available;
     logic                    desc_push;
-    logic                    desc_pop;
 
     logic [15:0] window_base_byte;
     logic [1023:0] window_data;
@@ -113,8 +112,8 @@ module market_parser_512_pipeline #(
     logic [31:0]   extractor_error_count_r;
     logic [31:0]   bad_frame_count_r;
 
-    assign packet_space_available = (packet_beat_count_r < PACKET_BEATS_MAX);
-    assign desc_space_available   = (desc_count_r < DESC_FIFO_DEPTH);
+    assign packet_space_available = (int'(packet_beat_count_r) < PACKET_BEATS_MAX);
+    assign desc_space_available   = (int'(desc_count_r) < DESC_FIFO_DEPTH);
     assign frontend_valid         = s_axis_rx_tvalid && (state_r == PIPE_RX) && !clear_window &&
                                     packet_space_available && desc_space_available;
     assign s_axis_rx_tready       = frontend_ready && (state_r == PIPE_RX) && !clear_window &&
@@ -170,7 +169,7 @@ module market_parser_512_pipeline #(
         .rst                    (rst),
         .clear                  (clear_window),
         .beat_write_en          (input_accepted),
-        .beat_write_index       ({ {(16-BEAT_IDX_WIDTH-1){1'b0}}, packet_beat_count_r }),
+        .beat_write_index       (16'(packet_beat_count_r)),
         .beat_write_data        (s_axis_rx_tdata),
         .beat_write_keep        (s_axis_rx_tkeep),
         .read_message_start_byte(desc_message_start_q[desc_rd_ptr_r]),

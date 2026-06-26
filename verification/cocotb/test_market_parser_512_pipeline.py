@@ -7,7 +7,7 @@ from cocotb.triggers import FallingEdge, RisingEdge, Timer
 from cocotbext.axi import AxiStreamFrame
 
 
-CLK_PERIOD_NS = 3.102
+CLK_PERIOD_NS = 4
 MIXED_EVENTS = 8
 
 
@@ -86,7 +86,7 @@ async def collect_events(dut, count: int) -> list[int]:
 @cocotb.test()
 async def mixed_packet_matches_golden_events(dut):
     random.seed(7)
-    cocotb.start_soon(Clock(dut.clk, CLK_PERIOD_NS, units="ns").start())
+    cocotb.start_soon(Clock(dut.clk, CLK_PERIOD_NS, unit="ns").start())
 
     vector_dir = Path(__file__).resolve().parents[1] / "vectors"
     packet = load_hex_bytes(vector_dir / "mixed_messages_packet.hex")
@@ -97,7 +97,7 @@ async def mixed_packet_matches_golden_events(dut):
     sender = cocotb.start_soon(send_axis_packet(dut, packet))
     events = await collect_events(dut, MIXED_EVENTS)
     await sender
-    await Timer(1, units="ns")
+    await Timer(1, unit="ns")
 
     assert events == expected
     assert int(dut.packet_count.value) == 1

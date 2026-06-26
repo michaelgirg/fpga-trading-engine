@@ -11,6 +11,9 @@ xsim.dir/
 transcript
 __pycache__/
 *.pyc
+verification/cocotb/modelsim.ini
+verification/cocotb/results.xml
+verification/cocotb/sim_build*/
 
 # Local class/course references. Keep these on disk, but do not publish them.
 refernces/

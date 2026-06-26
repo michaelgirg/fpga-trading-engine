@@ -152,8 +152,8 @@ module market_parser_512_frontend #(
             descriptor_count_r     <= '0;
             error_count_r          <= '0;
         end else begin
-            q_tail_next  = q_tail_r;
-            q_count_next = q_count_r;
+            q_tail_next  = int'(q_tail_r);
+            q_count_next = int'(q_count_r);
             packet_count_inc = 0;
             descriptor_count_inc = 0;
             error_count_inc = 0;
@@ -164,13 +164,13 @@ module market_parser_512_frontend #(
             end
 
             if (s_axis_rx_tvalid && s_axis_rx_tready) begin
-                base_offset                 = beat_base_offset_r;
+                base_offset                 = int'(beat_base_offset_r);
                 valid_lanes                 = count_valid_lanes(s_axis_rx_tkeep);
                 local_in_packet             = in_packet_r;
                 local_packet_sequence       = packet_sequence_r;
                 local_message_count         = packet_message_count_r;
-                scan_msg_index              = message_index_r;
-                scan_len_offset             = next_length_offset_r;
+                scan_msg_index              = int'(message_index_r);
+                scan_len_offset             = int'(next_length_offset_r);
                 local_pending_len_hi_valid  = pending_len_hi_valid_r;
                 local_pending_len_hi        = pending_len_hi_r;
                 stop_scan                   = 1'b0;
@@ -205,7 +205,7 @@ module market_parser_512_frontend #(
                             if (local_pending_len_hi_valid) begin
                                 if (lane_valid_for_offset(s_axis_rx_tkeep, base_offset, scan_len_offset + 1)) begin
                                     low_lane = (scan_len_offset + 1) - base_offset;
-                                    msg_len = {local_pending_len_hi, get_byte(s_axis_rx_tdata, low_lane)};
+                                    msg_len = int'({local_pending_len_hi, get_byte(s_axis_rx_tdata, low_lane)});
                                     local_pending_len_hi_valid = 1'b0;
                                 end else begin
                                     stop_scan = 1'b1;
@@ -214,8 +214,8 @@ module market_parser_512_frontend #(
                             end else if (lane_valid_for_offset(s_axis_rx_tkeep, base_offset, scan_len_offset)) begin
                                 if (lane_valid_for_offset(s_axis_rx_tkeep, base_offset, scan_len_offset + 1)) begin
                                     low_lane = (scan_len_offset + 1) - base_offset;
-                                    msg_len = {get_byte(s_axis_rx_tdata, scan_len_offset - base_offset),
-                                               get_byte(s_axis_rx_tdata, low_lane)};
+                                    msg_len = int'({get_byte(s_axis_rx_tdata, scan_len_offset - base_offset),
+                                                    get_byte(s_axis_rx_tdata, low_lane)});
                                 end else begin
                                     local_pending_len_hi_valid = 1'b1;
                                     local_pending_len_hi = get_byte(s_axis_rx_tdata, scan_len_offset - base_offset);
@@ -257,7 +257,7 @@ module market_parser_512_frontend #(
                                 q_tail_next = (q_tail_next + 1) % DESC_QUEUE_DEPTH;
                                 q_count_next++;
                                 descriptor_count_inc++;
-                                if (local_flags & (DESC_FLAG_MALFORMED | DESC_FLAG_TRUNCATED | DESC_FLAG_BAD_FRAME)) begin
+                                if ((local_flags & (DESC_FLAG_MALFORMED | DESC_FLAG_TRUNCATED | DESC_FLAG_BAD_FRAME)) != 8'h00) begin
                                     error_count_inc++;
                                 end
 
