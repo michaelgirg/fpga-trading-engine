@@ -75,9 +75,11 @@ while proving the next parallel event-generation stage.
 
 The `market_parser_512_pipeline` block wires the 512-bit descriptor frontend,
 packet-local two-beat window buffer, and parallel extractor into one normalized
-event stream. This first integrated version buffers one packet, drains
-descriptors, then emits events with ready/valid backpressure. It is the bridge
-between the correctness-first parser and a future cut-through line-rate parser.
+event stream. The current integrated version is cut-through within a packet:
+once a descriptor's two-beat extraction window is available, it can emit an
+event before the packet has ended while later packet beats continue arriving.
+It is the bridge between the correctness-first parser and a future sustained
+line-rate parser with deeper windows and timing closure.
 
 The `market_parser_512_pipeline_fifo` block adds a normalized event FIFO after
 the parallel parser. That makes the downstream boundary more production-like:

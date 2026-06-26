@@ -26,7 +26,7 @@ interfaces, and self-checking SystemVerilog testbenches.
 - First-beat 512-bit boundary scanner for MoldUDP64 header fields and early ITCH message-length candidates.
 - Multi-beat 512-bit descriptor frontend for packet-relative ITCH message descriptors.
 - Parallel 512-bit event extractor that turns descriptors plus a two-beat packet window into normalized events.
-- Packet-buffered 512-bit parallel pipeline that wires descriptor generation, two-beat window buffering, and event extraction into one event stream.
+- Cut-through 512-bit parallel pipeline that wires descriptor generation, two-beat window buffering, and event extraction into one event stream.
 - Output event FIFO wrapper that decouples normalized parser events from downstream consumer backpressure.
 - Pre-hardware 512-bit system wrapper with AXI-Lite control/status registers, parser enable, sticky error flags, software-visible counter clear, and event FIFO status.
 - Optional cocotb verification scaffold and Verilator lint hook for industry-style Python/open-source checks.
@@ -121,9 +121,9 @@ AXI adapter profile tests passed: 66
 512-bit boundary scan tests passed: 17
 512-bit frontend tests passed: 88
 512-bit event extract tests passed: 42
-512-bit pipeline tests passed: 59
+512-bit pipeline tests passed: 62
 512-bit pipeline FIFO tests passed: 80
-512-bit system / AXI-Lite tests passed: 48
+512-bit system / AXI-Lite tests passed: 47
 Tests failed: 0
 Errors: 0, Warnings: 0
 ```
@@ -168,7 +168,7 @@ python tools/generate_vectors.py
 
 ## Pre-Hardware Next Build Steps
 
-1. Evolve the 512-bit packet-buffered pipeline into a cut-through pipeline that overlaps ingress, descriptor extraction, and event egress.
+1. Add deeper stress tests for back-to-back packets through the cut-through pipeline and event FIFO.
 2. Expand the two-beat extraction window for larger messages and deeper burst stress cases.
 3. Add more cocotb randomized packet/backpressure tests around the AXI-Lite system wrapper.
 4. Only after the simulation story is stronger, add the ZedBoard-specific wrapper and software demo.

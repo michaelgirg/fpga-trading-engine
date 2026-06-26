@@ -4,7 +4,7 @@ import market_parser_pkg::*;
 // =============================================================================
 // Module: market_parser_512_pipeline_tb
 // =============================================================================
-// Integrated test for the packet-buffered 512-bit parallel event pipeline.
+// Integrated test for the cut-through 512-bit parallel event pipeline.
 module market_parser_512_pipeline_tb #(
     parameter realtime CLK_PERIOD = 3.102ns,
     parameter string   VECTOR_DIR = "verification/vectors"
@@ -127,13 +127,21 @@ module market_parser_512_pipeline_tb #(
                                input byte_t packet_mem[],
                                input bit bad_first_beat,
                                input bit insert_gap);
+        send_packet_slice(packet_bytes, packet_mem, 0, bad_first_beat, insert_gap);
+    endtask
+
+    task automatic send_packet_slice(input int packet_bytes,
+                                     input byte_t packet_mem[],
+                                     input int start_offset,
+                                     input bit bad_first_beat,
+                                     input bit insert_gap);
         int offset;
         int bytes_left;
         int beat_bytes;
         logic [511:0] beat_data;
         logic [ 63:0] beat_keep;
 
-        offset = 0;
+        offset = start_offset;
         while (offset < packet_bytes) begin
             bytes_left = packet_bytes - offset;
             beat_bytes = (bytes_left >= 64) ? 64 : bytes_left;
@@ -150,6 +158,26 @@ module market_parser_512_pipeline_tb #(
                 repeat ((offset / 64) % 3) @(posedge clk);
             end
         end
+    endtask
+
+    task automatic send_packet_beat_at(input int packet_bytes,
+                                       input byte_t packet_mem[],
+                                       input int offset,
+                                       input bit beat_bad);
+        int bytes_left;
+        int beat_bytes;
+        logic [511:0] beat_data;
+        logic [ 63:0] beat_keep;
+
+        bytes_left = packet_bytes - offset;
+        beat_bytes = (bytes_left >= 64) ? 64 : bytes_left;
+        beat_data = '0;
+        beat_keep = '0;
+        for (int lane = 0; lane < beat_bytes; lane++) begin
+            beat_data[lane*8 +: 8] = packet_mem[offset + lane];
+            beat_keep[lane] = 1'b1;
+        end
+        send_beat(beat_data, beat_keep, offset + beat_bytes >= packet_bytes, beat_bad);
     endtask
 
     task automatic wait_event(input string msg);
@@ -196,6 +224,32 @@ module market_parser_512_pipeline_tb #(
         accept_current_event();
     endtask
 
+    task automatic check_cutthrough_first_event_then_finish_packet();
+        logic [255:0] held_data;
+        logic         held_last;
+
+        send_packet_beat_at(MIXED_PACKET_BYTES, mixed_packet_mem, 0, 1'b0);
+        wait_event("cut-through first mixed before packet end");
+
+        held_data = event_data;
+        held_last = event_last;
+        check(packet_count == 32'd0, "cut-through event appears before packet counter increments");
+        check(event_count == 32'd1, "cut-through event counter increments before packet end");
+        check(event_data == expected_event_mem[2], "cut-through first event matches golden vector");
+        check(!event_last, "cut-through first event is not last");
+
+        send_packet_slice(MIXED_PACKET_BYTES, mixed_packet_mem, 64, 1'b0, 1'b1);
+        repeat (3) begin
+            @(posedge clk);
+            check(event_valid, "held cut-through event remains valid while later beats arrive");
+            check(event_data == held_data, "held cut-through event data stable while later beats arrive");
+            check(event_last == held_last, "held cut-through event last stable while later beats arrive");
+        end
+
+        check(packet_count == 32'd1, "packet counter increments after cut-through packet end");
+        accept_current_event();
+    endtask
+
     task automatic build_bad_frame_packet();
         for (int i = 0; i < CUSTOM_PACKET_BYTES; i++) custom_packet_mem[i] = 8'h00;
         custom_packet_mem[0] = "S"; custom_packet_mem[1] = "I"; custom_packet_mem[2] = "M";
@@ -232,8 +286,7 @@ module market_parser_512_pipeline_tb #(
         $display("MARKET PARSER 512-BIT PIPELINE TESTS");
         $display("========================================================");
 
-        send_packet(MIXED_PACKET_BYTES, mixed_packet_mem, 1'b0, 1'b1);
-        check_first_event_backpressure();
+        check_cutthrough_first_event_then_finish_packet();
         for (int i = 1; i < MIXED_EVENTS; i++) begin
             check_and_accept_event(i + 2, i == MIXED_EVENTS - 1);
         end

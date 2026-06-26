@@ -5,8 +5,9 @@
 // 512-bit parallel event pipeline with an output event FIFO.
 //
 // The parser can drain packet-generated events into the FIFO while the consumer
-// stalls. This is not full cut-through 100G yet, but it is the next production
-// boundary: normalized events are queued independently from downstream timing.
+// stalls. The upstream pipeline can now emit eligible events before packet end,
+// while this boundary queues normalized events independently from downstream
+// timing.
 module market_parser_512_pipeline_fifo #(
     parameter int PACKET_BEATS_MAX = 16,
     parameter int DESC_FIFO_DEPTH  = 32,

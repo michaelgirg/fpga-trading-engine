@@ -4,7 +4,7 @@
 
 The project now has a 512-bit AXI-stream-style ingress shell intended to sit
 behind a 100G-capable MAC on appropriate hardware. It also has an integrated
-512-bit packet-buffered parallel path that connects descriptor generation,
+512-bit cut-through parallel path that connects descriptor generation,
 two-beat packet-window buffering, normalized event extraction, and an output
 event FIFO. The current pre-hardware top level also exposes AXI-Lite
 control/status registers for parser enable, counters, FIFO status, bad-frame
@@ -51,6 +51,8 @@ checks that the ingress side accepts the burst without stalls.
 - Integrated `market_parser_512_pipeline` path that emits normalized events
   from 512-bit input beats using the descriptor frontend, window buffer, and
   extractor.
+- Cut-through regression proving the first mixed-packet event appears before
+  packet end and remains stable while later 512-bit beats are accepted.
 - `market_parser_512_pipeline_fifo` wrapper that queues normalized events
   independently from downstream consumer readiness.
 - `market_parser_512_system` wrapper that ties the 512-bit parser path to an
@@ -68,17 +70,16 @@ checks that the ingress side accepts the burst without stalls.
 ## What Still Blocks True Sustained 100G Parsing
 
 The byte-serial parser still remains the mature golden correctness path. The
-new 512-bit parallel path is integrated and has an output event FIFO, but it is
-still packet-buffered: it captures a packet, drains descriptors, then emits
-events into the FIFO. That is a real architecture milestone, but it is not yet
-a cut-through parser that sustains worst-case 100G while overlapping packet
-ingress and event egress.
+new 512-bit parallel path is integrated, has an output event FIFO, and now emits
+eligible events before packet end. That is a real cut-through architecture
+milestone, but it is not yet a proven sustained-worst-case 100G parser: it still
+uses a packet-local window store, only supports a two-beat extraction window,
+and has not been through implementation timing closure.
 
 To make the parser itself sustained-line-rate capable, the next architecture
 step is expanding the integrated parallel path:
 
-1. Allow descriptor/window extraction and event emission to overlap packet
-   ingestion.
+1. Expand overlap across back-to-back packets, not just within one packet.
 2. Add deeper event FIFO buffering and full packet-to-event backpressure
    accounting.
 3. Expand beyond a two-beat extraction window for very large messages.
@@ -89,7 +90,7 @@ step is expanding the integrated parallel path:
 This repository is now ready to discuss as a 100G-facing parser architecture:
 the interface boundary, buffering, counters, verification profile, multi-beat
 descriptor frontend, parallel event extraction block, and integrated
-packet-buffered 512-bit event pipeline are in place. The project also has a
+cut-through 512-bit event pipeline are in place. The project also has a
 pre-hardware AXI-Lite management wrapper, which makes it easier to explain how
-software would control and observe the parser. The remaining production step is
-making that pipeline cut-through and proving timing.
+software would control and observe the parser. The remaining production steps
+are deeper windows, stronger burst/back-to-back proofs, and timing closure.

@@ -2,16 +2,17 @@
 // =============================================================================
 // Module: market_parser_512_pipeline
 // =============================================================================
-// Integrated 512-bit packet-buffered parallel parser path.
+// Integrated 512-bit cut-through parallel parser path.
 //
 // The module connects:
 //   1. market_parser_512_frontend      -> ITCH message descriptors
 //   2. market_parser_512_window_buffer -> two-beat packet windows
 //   3. market_parser_512_event_extract -> normalized 256-bit events
 //
-// This is the first integrated 100G-facing parallel path. It buffers one packet,
-// drains descriptors, then emits events with ready/valid backpressure. A later
-// production cut-through version would overlap packet ingress and event egress.
+// This is the first cut-through 100G-facing parallel path. It keeps a
+// packet-local two-beat window buffer, but it no longer waits for packet end
+// before extracting events. Any descriptor whose required window beats have
+// arrived can emit while later packet beats are still being accepted.
 module market_parser_512_pipeline #(
     parameter int PACKET_BEATS_MAX = 16,
     parameter int DESC_FIFO_DEPTH  = 32
@@ -41,11 +42,8 @@ module market_parser_512_pipeline #(
     localparam int DESC_IDX_WIDTH = (DESC_FIFO_DEPTH <= 1) ? 1 : $clog2(DESC_FIFO_DEPTH);
     localparam int BEAT_IDX_WIDTH = (PACKET_BEATS_MAX <= 1) ? 1 : $clog2(PACKET_BEATS_MAX);
 
-    typedef enum logic [1:0] {
-        PIPE_RX    = 2'd0,
-        PIPE_DRAIN = 2'd1,
-        PIPE_EMIT  = 2'd2
-    } pipe_state_t;
+    localparam logic [7:0] DESC_FLAG_MALFORMED = 8'h02;
+    localparam logic [7:0] DESC_FLAG_TRUNCATED = 8'h08;
 
     initial begin
         if (PACKET_BEATS_MAX < 2) begin
@@ -55,8 +53,6 @@ module market_parser_512_pipeline #(
             $fatal(1, "DESC_FIFO_DEPTH must be at least 4");
         end
     end
-
-    pipe_state_t state_r;
 
     logic frontend_valid;
     logic frontend_ready;
@@ -87,11 +83,17 @@ module market_parser_512_pipeline #(
     logic [DESC_IDX_WIDTH:0]   desc_count_r;
 
     logic [BEAT_IDX_WIDTH:0] packet_beat_count_r;
+    logic [BEAT_IDX_WIDTH:0] packet_beats_stored_r;
+    logic                    accepting_packet_r;
+    logic                    packet_done_r;
     logic                    clear_window;
     logic                    input_accepted;
     logic                    packet_space_available;
     logic                    desc_space_available;
     logic                    desc_push;
+    logic                    desc_pop;
+    logic                    desc_window_ready;
+    logic                    pipe_idle;
 
     logic [15:0] window_base_byte;
     logic [1023:0] window_data;
@@ -114,14 +116,16 @@ module market_parser_512_pipeline #(
 
     assign packet_space_available = (int'(packet_beat_count_r) < PACKET_BEATS_MAX);
     assign desc_space_available   = (int'(desc_count_r) < DESC_FIFO_DEPTH);
-    assign frontend_valid         = s_axis_rx_tvalid && (state_r == PIPE_RX) && !clear_window &&
+    assign frontend_valid         = s_axis_rx_tvalid && accepting_packet_r && !clear_window &&
                                     packet_space_available && desc_space_available;
-    assign s_axis_rx_tready       = frontend_ready && (state_r == PIPE_RX) && !clear_window &&
+    assign s_axis_rx_tready       = frontend_ready && accepting_packet_r && !clear_window &&
                                     packet_space_available && desc_space_available;
     assign input_accepted         = s_axis_rx_tvalid && s_axis_rx_tready;
     assign frontend_desc_ready    = desc_space_available;
     assign desc_push              = frontend_desc_valid && frontend_desc_ready;
-    assign extract_desc_valid     = (state_r == PIPE_EMIT) && (desc_count_r != '0);
+    assign extract_desc_valid     = (desc_count_r != '0) && desc_window_ready && (!event_valid_r || event_ready);
+    assign desc_pop               = extract_event_valid && (!event_valid_r || event_ready);
+    assign pipe_idle              = packet_done_r && !frontend_desc_valid && (desc_count_r == '0) && !event_valid_r;
 
     assign event_valid = event_valid_r;
     assign event_data  = event_data_r;
@@ -133,6 +137,39 @@ module market_parser_512_pipeline #(
     assign event_count           = event_count_r;
     assign extractor_error_count = extractor_error_count_r;
     assign bad_frame_count       = bad_frame_count_r;
+
+    function automatic logic descriptor_window_ready(
+        input logic [15:0] message_start_byte,
+        input logic [15:0] message_end_byte,
+        input logic [ 7:0] message_flags,
+        input logic [BEAT_IDX_WIDTH:0] stored_beats,
+        input logic packet_done
+    );
+        int start_beat;
+        int end_beat;
+        int required_beat;
+
+        start_beat = int'(message_start_byte[15:6]);
+        end_beat   = int'(message_end_byte[15:6]);
+        required_beat = end_beat;
+        if (required_beat > start_beat + 1) begin
+            required_beat = start_beat + 1;
+        end
+
+        descriptor_window_ready =
+            (start_beat < int'(stored_beats)) &&
+            ((required_beat < int'(stored_beats)) ||
+             packet_done ||
+             ((message_flags & (DESC_FLAG_MALFORMED | DESC_FLAG_TRUNCATED)) != 8'h00));
+    endfunction
+
+    assign desc_window_ready = descriptor_window_ready(
+        desc_message_start_q[desc_rd_ptr_r],
+        desc_message_end_q[desc_rd_ptr_r],
+        desc_flags_q[desc_rd_ptr_r],
+        packet_beats_stored_r,
+        packet_done_r
+    );
 
     market_parser_512_frontend #(
         .DESC_QUEUE_DEPTH(8)
@@ -205,14 +242,19 @@ module market_parser_512_pipeline #(
     endfunction
 
     always_ff @(posedge clk) begin
-        logic load_event;
+        logic [DESC_IDX_WIDTH-1:0] desc_wr_ptr_next;
+        logic [DESC_IDX_WIDTH-1:0] desc_rd_ptr_next;
+        logic [DESC_IDX_WIDTH:0]   desc_count_next;
+        logic                      event_last_next;
 
         if (rst) begin
-            state_r                 <= PIPE_RX;
             desc_wr_ptr_r           <= '0;
             desc_rd_ptr_r           <= '0;
             desc_count_r            <= '0;
             packet_beat_count_r     <= '0;
+            packet_beats_stored_r   <= '0;
+            accepting_packet_r      <= 1'b1;
+            packet_done_r           <= 1'b0;
             clear_window            <= 1'b1;
             event_valid_r           <= 1'b0;
             event_data_r            <= '0;
@@ -223,8 +265,16 @@ module market_parser_512_pipeline #(
             extractor_error_count_r <= '0;
             bad_frame_count_r       <= '0;
         end else begin
-            load_event   = extract_event_valid && (!event_valid_r || event_ready);
+            desc_wr_ptr_next = desc_wr_ptr_r;
+            desc_rd_ptr_next = desc_rd_ptr_r;
+            desc_count_next  = desc_count_r;
+            event_last_next  = 1'b0;
             clear_window <= 1'b0;
+
+            if (event_valid_r && event_ready) begin
+                event_valid_r <= 1'b0;
+                event_last_r  <= 1'b0;
+            end
 
             if (desc_push) begin
                 desc_packet_sequence_q[desc_wr_ptr_r] <= frontend_desc_packet_sequence;
@@ -233,12 +283,13 @@ module market_parser_512_pipeline #(
                 desc_message_start_q  [desc_wr_ptr_r] <= frontend_desc_message_start_byte;
                 desc_message_end_q    [desc_wr_ptr_r] <= frontend_desc_message_end_byte;
                 desc_flags_q          [desc_wr_ptr_r] <= frontend_desc_flags;
-                desc_wr_ptr_r                         <= inc_desc_ptr(desc_wr_ptr_r);
-                desc_count_r                          <= desc_count_r + 1'b1;
+                desc_wr_ptr_next                      = inc_desc_ptr(desc_wr_ptr_r);
+                desc_count_next                       = desc_count_next + 1'b1;
                 descriptor_count_r                    <= descriptor_count_r + 1'b1;
             end
 
             if (input_accepted) begin
+                packet_beats_stored_r <= packet_beats_stored_r + 1'b1;
                 if (s_axis_rx_tuser_bad_frame) begin
                     bad_frame_count_r <= bad_frame_count_r + 1'b1;
                 end
@@ -246,62 +297,41 @@ module market_parser_512_pipeline #(
                 if (s_axis_rx_tlast) begin
                     packet_count_r      <= packet_count_r + 1'b1;
                     packet_beat_count_r <= '0;
-                    state_r             <= PIPE_DRAIN;
+                    accepting_packet_r  <= 1'b0;
+                    packet_done_r       <= 1'b1;
                 end else begin
                     packet_beat_count_r <= packet_beat_count_r + 1'b1;
                 end
             end
 
-            case (state_r)
-                PIPE_RX: begin
-                    if (event_valid_r && event_ready) begin
-                        event_valid_r <= 1'b0;
-                        event_last_r  <= 1'b0;
-                    end
+            if (desc_pop) begin
+                event_last_next = packet_done_r && !frontend_desc_valid && (desc_count_next == 1);
+                event_valid_r   <= 1'b1;
+                event_data_r    <= extract_event_data;
+                event_last_r    <= event_last_next;
+                event_count_r   <= event_count_r + 1'b1;
+                if (extract_error_flags != 32'h0000_0000) begin
+                    extractor_error_count_r <= extractor_error_count_r + 1'b1;
                 end
 
-                PIPE_DRAIN: begin
-                    if (!frontend_desc_valid) begin
-                        if (desc_count_r != '0) begin
-                            state_r <= PIPE_EMIT;
-                        end else begin
-                            clear_window  <= 1'b1;
-                            desc_wr_ptr_r <= '0;
-                            desc_rd_ptr_r <= '0;
-                            state_r       <= PIPE_RX;
-                        end
-                    end
-                end
+                desc_rd_ptr_next = inc_desc_ptr(desc_rd_ptr_r);
+                desc_count_next  = desc_count_next - 1'b1;
+            end
 
-                PIPE_EMIT: begin
-                    if (load_event) begin
-                        event_valid_r <= 1'b1;
-                        event_data_r  <= extract_event_data;
-                        event_last_r  <= (desc_count_r == 1);
-                        event_count_r <= event_count_r + 1'b1;
-                        if (extract_error_flags != 32'h0000_0000) begin
-                            extractor_error_count_r <= extractor_error_count_r + 1'b1;
-                        end
+            desc_wr_ptr_r <= desc_wr_ptr_next;
+            desc_rd_ptr_r <= desc_rd_ptr_next;
+            desc_count_r  <= desc_count_next;
 
-                        desc_rd_ptr_r <= inc_desc_ptr(desc_rd_ptr_r);
-                        desc_count_r  <= desc_count_r - 1'b1;
-
-                        if (desc_count_r == 1) begin
-                            clear_window  <= 1'b1;
-                            desc_wr_ptr_r <= '0;
-                            desc_rd_ptr_r <= '0;
-                            state_r       <= PIPE_RX;
-                        end
-                    end else if (event_valid_r && event_ready) begin
-                        event_valid_r <= 1'b0;
-                        event_last_r  <= 1'b0;
-                    end
-                end
-
-                default: begin
-                    state_r <= PIPE_RX;
-                end
-            endcase
+            if (pipe_idle || (desc_pop && event_last_next && event_ready)) begin
+                clear_window          <= 1'b1;
+                desc_wr_ptr_r         <= '0;
+                desc_rd_ptr_r         <= '0;
+                desc_count_r          <= '0;
+                packet_beat_count_r   <= '0;
+                packet_beats_stored_r <= '0;
+                accepting_packet_r    <= 1'b1;
+                packet_done_r         <= 1'b0;
+            end
         end
     end
 
