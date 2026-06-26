@@ -32,21 +32,21 @@ All profiles use the same packet vectors and expected normalized event words.
   512-bit beats with no input stalls.
 - The 512-bit boundary scanner decodes the first MoldUDP64 header and discovers
   ITCH message-length candidates near beat boundaries.
+- The 512-bit frontend carries packet byte offsets across beats and emits
+  message descriptors for downstream parallel field extraction.
 
 ## What This Does Not Claim
 
 The current adapter serializes valid byte lanes into the byte-oriented parser
-core. That is useful for reuse and verification, but it is not a true 25G/100G
-line-rate parser.
+core. The newer 512-bit descriptor frontend is the first non-serial parser
+stage, but it stops at message descriptors rather than full normalized events.
 
 A true line-rate design would need a more parallel frontend, such as:
 
-1. Detecting MoldUDP64 and ITCH message boundaries across many byte lanes per
-   cycle.
-2. Handling messages that begin and end inside the same wide beat.
-3. Carrying multiple candidate message offsets through a parallel parser stage.
-4. Applying backpressure without losing beat-level alignment.
-5. Closing timing at the MAC clock rate on the target FPGA.
+1. Extracting ITCH fields from descriptor-selected byte lanes in parallel.
+2. Packing normalized events independently from packet ingestion.
+3. Applying backpressure without losing beat-level alignment.
+4. Closing timing at the MAC clock rate on the target FPGA.
 
 This project intentionally separates those concerns. The current design proves
 protocol correctness and frontend-width portability first; a future line-rate

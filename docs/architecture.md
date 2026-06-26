@@ -62,6 +62,11 @@ that parallel parser path. It inspects a 512-bit first beat in parallel, decodes
 MoldUDP64 sequence/message count fields, and identifies early ITCH message
 length boundaries without walking the beat one byte per cycle.
 
+The `market_parser_512_frontend` block extends that idea across packet beats. It
+tracks packet-relative byte offsets, handles length fields split at beat
+boundaries, and emits one descriptor per ITCH message for a future parallel
+field extractor.
+
 ## ZedBoard Path
 
 The eventual ZedBoard demo should not claim to be production networking. The
