@@ -3,9 +3,9 @@
 ## Current Status
 
 The project now has a 512-bit AXI-stream-style ingress shell intended to sit
-behind a 100G-capable MAC on appropriate hardware. The shell accepts one
-512-bit beat per clock when its FIFO has space, tracks ingress counters, and
-drains the packet stream into the reusable parser path.
+behind a 100G-capable MAC on appropriate hardware. It also has an integrated
+512-bit packet-buffered parallel path that connects descriptor generation,
+two-beat packet-window buffering, and normalized event extraction.
 
 This is the right integration boundary for future hardware such as a board with
 a 100G Ethernet MAC. It is not a claim that the current byte-serial parser can
@@ -45,26 +45,36 @@ checks that the ingress side accepts the burst without stalls.
   beats and emits message descriptors for downstream parallel field extraction.
 - Parallel 512-bit event extractor that consumes descriptors plus a two-beat
   packet window and emits the same normalized event format as the golden parser.
+- Integrated `market_parser_512_pipeline` path that emits normalized events
+  from 512-bit input beats using the descriptor frontend, window buffer, and
+  extractor.
+- SystemVerilog regression for mixed messages, output backpressure stability,
+  bad-frame propagation, and truncated-packet/incomplete-window handling.
+- Optional cocotb and Verilator tooling hooks for Python randomized verification
+  and open-source linting.
 
 ## What Still Blocks True Sustained 100G Parsing
 
-The byte-serial parser still remains the integrated golden path. The parallel
-path now has descriptor generation and event extraction blocks, but they are not
-yet connected into a single streaming event pipeline.
+The byte-serial parser still remains the mature golden correctness path. The
+new 512-bit parallel path is integrated, but it is packet-buffered: it captures
+a packet, drains descriptors, then emits events. That is a real architecture
+milestone, but it is not yet a cut-through parser that sustains worst-case 100G
+while overlapping packet ingress and event egress.
 
 To make the parser itself sustained-line-rate capable, the next architecture
-step is expanding the parallel frontend:
+step is expanding the integrated parallel path:
 
-1. Connect descriptor output to the parallel event extractor with packet-window
-   buffering.
-2. Queue normalized events independently from packet ingestion.
-3. Add backpressure handling between descriptor, extractor, and event FIFO.
+1. Allow descriptor/window extraction and event emission to overlap packet
+   ingestion.
+2. Add deeper event FIFO buffering and full packet-to-event backpressure
+   accounting.
+3. Expand beyond a two-beat extraction window for very large messages.
 4. Prove timing at the selected 100G MAC user clock on the target FPGA.
 
 ## Honest Interview Summary
 
 This repository is now ready to discuss as a 100G-facing parser architecture:
 the interface boundary, buffering, counters, verification profile, multi-beat
-descriptor frontend, and parallel event extraction block are in place. The
-remaining production step is integrating those blocks into a streaming parallel
-event path and proving timing.
+descriptor frontend, parallel event extraction block, and integrated
+packet-buffered 512-bit event pipeline are in place. The remaining production
+step is making that pipeline cut-through and proving timing.

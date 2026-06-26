@@ -72,6 +72,12 @@ plus a two-beat packet window and packs the same 256-bit normalized event format
 as the byte-serial parser. This keeps the serial parser as the golden reference
 while proving the next parallel event-generation stage.
 
+The `market_parser_512_pipeline` block wires the 512-bit descriptor frontend,
+packet-local two-beat window buffer, and parallel extractor into one normalized
+event stream. This first integrated version buffers one packet, drains
+descriptors, then emits events with ready/valid backpressure. It is the bridge
+between the correctness-first parser and a future cut-through line-rate parser.
+
 ## ZedBoard Path
 
 The eventual ZedBoard demo should not claim to be production networking. The

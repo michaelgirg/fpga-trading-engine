@@ -17,6 +17,7 @@ keeping the parsing core independent from the transport.
 | Wide MAC model | 256 bits | 32 bytes | Conceptual profile for wider low-latency networking datapaths. |
 | 100G-style model | 512 bits | 64 bytes | Conceptual profile for very wide MAC-facing stream verification. |
 | 100G ingress shell | 512 bits | 64 bytes | Hardware-facing RX stream with FIFO and ingress counters. |
+| 512-bit parallel pipeline | 512 bits | 64 bytes | Packet-buffered descriptor, window, and event extraction path. |
 
 All profiles use the same packet vectors and expected normalized event words.
 
@@ -36,19 +37,22 @@ All profiles use the same packet vectors and expected normalized event words.
   message descriptors for downstream parallel field extraction.
 - The event extractor consumes descriptors and a two-beat packet window to emit
   golden-compatible normalized events.
+- The integrated 512-bit pipeline connects descriptor generation, two-beat
+  window buffering, and event extraction, then verifies event backpressure,
+  bad-frame propagation, and truncated-packet handling.
 
 ## What This Does Not Claim
 
 The current adapter serializes valid byte lanes into the byte-oriented parser
-core. The newer 512-bit descriptor frontend and event extractor form the first
-non-serial parser stages, but they are not yet wired together as a streaming
-pipeline.
+core. The newer 512-bit descriptor frontend, window buffer, and event extractor
+are wired together in a packet-buffered parallel pipeline, but this is not yet a
+cut-through sustained-line-rate parser.
 
 A true line-rate design would need a more parallel frontend, such as:
 
-1. Carrying packet-window data alongside descriptors through a streaming path.
+1. Overlapping packet ingress with descriptor/window extraction and event egress.
 2. Packing normalized events independently from packet ingestion.
-3. Applying backpressure without losing beat-level alignment.
+3. Applying deeper backpressure without losing beat-level alignment.
 4. Closing timing at the MAC clock rate on the target FPGA.
 
 This project intentionally separates those concerns. The current design proves
