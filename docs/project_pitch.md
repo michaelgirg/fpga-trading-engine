@@ -25,8 +25,9 @@ appears before packet end while later beats continue arriving. I also added an
 event FIFO boundary and an AXI-Lite control/status block so software can enable
 the parser, read counters, clear sticky error flags, and observe FIFO state.
 The verification suite now includes no-idle back-to-back packet stress,
-FIFO-pressure checks, and cocotb randomized repeated-packet and malformed-frame
-tests.
+FIFO-pressure checks, 128/256/512-byte extraction-window sweeps, cocotb
+randomized repeated-packet and malformed-frame tests, and a Vivado
+out-of-context synthesis hook.
 That does not pretend to be a finished 100G trading NIC; it shows the right
 interface boundary, buffering, observability, and parallel parsing stages needed
 for one.
@@ -39,8 +40,9 @@ interfaces, generated reference vectors, randomized backpressure verification,
 cycle-level latency reports, AXI-Lite control/status registers, and 512-bit
 100G-facing descriptor/event-extraction frontend blocks integrated into a
 cut-through parallel event pipeline with queued normalized-event output,
-back-to-back packet stress, FIFO-pressure accounting, and cocotb randomized
-checks.
+back-to-back packet stress, FIFO-pressure accounting, 128/256/512-byte
+extraction-window sweeps, cocotb randomized checks, and a Vivado OOC synthesis
+flow.
 
 ## What To Emphasize
 
@@ -59,6 +61,6 @@ checks.
 
 The byte-serial parser remains the mature golden correctness path. The 512-bit
 parallel path is now cut-through within a packet and uses a four-beat/256-byte
-default packet-local extraction window, but it has not been timing-closed on
-real 100G hardware. The next production step is larger-window sweeps and timing
-closure.
+default packet-local extraction window with 128/256/512-byte sweep coverage,
+but it has not been timing-closed on real 100G hardware. The next production
+step is reviewing OOC synthesis reports and timing closure.

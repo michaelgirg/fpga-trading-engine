@@ -7,6 +7,7 @@ import market_parser_pkg::*;
 // Integrated test for the cut-through 512-bit parallel event pipeline.
 module market_parser_512_pipeline_tb #(
     parameter realtime CLK_PERIOD = 3.102ns,
+    parameter int      EXTRACTION_WINDOW_BYTES = 256,
     parameter string   VECTOR_DIR = "verification/vectors"
 );
     localparam realtime HALF_CLK_PERIOD = CLK_PERIOD / 2.0;
@@ -48,7 +49,9 @@ module market_parser_512_pipeline_tb #(
     byte_t       custom_packet_mem [CUSTOM_PACKET_BYTES];
     event_word_t expected_event_mem[EXPECTED_EVENTS];
 
-    market_parser_512_pipeline DUT (
+    market_parser_512_pipeline #(
+        .EXTRACTION_WINDOW_BYTES(EXTRACTION_WINDOW_BYTES)
+    ) DUT (
         .clk                       (clk),
         .rst                       (rst),
         .s_axis_rx_tvalid          (s_axis_rx_tvalid),
@@ -305,6 +308,7 @@ module market_parser_512_pipeline_tb #(
 
         $display("\n========================================================");
         $display("MARKET PARSER 512-BIT PIPELINE TESTS");
+        $display("Extraction window bytes: %0d", EXTRACTION_WINDOW_BYTES);
         $display("========================================================");
 
         check_cutthrough_first_event_then_finish_packet();
@@ -352,9 +356,18 @@ module market_parser_512_pipeline_tb #(
         wait_event("long four-beat unknown");
         check((event_data[239:232] & FLAG_UNKNOWN) != 8'h00,
               "long four-beat unknown message sets unknown flag");
-        check((event_data[239:232] & FLAG_MALFORMED) == 8'h00,
-              "long four-beat message is complete with expanded window");
-        check(event_last, "long four-beat packet emits one last event");
+        if (EXTRACTION_WINDOW_BYTES >= 256) begin
+            check((event_data[239:232] & FLAG_MALFORMED) == 8'h00,
+                  "long four-beat message is complete with expanded window");
+        end else begin
+            check((event_data[239:232] & FLAG_MALFORMED) != 8'h00,
+                  "long four-beat message is malformed when window is too small");
+        end
+        if (EXTRACTION_WINDOW_BYTES >= 256) begin
+            check(event_last, "long four-beat packet emits one last event");
+        end else begin
+            check(!event_last, "long four-beat incomplete early event is not marked last");
+        end
         accept_current_event();
         repeat (3) @(posedge clk);
         check(packet_count == 32'd1, "long four-beat packet count");

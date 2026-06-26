@@ -29,8 +29,10 @@ interfaces, and self-checking SystemVerilog testbenches.
 - Cut-through 512-bit parallel pipeline that wires descriptor generation, four-beat/256-byte default window buffering, and event extraction into one event stream.
 - Output event FIFO wrapper that decouples normalized parser events from downstream consumer backpressure.
 - Back-to-back no-idle packet stress and FIFO-pressure regression with randomized event readiness.
+- Extraction-window sweep regression at 128, 256, and 512 bytes.
 - Pre-hardware 512-bit system wrapper with AXI-Lite control/status registers, parser enable, sticky error flags, software-visible counter clear, and event FIFO status.
 - Optional cocotb randomized verification and Verilator lint hook for industry-style Python/open-source checks.
+- Optional Vivado out-of-context synthesis script for pre-hardware resource/timing reports.
 - Lightweight counter and latency reports in the Questa transcript.
 
 ## Event Format
@@ -85,6 +87,8 @@ market_parser/
   tools/
     itch_packets.py
     generate_vectors.py
+    run_vivado_ooc.ps1
+    run_vivado_ooc.tcl
   docs/
     100g_readiness.md
     architecture.md
@@ -122,7 +126,7 @@ AXI adapter profile tests passed: 66
 512-bit boundary scan tests passed: 17
 512-bit frontend tests passed: 88
 512-bit event extract tests passed: 42
-512-bit pipeline tests passed: 70
+512-bit pipeline sweep tests passed: 210
 512-bit pipeline FIFO/stress tests passed: 247
 512-bit system / AXI-Lite tests passed: 47
 Tests failed: 0
@@ -166,6 +170,21 @@ cd /mnt/d/Market_Parser
 bash verification/run_verilator_lint_wsl.sh
 ```
 
+Optional Vivado out-of-context synthesis:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\run_vivado_ooc.ps1
+```
+
+The default top is `market_parser_512_system` and the default part is the
+ZedBoard `xc7z020clg484-1`. For a different board or a narrower top:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\run_vivado_ooc.ps1 -Top market_parser_512_pipeline -Part <xilinx-part>
+```
+
+Reports are written under `build/vivado_ooc/<top>/`.
+
 ## Test Vector Generation
 
 The Python helper creates deterministic MoldUDP64/ITCH packets and the expected
@@ -177,7 +196,7 @@ python tools/generate_vectors.py
 
 ## Pre-Hardware Next Build Steps
 
-1. Add parameter sweeps for 128-, 256-, and 512-byte extraction windows plus larger ITCH payload cases.
+1. Run Vivado OOC synthesis and record resource/timing summaries for the 512-bit pipeline and system tops.
 2. Add more cocotb randomized packet/backpressure tests around the AXI-Lite system wrapper.
-3. Add Vivado out-of-context synthesis scripts for the pre-hardware tops.
+3. Add deeper event FIFO and 512-byte long-payload stress cases.
 4. Only after the simulation and OOC synthesis story is stronger, add the ZedBoard-specific wrapper and software demo.

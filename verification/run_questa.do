@@ -27,7 +27,13 @@ quit -sim
 vsim -onfinish stop market_parser_512_event_extract_tb
 run -all
 quit -sim
-vsim -onfinish stop market_parser_512_pipeline_tb
+vsim -onfinish stop -GEXTRACTION_WINDOW_BYTES=128 market_parser_512_pipeline_tb
+run -all
+quit -sim
+vsim -onfinish stop -GEXTRACTION_WINDOW_BYTES=256 market_parser_512_pipeline_tb
+run -all
+quit -sim
+vsim -onfinish stop -GEXTRACTION_WINDOW_BYTES=512 market_parser_512_pipeline_tb
 run -all
 quit -sim
 vsim -onfinish stop market_parser_512_pipeline_fifo_tb

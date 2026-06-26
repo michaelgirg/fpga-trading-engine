@@ -47,8 +47,11 @@ All profiles use the same packet vectors and expected normalized event words.
 - Back-to-back no-idle packet stress and FIFO-pressure tests prove that event
   ordering, `event_last`, counters, and FIFO backpressure accounting stay
   correct when packet ingress and event egress contend.
+- Extraction-window sweeps verify the integrated 512-bit pipeline at 128, 256,
+  and 512 bytes.
 - cocotb adds Python-randomized repeated-packet, gap/stall, bad-frame, and
   truncated-packet checks around the 512-bit pipeline.
+- Vivado OOC scripts provide a first hook for resource and timing reports.
 
 ## What This Does Not Claim
 
@@ -59,7 +62,7 @@ not yet a proven sustained-line-rate parser.
 
 A true line-rate design would need a more parallel frontend, such as:
 
-1. Sweeping larger extraction windows and very large ITCH payloads.
+1. Reviewing Vivado OOC resource/timing reports.
 2. Packing normalized events independently from packet ingestion.
 3. Applying deeper backpressure without losing beat-level alignment.
 4. Closing timing at the MAC clock rate on the target FPGA.

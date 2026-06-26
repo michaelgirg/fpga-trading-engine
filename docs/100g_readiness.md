@@ -8,7 +8,9 @@ behind a 100G-capable MAC on appropriate hardware. It also has an integrated
 four-beat/256-byte default packet-window buffering, normalized event extraction, and an output
 event FIFO. The current pre-hardware top level also exposes AXI-Lite
 control/status registers for parser enable, counters, FIFO status, bad-frame
-counting, and sticky error flags.
+counting, and sticky error flags. The regression now sweeps 128-, 256-, and
+512-byte extraction windows, and the repo includes a Vivado out-of-context
+synthesis hook for pre-hardware resource and timing reports.
 
 This is the right integration boundary for future hardware such as a board with
 a 100G Ethernet MAC. It is not a claim that the current byte-serial parser can
@@ -60,6 +62,8 @@ checks that the ingress side accepts the burst without stalls.
   AXI-Lite management plane for pre-hardware software-style observability.
 - SystemVerilog regression for mixed messages, output backpressure stability,
   bad-frame propagation, and truncated-packet/incomplete-window handling.
+- Extraction-window sweep regression for 128-, 256-, and 512-byte packet-local
+  windows.
 - Event FIFO regression that stalls the consumer, queues two mixed-message
   packets, then drains and compares all 16 events against golden vectors.
 - Back-to-back no-idle packet regression that drives repeated mixed packets
@@ -72,6 +76,8 @@ checks that the ingress side accepts the burst without stalls.
 - cocotb regression covering the golden packet, repeated randomized mixed
   packets, and bad/truncated packet flag behavior.
 - Verilator tooling hook for open-source linting.
+- Vivado out-of-context synthesis script for `market_parser_512_system` or any
+  selected parser top.
 
 ## What Still Blocks True Sustained 100G Parsing
 
@@ -84,11 +90,12 @@ packet-local window store with a four-beat/256-byte default extraction window,
 and has not been through implementation timing closure.
 
 To make the parser itself sustained-line-rate capable, the next architecture
-step is expanding the integrated parallel path:
+step is proving the integrated parallel path through implementation-style
+checks:
 
-1. Sweep larger extraction windows and very large ITCH payload cases.
+1. Run Vivado OOC synthesis and inspect timing/resource reports.
 2. Add deeper event FIFO buffering and more burst-depth sweeps.
-3. Add Vivado out-of-context synthesis for the pre-hardware tops.
+3. Add 512-byte long-payload stress cases.
 4. Prove timing at the selected 100G MAC user clock on the target FPGA.
 
 ## Honest Interview Summary
@@ -99,4 +106,4 @@ descriptor frontend, parallel event extraction block, and integrated
 cut-through 512-bit event pipeline are in place. The project also has a
 pre-hardware AXI-Lite management wrapper, which makes it easier to explain how
 software would control and observe the parser. The remaining production steps
-are larger-window sweeps, out-of-context synthesis, and timing closure.
+are OOC report review, deeper burst/payload stress, and timing closure.
