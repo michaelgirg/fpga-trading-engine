@@ -45,7 +45,9 @@ module market_parser_512_event_extract_tb #(
     int expected_len  [MIXED_EVENTS];
     logic [7:0] expected_desc_flags[MIXED_EVENTS];
 
-    market_parser_512_event_extract DUT (
+    market_parser_512_event_extract #(
+        .WINDOW_BYTES(WINDOW_BYTES)
+    ) DUT (
         .desc_valid             (desc_valid),
         .window_base_byte       (window_base_byte),
         .window_data            (window_data),

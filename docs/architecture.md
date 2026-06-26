@@ -69,14 +69,14 @@ boundaries, and emits one descriptor per ITCH message for a future parallel
 field extractor.
 
 The `market_parser_512_event_extract` block consumes those descriptor fields
-plus a two-beat packet window and packs the same 256-bit normalized event format
-as the byte-serial parser. This keeps the serial parser as the golden reference
-while proving the next parallel event-generation stage.
+plus a parameterized packet-local extraction window and packs the same 256-bit
+normalized event format as the byte-serial parser. This keeps the serial parser
+as the golden reference while proving the next parallel event-generation stage.
 
 The `market_parser_512_pipeline` block wires the 512-bit descriptor frontend,
-packet-local two-beat window buffer, and parallel extractor into one normalized
-event stream. The current integrated version is cut-through within a packet:
-once a descriptor's two-beat extraction window is available, it can emit an
+packet-local four-beat/256-byte default window buffer, and parallel extractor
+into one normalized event stream. The current integrated version is cut-through
+within a packet: once a descriptor's extraction window is available, it can emit an
 event before the packet has ended while later packet beats continue arriving.
 It is the bridge between the correctness-first parser and a future sustained
 line-rate parser with deeper windows and timing closure.

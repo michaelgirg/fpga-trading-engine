@@ -7,6 +7,7 @@
 module market_parser_512_system #(
     parameter int PACKET_BEATS_MAX = 16,
     parameter int DESC_FIFO_DEPTH  = 32,
+    parameter int EXTRACTION_WINDOW_BYTES = 256,
     parameter int EVENT_FIFO_DEPTH = 16,
     parameter logic [31:0] BUILD_ID = 32'h4d50_5253
 ) (
@@ -92,9 +93,10 @@ module market_parser_512_system #(
     end
 
     market_parser_512_pipeline_fifo #(
-        .PACKET_BEATS_MAX(PACKET_BEATS_MAX),
-        .DESC_FIFO_DEPTH (DESC_FIFO_DEPTH),
-        .EVENT_FIFO_DEPTH(EVENT_FIFO_DEPTH)
+        .PACKET_BEATS_MAX        (PACKET_BEATS_MAX),
+        .DESC_FIFO_DEPTH         (DESC_FIFO_DEPTH),
+        .EXTRACTION_WINDOW_BYTES (EXTRACTION_WINDOW_BYTES),
+        .EVENT_FIFO_DEPTH        (EVENT_FIFO_DEPTH)
     ) parser_i (
         .clk                           (clk),
         .rst                           (rst),

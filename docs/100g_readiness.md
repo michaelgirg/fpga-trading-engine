@@ -5,7 +5,7 @@
 The project now has a 512-bit AXI-stream-style ingress shell intended to sit
 behind a 100G-capable MAC on appropriate hardware. It also has an integrated
 512-bit cut-through parallel path that connects descriptor generation,
-two-beat packet-window buffering, normalized event extraction, and an output
+four-beat/256-byte default packet-window buffering, normalized event extraction, and an output
 event FIFO. The current pre-hardware top level also exposes AXI-Lite
 control/status registers for parser enable, counters, FIFO status, bad-frame
 counting, and sticky error flags.
@@ -46,8 +46,9 @@ checks that the ingress side accepts the burst without stalls.
   early ITCH message-length candidates.
 - Multi-beat 512-bit descriptor frontend that carries packet byte offset across
   beats and emits message descriptors for downstream parallel field extraction.
-- Parallel 512-bit event extractor that consumes descriptors plus a two-beat
-  packet window and emits the same normalized event format as the golden parser.
+- Parallel 512-bit event extractor that consumes descriptors plus a
+  parameterized packet window and emits the same normalized event format as the
+  golden parser.
 - Integrated `market_parser_512_pipeline` path that emits normalized events
   from 512-bit input beats using the descriptor frontend, window buffer, and
   extractor.
@@ -79,13 +80,13 @@ new 512-bit parallel path is integrated, has an output event FIFO, and now emits
 eligible events before packet end. That is a real cut-through architecture
 milestone, and the repo now has back-to-back/FIFO-pressure stress coverage.
 It is still not a proven sustained-worst-case 100G parser: it uses a
-packet-local window store, only supports a two-beat extraction window, and has
-not been through implementation timing closure.
+packet-local window store with a four-beat/256-byte default extraction window,
+and has not been through implementation timing closure.
 
 To make the parser itself sustained-line-rate capable, the next architecture
 step is expanding the integrated parallel path:
 
-1. Expand beyond a two-beat extraction window for very large messages.
+1. Sweep larger extraction windows and very large ITCH payload cases.
 2. Add deeper event FIFO buffering and more burst-depth sweeps.
 3. Add Vivado out-of-context synthesis for the pre-hardware tops.
 4. Prove timing at the selected 100G MAC user clock on the target FPGA.
@@ -98,4 +99,4 @@ descriptor frontend, parallel event extraction block, and integrated
 cut-through 512-bit event pipeline are in place. The project also has a
 pre-hardware AXI-Lite management wrapper, which makes it easier to explain how
 software would control and observe the parser. The remaining production steps
-are deeper windows, out-of-context synthesis, and timing closure.
+are larger-window sweeps, out-of-context synthesis, and timing closure.

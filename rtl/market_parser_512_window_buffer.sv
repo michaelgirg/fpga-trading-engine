@@ -2,15 +2,13 @@
 // =============================================================================
 // Module: market_parser_512_window_buffer
 // =============================================================================
-// Packet-local 512-bit beat store with a two-beat extraction window.
+// Packet-local 512-bit beat store with a multi-beat extraction window.
 //
 // This block is intentionally small: it captures accepted packet beats and
-// presents the 1024-bit window containing a requested message start byte. The
-// first integrated 512-bit pipeline uses this as a packet-buffered handoff
-// between descriptor generation and parallel field extraction.
+// presents the aligned window containing a requested message start byte.
 module market_parser_512_window_buffer #(
     parameter int PACKET_BEATS_MAX = 16,
-    parameter int WINDOW_BYTES     = 128
+    parameter int WINDOW_BYTES     = 256
 ) (
     input  wire logic                         clk,
     input  wire logic                         rst,
@@ -26,12 +24,14 @@ module market_parser_512_window_buffer #(
     output logic [    WINDOW_BYTES*8-1:0]      window_data,
     output logic [      WINDOW_BYTES-1:0]      window_keep
 );
+    localparam int WINDOW_BEATS = WINDOW_BYTES / 64;
+
     initial begin
         if (PACKET_BEATS_MAX < 2) begin
             $fatal(1, "PACKET_BEATS_MAX must be at least 2");
         end
-        if (WINDOW_BYTES != 128) begin
-            $fatal(1, "market_parser_512_window_buffer currently supports a 128-byte window");
+        if (WINDOW_BYTES < 128 || (WINDOW_BYTES % 64) != 0) begin
+            $fatal(1, "WINDOW_BYTES must be a multiple of 64 and at least 128");
         end
     end
 
@@ -55,22 +55,17 @@ module market_parser_512_window_buffer #(
 
     always_comb begin
         int base_beat;
-        int next_beat;
 
         base_beat        = int'(read_message_start_byte[15:6]);
-        next_beat        = base_beat + 1;
         window_base_byte = {read_message_start_byte[15:6], 6'b0};
         window_data      = '0;
         window_keep      = '0;
 
-        if (base_beat < PACKET_BEATS_MAX && beat_valid_r[base_beat]) begin
-            window_data[511:0] = beat_data_r[base_beat];
-            window_keep[63:0]  = beat_keep_r[base_beat];
-        end
-
-        if (next_beat < PACKET_BEATS_MAX && beat_valid_r[next_beat]) begin
-            window_data[1023:512] = beat_data_r[next_beat];
-            window_keep[127:64]   = beat_keep_r[next_beat];
+        for (int w = 0; w < WINDOW_BEATS; w++) begin
+            if ((base_beat + w) < PACKET_BEATS_MAX && beat_valid_r[base_beat + w]) begin
+                window_data[w*512 +: 512] = beat_data_r[base_beat + w];
+                window_keep[w*64 +: 64]   = beat_keep_r[base_beat + w];
+            end
         end
     end
 

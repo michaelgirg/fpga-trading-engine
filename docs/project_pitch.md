@@ -58,7 +58,7 @@ checks.
 ## Honest Limits
 
 The byte-serial parser remains the mature golden correctness path. The 512-bit
-parallel path is now cut-through within a packet, but it still uses a two-beat
-packet-local extraction window and has not been timing-closed on real 100G
-hardware. The next production step is deeper extraction windows and timing
+parallel path is now cut-through within a packet and uses a four-beat/256-byte
+default packet-local extraction window, but it has not been timing-closed on
+real 100G hardware. The next production step is larger-window sweeps and timing
 closure.

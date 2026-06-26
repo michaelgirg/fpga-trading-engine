@@ -36,12 +36,12 @@ All profiles use the same packet vectors and expected normalized event words.
   ITCH message-length candidates near beat boundaries.
 - The 512-bit frontend carries packet byte offsets across beats and emits
   message descriptors for downstream parallel field extraction.
-- The event extractor consumes descriptors and a two-beat packet window to emit
-  golden-compatible normalized events.
-- The integrated 512-bit pipeline connects descriptor generation, two-beat
-  window buffering, and event extraction, then verifies cut-through first-event
-  output, event backpressure, bad-frame propagation, and truncated-packet
-  handling.
+- The event extractor consumes descriptors and a parameterized packet-local
+  window to emit golden-compatible normalized events.
+- The integrated 512-bit pipeline connects descriptor generation,
+  four-beat/256-byte default window buffering, and event extraction, then
+  verifies cut-through first-event output, event backpressure, bad-frame
+  propagation, truncated-packet handling, and a long four-beat message case.
 - The FIFO-backed pipeline proves that normalized events can be queued across
   downstream stalls without changing golden event contents.
 - Back-to-back no-idle packet stress and FIFO-pressure tests prove that event
@@ -59,7 +59,7 @@ not yet a proven sustained-line-rate parser.
 
 A true line-rate design would need a more parallel frontend, such as:
 
-1. Expanding beyond the current two-beat extraction window.
+1. Sweeping larger extraction windows and very large ITCH payloads.
 2. Packing normalized events independently from packet ingestion.
 3. Applying deeper backpressure without losing beat-level alignment.
 4. Closing timing at the MAC clock rate on the target FPGA.

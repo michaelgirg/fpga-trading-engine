@@ -6,16 +6,17 @@
 //
 // The module connects:
 //   1. market_parser_512_frontend      -> ITCH message descriptors
-//   2. market_parser_512_window_buffer -> two-beat packet windows
+//   2. market_parser_512_window_buffer -> multi-beat packet windows
 //   3. market_parser_512_event_extract -> normalized 256-bit events
 //
 // This is the first cut-through 100G-facing parallel path. It keeps a
-// packet-local two-beat window buffer, but it no longer waits for packet end
+// packet-local multi-beat window buffer, but it no longer waits for packet end
 // before extracting events. Any descriptor whose required window beats have
 // arrived can emit while later packet beats are still being accepted.
 module market_parser_512_pipeline #(
     parameter int PACKET_BEATS_MAX = 16,
-    parameter int DESC_FIFO_DEPTH  = 32
+    parameter int DESC_FIFO_DEPTH  = 32,
+    parameter int EXTRACTION_WINDOW_BYTES = 256
 ) (
     input  wire logic         clk,
     input  wire logic         rst,
@@ -41,6 +42,7 @@ module market_parser_512_pipeline #(
 );
     localparam int DESC_IDX_WIDTH = (DESC_FIFO_DEPTH <= 1) ? 1 : $clog2(DESC_FIFO_DEPTH);
     localparam int BEAT_IDX_WIDTH = (PACKET_BEATS_MAX <= 1) ? 1 : $clog2(PACKET_BEATS_MAX);
+    localparam int EXTRACTION_WINDOW_BEATS = EXTRACTION_WINDOW_BYTES / 64;
 
     localparam logic [7:0] DESC_FLAG_MALFORMED = 8'h02;
     localparam logic [7:0] DESC_FLAG_TRUNCATED = 8'h08;
@@ -51,6 +53,9 @@ module market_parser_512_pipeline #(
         end
         if (DESC_FIFO_DEPTH < 4) begin
             $fatal(1, "DESC_FIFO_DEPTH must be at least 4");
+        end
+        if (EXTRACTION_WINDOW_BYTES < 128 || (EXTRACTION_WINDOW_BYTES % 64) != 0) begin
+            $fatal(1, "EXTRACTION_WINDOW_BYTES must be a multiple of 64 and at least 128");
         end
     end
 
@@ -96,8 +101,8 @@ module market_parser_512_pipeline #(
     logic                    pipe_idle;
 
     logic [15:0] window_base_byte;
-    logic [1023:0] window_data;
-    logic [ 127:0] window_keep;
+    logic [EXTRACTION_WINDOW_BYTES*8-1:0] window_data;
+    logic [  EXTRACTION_WINDOW_BYTES-1:0] window_keep;
     logic          extract_desc_valid;
     logic          extract_event_valid;
     logic          extract_event_complete;
@@ -152,8 +157,8 @@ module market_parser_512_pipeline #(
         start_beat = int'(message_start_byte[15:6]);
         end_beat   = int'(message_end_byte[15:6]);
         required_beat = end_beat;
-        if (required_beat > start_beat + 1) begin
-            required_beat = start_beat + 1;
+        if (required_beat > start_beat + EXTRACTION_WINDOW_BEATS - 1) begin
+            required_beat = start_beat + EXTRACTION_WINDOW_BEATS - 1;
         end
 
         descriptor_window_ready =
@@ -200,7 +205,7 @@ module market_parser_512_pipeline #(
 
     market_parser_512_window_buffer #(
         .PACKET_BEATS_MAX(PACKET_BEATS_MAX),
-        .WINDOW_BYTES    (128)
+        .WINDOW_BYTES    (EXTRACTION_WINDOW_BYTES)
     ) window_buffer_i (
         .clk                    (clk),
         .rst                    (rst),
@@ -216,7 +221,7 @@ module market_parser_512_pipeline #(
     );
 
     market_parser_512_event_extract #(
-        .WINDOW_BYTES(128)
+        .WINDOW_BYTES(EXTRACTION_WINDOW_BYTES)
     ) extractor_i (
         .desc_valid             (extract_desc_valid),
         .window_base_byte       (window_base_byte),

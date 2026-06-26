@@ -11,7 +11,8 @@ module market_parser_512_pipeline_tb #(
 );
     localparam realtime HALF_CLK_PERIOD = CLK_PERIOD / 2.0;
     localparam int MIXED_PACKET_BYTES = 276;
-    localparam int CUSTOM_PACKET_BYTES = 128;
+    localparam int CUSTOM_PACKET_BYTES = 256;
+    localparam int LONG_PACKET_BYTES = 202;
     localparam int EXPECTED_EVENTS = 10;
     localparam int MIXED_EVENTS = 8;
 
@@ -276,6 +277,26 @@ module market_parser_512_pipeline_tb #(
         for (int i = 23; i < 40; i++) custom_packet_mem[i] = 8'h22;
     endtask
 
+    task automatic build_long_unknown_packet();
+        for (int i = 0; i < CUSTOM_PACKET_BYTES; i++) custom_packet_mem[i] = 8'h00;
+        custom_packet_mem[0] = "S"; custom_packet_mem[1] = "I"; custom_packet_mem[2] = "M";
+        custom_packet_mem[3] = "0"; custom_packet_mem[4] = "0"; custom_packet_mem[5] = "0";
+        custom_packet_mem[6] = "0"; custom_packet_mem[7] = "0"; custom_packet_mem[8] = "0";
+        custom_packet_mem[9] = "1";
+        custom_packet_mem[17] = 8'd22;
+        custom_packet_mem[19] = 8'd1;
+        custom_packet_mem[20] = 8'd0;
+        custom_packet_mem[21] = 8'd180;
+        custom_packet_mem[22] = "Z";
+        custom_packet_mem[23] = 8'h12;
+        custom_packet_mem[24] = 8'h34;
+        custom_packet_mem[25] = 8'h56;
+        custom_packet_mem[26] = 8'h78;
+        for (int i = 27; i < LONG_PACKET_BYTES; i++) begin
+            custom_packet_mem[i] = 8'(i);
+        end
+    endtask
+
     initial begin : run_tests
         passed = 0;
         failed = 0;
@@ -324,6 +345,22 @@ module market_parser_512_pipeline_tb #(
         check(descriptor_count == 32'd1, "truncated descriptor count");
         check(event_count == 32'd1, "truncated event count");
         check(extractor_error_count == 32'd1, "truncated packet increments extractor error count");
+
+        reset_dut();
+        build_long_unknown_packet();
+        send_packet(LONG_PACKET_BYTES, custom_packet_mem, 1'b0, 1'b0);
+        wait_event("long four-beat unknown");
+        check((event_data[239:232] & FLAG_UNKNOWN) != 8'h00,
+              "long four-beat unknown message sets unknown flag");
+        check((event_data[239:232] & FLAG_MALFORMED) == 8'h00,
+              "long four-beat message is complete with expanded window");
+        check(event_last, "long four-beat packet emits one last event");
+        accept_current_event();
+        repeat (3) @(posedge clk);
+        check(packet_count == 32'd1, "long four-beat packet count");
+        check(descriptor_count == 32'd1, "long four-beat descriptor count");
+        check(event_count == 32'd1, "long four-beat event count");
+        check(extractor_error_count == 32'd1, "long four-beat unknown increments extractor error count only once");
 
         $display("========================================================");
         $display("Tests passed: %0d", passed);

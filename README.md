@@ -25,8 +25,8 @@ interfaces, and self-checking SystemVerilog testbenches.
 - 512-bit 100G-facing ingress shell with FIFO, ingress counters, and no-stall burst test.
 - First-beat 512-bit boundary scanner for MoldUDP64 header fields and early ITCH message-length candidates.
 - Multi-beat 512-bit descriptor frontend for packet-relative ITCH message descriptors.
-- Parallel 512-bit event extractor that turns descriptors plus a two-beat packet window into normalized events.
-- Cut-through 512-bit parallel pipeline that wires descriptor generation, two-beat window buffering, and event extraction into one event stream.
+- Parallel 512-bit event extractor that turns descriptors plus a parameterized packet window into normalized events.
+- Cut-through 512-bit parallel pipeline that wires descriptor generation, four-beat/256-byte default window buffering, and event extraction into one event stream.
 - Output event FIFO wrapper that decouples normalized parser events from downstream consumer backpressure.
 - Back-to-back no-idle packet stress and FIFO-pressure regression with randomized event readiness.
 - Pre-hardware 512-bit system wrapper with AXI-Lite control/status registers, parser enable, sticky error flags, software-visible counter clear, and event FIFO status.
@@ -122,7 +122,7 @@ AXI adapter profile tests passed: 66
 512-bit boundary scan tests passed: 17
 512-bit frontend tests passed: 88
 512-bit event extract tests passed: 42
-512-bit pipeline tests passed: 62
+512-bit pipeline tests passed: 70
 512-bit pipeline FIFO/stress tests passed: 247
 512-bit system / AXI-Lite tests passed: 47
 Tests failed: 0
@@ -177,7 +177,7 @@ python tools/generate_vectors.py
 
 ## Pre-Hardware Next Build Steps
 
-1. Expand the two-beat extraction window for larger messages and deeper burst stress cases.
+1. Add parameter sweeps for 128-, 256-, and 512-byte extraction windows plus larger ITCH payload cases.
 2. Add more cocotb randomized packet/backpressure tests around the AXI-Lite system wrapper.
 3. Add Vivado out-of-context synthesis scripts for the pre-hardware tops.
 4. Only after the simulation and OOC synthesis story is stronger, add the ZedBoard-specific wrapper and software demo.

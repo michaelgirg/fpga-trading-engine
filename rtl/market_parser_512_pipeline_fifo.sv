@@ -11,6 +11,7 @@
 module market_parser_512_pipeline_fifo #(
     parameter int PACKET_BEATS_MAX = 16,
     parameter int DESC_FIFO_DEPTH  = 32,
+    parameter int EXTRACTION_WINDOW_BYTES = 256,
     parameter int EVENT_FIFO_DEPTH = 16
 ) (
     input  wire logic         clk,
@@ -47,8 +48,9 @@ module market_parser_512_pipeline_fifo #(
     logic         pipe_event_last;
 
     market_parser_512_pipeline #(
-        .PACKET_BEATS_MAX(PACKET_BEATS_MAX),
-        .DESC_FIFO_DEPTH (DESC_FIFO_DEPTH)
+        .PACKET_BEATS_MAX        (PACKET_BEATS_MAX),
+        .DESC_FIFO_DEPTH         (DESC_FIFO_DEPTH),
+        .EXTRACTION_WINDOW_BYTES (EXTRACTION_WINDOW_BYTES)
     ) pipeline_i (
         .clk                  (clk),
         .rst                  (rst),

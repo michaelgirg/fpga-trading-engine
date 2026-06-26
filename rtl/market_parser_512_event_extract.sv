@@ -5,10 +5,11 @@ import market_parser_pkg::*;
 // =============================================================================
 // Parallel ITCH field extractor for the 512-bit descriptor frontend.
 //
-// The extractor consumes one message descriptor plus a two-beat packet window
-// and emits the same normalized 256-bit event format as the byte-serial parser.
+// The extractor consumes one message descriptor plus a packet-local extraction
+// window and emits the same normalized 256-bit event format as the byte-serial
+// parser.
 module market_parser_512_event_extract #(
-    parameter int WINDOW_BYTES = 128
+    parameter int WINDOW_BYTES = 256
 ) (
     input  wire logic                         desc_valid,
     input  wire logic [                  15:0] window_base_byte,
