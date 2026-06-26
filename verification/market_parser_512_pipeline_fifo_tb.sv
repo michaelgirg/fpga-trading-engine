@@ -151,6 +151,162 @@ module market_parser_512_pipeline_fifo_tb #(
         end
     endtask
 
+    function automatic logic [511:0] make_mixed_beat_data(input int offset);
+        logic [511:0] beat_data;
+        int bytes_left;
+        int beat_bytes;
+
+        bytes_left = MIXED_PACKET_BYTES - offset;
+        beat_bytes = (bytes_left >= 64) ? 64 : bytes_left;
+        beat_data = '0;
+        for (int lane = 0; lane < beat_bytes; lane++) begin
+            beat_data[lane*8 +: 8] = mixed_packet_mem[offset + lane];
+        end
+        make_mixed_beat_data = beat_data;
+    endfunction
+
+    function automatic logic [63:0] make_mixed_beat_keep(input int offset);
+        logic [63:0] beat_keep;
+        int bytes_left;
+        int beat_bytes;
+
+        bytes_left = MIXED_PACKET_BYTES - offset;
+        beat_bytes = (bytes_left >= 64) ? 64 : bytes_left;
+        beat_keep = '0;
+        for (int lane = 0; lane < beat_bytes; lane++) begin
+            beat_keep[lane] = 1'b1;
+        end
+        make_mixed_beat_keep = beat_keep;
+    endfunction
+
+    task automatic send_mixed_packets_no_idle(input int packets);
+        int packet_idx;
+        int offset;
+        int beat_bytes;
+        int stall_cycles;
+
+        packet_idx = 0;
+        offset = 0;
+        stall_cycles = 0;
+        @(negedge clk);
+        while (packet_idx < packets) begin
+            beat_bytes = ((MIXED_PACKET_BYTES - offset) >= 64) ? 64 : (MIXED_PACKET_BYTES - offset);
+            s_axis_rx_tvalid          = 1'b1;
+            s_axis_rx_tdata           = make_mixed_beat_data(offset);
+            s_axis_rx_tkeep           = make_mixed_beat_keep(offset);
+            s_axis_rx_tlast           = (offset + beat_bytes >= MIXED_PACKET_BYTES);
+            s_axis_rx_tuser_bad_frame = 1'b0;
+
+            @(posedge clk);
+            if (s_axis_rx_tready) begin
+                stall_cycles = 0;
+                offset += beat_bytes;
+                if (offset >= MIXED_PACKET_BYTES) begin
+                    offset = 0;
+                    packet_idx++;
+                end
+            end else begin
+                stall_cycles++;
+                if (stall_cycles > 2000) begin
+                    check(1'b0, "no-idle source did not stall forever");
+                    packet_idx = packets;
+                end
+            end
+            @(negedge clk);
+        end
+
+        s_axis_rx_tvalid          = 1'b0;
+        s_axis_rx_tdata           = '0;
+        s_axis_rx_tkeep           = '0;
+        s_axis_rx_tlast           = 1'b0;
+        s_axis_rx_tuser_bad_frame = 1'b0;
+    endtask
+
+    task automatic collect_events_with_random_ready(input int packets,
+                                                    input int expected_events,
+                                                    input int seed);
+        int received;
+        int cycles;
+        int event_idx;
+        int packet_idx;
+        int expected_idx;
+        bit ready_bit;
+
+        received = 0;
+        cycles = 0;
+        while (received < expected_events && cycles < 6000) begin
+            ready_bit = (($urandom(seed + cycles) % 4) != 0);
+            @(negedge clk);
+            event_ready = ready_bit;
+            @(posedge clk);
+            if (event_valid && event_ready) begin
+                event_idx = received % MIXED_EVENTS;
+                packet_idx = received / MIXED_EVENTS;
+                expected_idx = event_idx + 2;
+                check(event_keep == 32'hffff_ffff,
+                      $sformatf("random packet %0d event %0d keep", packet_idx, event_idx));
+                check(event_data == expected_event_mem[expected_idx],
+                      $sformatf("random packet %0d event %0d data", packet_idx, event_idx));
+                check(event_last == (event_idx == MIXED_EVENTS - 1),
+                      $sformatf("random packet %0d event %0d last", packet_idx, event_idx));
+                received++;
+            end
+            cycles++;
+        end
+        @(negedge clk);
+        event_ready = 1'b0;
+        check(received == expected_events, "random-ready collector received all events");
+        check((received / MIXED_EVENTS) == packets, "random-ready collector covered all packets");
+    endtask
+
+    task automatic check_no_idle_back_to_back_random_ready(input int packets);
+        fork
+            send_mixed_packets_no_idle(packets);
+            collect_events_with_random_ready(packets, packets * MIXED_EVENTS, 32'h5120_0001);
+        join
+
+        repeat (8) @(posedge clk);
+        check(packet_count == 32'(packets), "no-idle packet count");
+        check(descriptor_count == 32'(packets * MIXED_EVENTS), "no-idle descriptor count");
+        check(event_count == 32'(packets * MIXED_EVENTS), "no-idle parser event count");
+        check(event_fifo_write_count == 32'(packets * MIXED_EVENTS), "no-idle FIFO write count");
+        check(event_fifo_read_count == 32'(packets * MIXED_EVENTS), "no-idle FIFO read count");
+        check(event_fifo_level == 16'd0, "no-idle FIFO drains to empty");
+        check(extractor_error_count == 32'(packets), "no-idle unknown-message count");
+        check(bad_frame_count == 32'd0, "no-idle bad-frame count");
+    endtask
+
+    task automatic check_fifo_pressure_with_third_packet();
+        int pressure_start;
+
+        event_ready = 1'b0;
+        send_mixed_packets_no_idle(2);
+        wait_fifo_level(FIFO_EVENTS, "pressure setup fills event FIFO");
+        check(event_valid, "pressure setup exposes first queued event");
+        pressure_start = int'(event_fifo_backpressure_count);
+
+        fork
+            send_mixed_packets_no_idle(1);
+            begin
+                repeat (40) @(posedge clk);
+                check(event_fifo_backpressure_count > 32'(pressure_start),
+                      "full FIFO increments backpressure counter");
+                collect_events_with_random_ready(3, 3 * MIXED_EVENTS, 32'h5120_0002);
+            end
+        join
+
+        repeat (8) @(posedge clk);
+        check(packet_count == 32'd3, "pressure packet count");
+        check(descriptor_count == 32'd24, "pressure descriptor count");
+        check(event_count == 32'd24, "pressure parser event count");
+        check(event_fifo_write_count == 32'd24, "pressure FIFO write count");
+        check(event_fifo_read_count == 32'd24, "pressure FIFO read count");
+        check(event_fifo_backpressure_count > 32'(pressure_start),
+              "pressure backpressure counter remains nonzero");
+        check(event_fifo_level == 16'd0, "pressure FIFO drains to empty");
+        check(extractor_error_count == 32'd3, "pressure unknown-message count");
+    endtask
+
     task automatic wait_fifo_level(input int expected_level, input string msg);
         int cycles;
         cycles = 0;
@@ -224,6 +380,12 @@ module market_parser_512_pipeline_fifo_tb #(
         check(!event_valid, "event valid drops after fifo drains");
         check(extractor_error_count == 32'd2, "unknown event counted once per mixed packet");
         check(bad_frame_count == 32'd0, "no bad frames in fifo test");
+
+        reset_dut();
+        check_no_idle_back_to_back_random_ready(3);
+
+        reset_dut();
+        check_fifo_pressure_with_third_packet();
 
         $display("========================================================");
         $display("Tests passed: %0d", passed);

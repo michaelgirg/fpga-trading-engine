@@ -44,6 +44,11 @@ All profiles use the same packet vectors and expected normalized event words.
   handling.
 - The FIFO-backed pipeline proves that normalized events can be queued across
   downstream stalls without changing golden event contents.
+- Back-to-back no-idle packet stress and FIFO-pressure tests prove that event
+  ordering, `event_last`, counters, and FIFO backpressure accounting stay
+  correct when packet ingress and event egress contend.
+- cocotb adds Python-randomized repeated-packet, gap/stall, bad-frame, and
+  truncated-packet checks around the 512-bit pipeline.
 
 ## What This Does Not Claim
 
@@ -54,7 +59,7 @@ not yet a proven sustained-line-rate parser.
 
 A true line-rate design would need a more parallel frontend, such as:
 
-1. Expanding overlap across back-to-back packets and deeper burst cases.
+1. Expanding beyond the current two-beat extraction window.
 2. Packing normalized events independently from packet ingestion.
 3. Applying deeper backpressure without losing beat-level alignment.
 4. Closing timing at the MAC clock rate on the target FPGA.

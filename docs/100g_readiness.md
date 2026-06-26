@@ -61,28 +61,33 @@ checks that the ingress side accepts the burst without stalls.
   bad-frame propagation, and truncated-packet/incomplete-window handling.
 - Event FIFO regression that stalls the consumer, queues two mixed-message
   packets, then drains and compares all 16 events against golden vectors.
+- Back-to-back no-idle packet regression that drives repeated mixed packets
+  while event readiness randomly stalls.
+- FIFO-pressure regression that fills the event FIFO, offers another packet,
+  and verifies event integrity plus nonzero backpressure accounting.
 - AXI-Lite system regression covering enable/disable, readable counters,
   software-visible counter clear, sticky error flag clearing, FIFO status, and
   FIFO read-count behavior.
-- Optional cocotb and Verilator tooling hooks for Python randomized verification
-  and open-source linting.
+- cocotb regression covering the golden packet, repeated randomized mixed
+  packets, and bad/truncated packet flag behavior.
+- Verilator tooling hook for open-source linting.
 
 ## What Still Blocks True Sustained 100G Parsing
 
 The byte-serial parser still remains the mature golden correctness path. The
 new 512-bit parallel path is integrated, has an output event FIFO, and now emits
 eligible events before packet end. That is a real cut-through architecture
-milestone, but it is not yet a proven sustained-worst-case 100G parser: it still
-uses a packet-local window store, only supports a two-beat extraction window,
-and has not been through implementation timing closure.
+milestone, and the repo now has back-to-back/FIFO-pressure stress coverage.
+It is still not a proven sustained-worst-case 100G parser: it uses a
+packet-local window store, only supports a two-beat extraction window, and has
+not been through implementation timing closure.
 
 To make the parser itself sustained-line-rate capable, the next architecture
 step is expanding the integrated parallel path:
 
-1. Expand overlap across back-to-back packets, not just within one packet.
-2. Add deeper event FIFO buffering and full packet-to-event backpressure
-   accounting.
-3. Expand beyond a two-beat extraction window for very large messages.
+1. Expand beyond a two-beat extraction window for very large messages.
+2. Add deeper event FIFO buffering and more burst-depth sweeps.
+3. Add Vivado out-of-context synthesis for the pre-hardware tops.
 4. Prove timing at the selected 100G MAC user clock on the target FPGA.
 
 ## Honest Interview Summary
@@ -93,4 +98,4 @@ descriptor frontend, parallel event extraction block, and integrated
 cut-through 512-bit event pipeline are in place. The project also has a
 pre-hardware AXI-Lite management wrapper, which makes it easier to explain how
 software would control and observe the parser. The remaining production steps
-are deeper windows, stronger burst/back-to-back proofs, and timing closure.
+are deeper windows, out-of-context synthesis, and timing closure.

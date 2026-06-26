@@ -24,6 +24,9 @@ against the same golden event vectors, including a test where the first event
 appears before packet end while later beats continue arriving. I also added an
 event FIFO boundary and an AXI-Lite control/status block so software can enable
 the parser, read counters, clear sticky error flags, and observe FIFO state.
+The verification suite now includes no-idle back-to-back packet stress,
+FIFO-pressure checks, and cocotb randomized repeated-packet and malformed-frame
+tests.
 That does not pretend to be a finished 100G trading NIC; it shows the right
 interface boundary, buffering, observability, and parallel parsing stages needed
 for one.
@@ -35,14 +38,17 @@ sequence tracking, gap/error detection, normalized event output, AXI-stream-styl
 interfaces, generated reference vectors, randomized backpressure verification,
 cycle-level latency reports, AXI-Lite control/status registers, and 512-bit
 100G-facing descriptor/event-extraction frontend blocks integrated into a
-cut-through parallel event pipeline with queued normalized-event output.
+cut-through parallel event pipeline with queued normalized-event output,
+back-to-back packet stress, FIFO-pressure accounting, and cocotb randomized
+checks.
 
 ## What To Emphasize
 
 - Clean hardware interfaces: valid/ready input and output paths.
 - Protocol awareness: MoldUDP64 sequence/message count and ITCH message lengths.
-- Verification discipline: self-checking testbenches, generated vectors, bad
-  packet cases, and zero-warning Questa regressions.
+- Verification discipline: self-checking testbenches, generated vectors,
+  randomized backpressure, FIFO pressure, bad packet cases, cocotb checks, and
+  zero-warning Questa regressions.
 - Production mindset: counters, sticky error flags, implemented AXI-Lite
   register map, and honest documentation of what is and is not line-rate.
 - Growth path: byte-serial golden parser first, then wide frontend descriptors,
@@ -54,4 +60,5 @@ cut-through parallel event pipeline with queued normalized-event output.
 The byte-serial parser remains the mature golden correctness path. The 512-bit
 parallel path is now cut-through within a packet, but it still uses a two-beat
 packet-local extraction window and has not been timing-closed on real 100G
-hardware. The next production step is deeper burst proof and timing closure.
+hardware. The next production step is deeper extraction windows and timing
+closure.

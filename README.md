@@ -28,8 +28,9 @@ interfaces, and self-checking SystemVerilog testbenches.
 - Parallel 512-bit event extractor that turns descriptors plus a two-beat packet window into normalized events.
 - Cut-through 512-bit parallel pipeline that wires descriptor generation, two-beat window buffering, and event extraction into one event stream.
 - Output event FIFO wrapper that decouples normalized parser events from downstream consumer backpressure.
+- Back-to-back no-idle packet stress and FIFO-pressure regression with randomized event readiness.
 - Pre-hardware 512-bit system wrapper with AXI-Lite control/status registers, parser enable, sticky error flags, software-visible counter clear, and event FIFO status.
-- Optional cocotb verification scaffold and Verilator lint hook for industry-style Python/open-source checks.
+- Optional cocotb randomized verification and Verilator lint hook for industry-style Python/open-source checks.
 - Lightweight counter and latency reports in the Questa transcript.
 
 ## Event Format
@@ -122,7 +123,7 @@ AXI adapter profile tests passed: 66
 512-bit frontend tests passed: 88
 512-bit event extract tests passed: 42
 512-bit pipeline tests passed: 62
-512-bit pipeline FIFO tests passed: 80
+512-bit pipeline FIFO/stress tests passed: 247
 512-bit system / AXI-Lite tests passed: 47
 Tests failed: 0
 Errors: 0, Warnings: 0
@@ -141,6 +142,14 @@ Without `make`, use:
 ```powershell
 cd verification/cocotb
 python run_cocotb.py --sim questa
+```
+
+Current cocotb smoke covers the golden mixed packet, repeated mixed packets
+with randomized input/output timing, and bad/truncated packet flag checks:
+
+```text
+TESTS=3 PASS=3 FAIL=0
+Errors: 0, Warnings: 0
 ```
 
 Optional Verilator lint, when Verilator is installed:
@@ -168,7 +177,7 @@ python tools/generate_vectors.py
 
 ## Pre-Hardware Next Build Steps
 
-1. Add deeper stress tests for back-to-back packets through the cut-through pipeline and event FIFO.
-2. Expand the two-beat extraction window for larger messages and deeper burst stress cases.
-3. Add more cocotb randomized packet/backpressure tests around the AXI-Lite system wrapper.
-4. Only after the simulation story is stronger, add the ZedBoard-specific wrapper and software demo.
+1. Expand the two-beat extraction window for larger messages and deeper burst stress cases.
+2. Add more cocotb randomized packet/backpressure tests around the AXI-Lite system wrapper.
+3. Add Vivado out-of-context synthesis scripts for the pre-hardware tops.
+4. Only after the simulation and OOC synthesis story is stronger, add the ZedBoard-specific wrapper and software demo.
