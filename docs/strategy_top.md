@@ -51,11 +51,23 @@ The current smoke case proves:
 - no ingress drops, parser header errors, ignored book events, or table
   overflows occur.
 
+## Vivado Timing Result
+
+School Vivado 2024.2 OOC synthesis closes `market_parser_100g_strategy_top` on
+the U50-class `xcu50-fsvh2104-2-e` part at the 3.102 ns / 322 MHz 100G
+user-clock target:
+
+| Period | Approx. frequency | WNS | TNS | LUTs | Registers | BRAM | DSP |
+| ---: | ---: | ---: | ---: | :--- | :--- | :--- | :--- |
+| `3.102 ns` | 322 MHz | `0.265 ns` | `0.000 ns` | `23086 / 871680 (2.65%)` | `21294 / 1743360 (1.22%)` | `0 / 1344 (0.00%)` | `0 / 5952 (0.00%)` |
+
+This is the current packet-to-book timing milestone: a raw 100G-style feed
+frame can be stripped, parsed into normalized ITCH events, and applied to the
+single-symbol book within the target CMAC user-clock class.
+
 ## Next Timing Check
 
-The next school Vivado run should synthesize `market_parser_100g_strategy_top`
-at 3.102 ns on `xcu50-fsvh2104-2-e`. If it closes with margin, keep that as the
-full packet-to-book milestone. If it misses, inspect the worst path first; the
-likely fixes are adding a small register slice between parser events and book
-input, increasing event FIFO decoupling, or reducing the top-of-book table
-depth for the first strategy demo.
+The next useful hardware step is no longer proving the standalone strategy top
+at 3.102 ns; that passes. The next checks are actual board-level integration
+work: AMD CMAC IP, clock/reset constraints, implementation timing, and larger
+replay-style traffic stress.

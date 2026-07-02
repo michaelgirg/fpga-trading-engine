@@ -236,6 +236,11 @@ board-level timing closure. A follow-up OOC clock sweep for
 `market_parser_512_frontend` also closes at `2.100 ns`; the integrated parser
 top is the 500 MHz timing headline.
 
+The full packet-to-book strategy top, `market_parser_100g_strategy_top`, also
+meets the 3.102 ns / 322 MHz 100G user-clock target on `xcu50-fsvh2104-2-e`
+with WNS `0.265 ns`, TNS `0.000 ns`, 23086 LUTs, 21294 registers, and no
+BRAM/DSP usage.
+
 ## Test Vector Generation
 
 The Python helper creates deterministic MoldUDP64/ITCH packets and the expected
@@ -247,8 +252,8 @@ python tools/generate_vectors.py
 
 ## Pre-Hardware Next Build Steps
 
-1. Use the school Vivado matrix to compare U50/U55/Virtex UltraScale+ class parts.
-2. Use the 1.950 ns near miss as an optional next timing cleanup target.
-3. Attach the 512-bit parser to a concrete CMAC-facing payload-strip shell.
-4. Add deeper event FIFO, 512-byte long-payload, and AXI-Lite system stress cases.
+1. Add larger replay-style strategy tests and a Python golden-model book checker.
+2. Integrate with actual AMD CMAC IP, clocking, resets, and board constraints.
+3. Run full implementation timing on the selected U50/U55-class board target.
+4. Use the 1.950 ns parser near miss as an optional timing cleanup target.
 5. Keep the ZedBoard wrapper and software demo as a separate optional functional hardware track.

@@ -19,6 +19,7 @@ placed-and-routed board timing closure.
 | Zynq demo | `xc7z020clg484-1` | `market_parser_512_pipeline` | `3.102 ns` | 322 MHz | `-3.290 ns` | `-9750.711 ns` | Does not close |
 | U50-class HFT reference | `xcu50-fsvh2104-2-e` | `market_parser_512_frontend` | `3.102 ns` | 322 MHz | `0.872 ns` | `0.000 ns` | Meets |
 | U50-class HFT reference | `xcu50-fsvh2104-2-e` | `market_parser_512_pipeline` | `3.102 ns` | 322 MHz | `1.091 ns` | `0.000 ns` | Meets |
+| U50-class HFT reference | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_top` | `3.102 ns` | 322 MHz | `0.265 ns` | `0.000 ns` | Meets |
 
 ## U50 Frontend Clock Sweep
 
@@ -86,8 +87,16 @@ This result shows the trading-oriented post-parser book block closes the same
 `market_parser_100g_strategy_top` connects the CMAC-facing shell directly to
 `market_parser_top_of_book`, producing quote updates from raw Ethernet/IPv4/UDP
 feed frames. The target for this combined top is still the 3.102 ns / 322 MHz
-100G user-clock class. This row should be added after the next school Vivado
-OOC run.
+100G user-clock class.
+
+| Part | Top | Period | Approx. frequency | WNS | TNS | LUTs | Registers | Status |
+| :--- | :--- | ---: | ---: | ---: | ---: | :--- | :--- | :--- |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_top` | `3.102 ns` | 322 MHz | `0.265 ns` | `0.000 ns` | `23086 / 871680 (2.65%)` | `21294 / 1743360 (1.22%)` | Meets |
+
+This is the current full-system OOC milestone: 100G-style packet ingress,
+Ethernet/IP/UDP stripping, MoldUDP64/ITCH parsing, normalized event buffering,
+and top-of-book quote generation all meet the 322 MHz target in one combined
+top.
 
 ## School Vivado Matrix Command
 
