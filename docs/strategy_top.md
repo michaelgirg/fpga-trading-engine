@@ -57,7 +57,7 @@ School Vivado 2024.2 OOC synthesis closes `market_parser_100g_strategy_top` on
 the U50-class `xcu50-fsvh2104-2-e` part at the 3.102 ns / 322 MHz 100G
 user-clock target. After adding a one-deep register slice between the UDP
 payload stripper and parser system, the combined packet-to-book path also
-closes at 2.500 ns / 400 MHz and 2.450 ns / 408 MHz:
+closes at 2.350 ns / 425 MHz:
 
 | Period | Approx. frequency | WNS | TNS | LUTs | Registers | Status |
 | ---: | ---: | ---: | ---: | :--- | :--- | :--- |
@@ -65,6 +65,9 @@ closes at 2.500 ns / 400 MHz and 2.450 ns / 408 MHz:
 | `2.750 ns` | 364 MHz | `0.424 ns` | `0.000 ns` | `23188 / 871680 (2.66%)` | `21869 / 1743360 (1.25%)` | Meets |
 | `2.500 ns` | 400 MHz | `0.174 ns` | `0.000 ns` | `23189 / 871680 (2.66%)` | `21869 / 1743360 (1.25%)` | Meets |
 | `2.450 ns` | 408 MHz | `0.124 ns` | `0.000 ns` | `23189 / 871680 (2.66%)` | `21869 / 1743360 (1.25%)` | Meets |
+| `2.400 ns` | 417 MHz | `0.074 ns` | `0.000 ns` | `23189 / 871680 (2.66%)` | `21869 / 1743360 (1.25%)` | Meets |
+| `2.350 ns` | 426 MHz | `0.024 ns` | `0.000 ns` | `23189 / 871680 (2.66%)` | `21869 / 1743360 (1.25%)` | Meets |
+| `2.300 ns` | 435 MHz | `-0.026 ns` | `-0.063 ns` | `23189 / 871680 (2.66%)` | `21869 / 1743360 (1.25%)` | Near miss |
 | `2.250 ns` | 444 MHz | `-0.587 ns` | `-6.716 ns` | `23268 / 871680 (2.67%)` | `21295 / 1743360 (1.22%)` | Does not close |
 | `2.100 ns` | 476 MHz | `-0.737 ns` | `-568.394 ns` | `23268 / 871680 (2.67%)` | `21295 / 1743360 (1.22%)` | Does not close |
 | `2.000 ns` | 500 MHz | `-0.837 ns` | `-1011.505 ns` | `23268 / 871680 (2.67%)` | `21295 / 1743360 (1.22%)` | Does not close |
@@ -75,7 +78,7 @@ single-symbol book with margin beyond the target CMAC user-clock class.
 
 ## Next Timing Check
 
-The current full-top timing edge is beyond 2.450 ns, so the next diagnostic
-sweep should target 2.400 ns, 2.350 ns, and 2.300 ns before attempting deeper
-RTL changes. The 2.000 ns parser-core result remains a parser pipeline headline,
-not a requirement for this full packet-to-book shell.
+The current full-top timing edge is between 2.350 ns and 2.300 ns. Since
+2.300 ns misses by only 26 ps, pull that critical path before any deeper RTL
+change. The 2.000 ns parser-core result remains a parser pipeline headline, not
+a requirement for this full packet-to-book shell.

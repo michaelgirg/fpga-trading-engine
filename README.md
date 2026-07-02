@@ -241,10 +241,10 @@ The full packet-to-book strategy top, `market_parser_100g_strategy_top`, also
 meets the 3.102 ns / 322 MHz 100G user-clock target on `xcu50-fsvh2104-2-e`
 with WNS `0.776 ns`, TNS `0.000 ns`, 23007 LUTs, 21869 registers, and no
 BRAM/DSP usage after adding a payload register slice and staging the frontend
-beat-offset update. A strategy-top clock sweep now closes `2.500 ns` / 400 MHz
-with WNS `0.174 ns` and `2.450 ns` / 408 MHz with WNS `0.124 ns`, so 500 MHz
-remains the parser-pipeline headline rather than the full packet-to-book shell
-target.
+beat-offset update. A strategy-top clock sweep now closes `2.350 ns` / 426 MHz
+with WNS `0.024 ns` and near-misses `2.300 ns` / 435 MHz by `0.026 ns`, so
+500 MHz remains the parser-pipeline headline rather than the full packet-to-book
+shell target.
 
 ## Test Vector Generation
 

@@ -95,6 +95,9 @@ feed frames. The target for this combined top is still the 3.102 ns / 322 MHz
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_top` | `2.750 ns` | 364 MHz | `0.424 ns` | `0.000 ns` | `23188 / 871680 (2.66%)` | `21869 / 1743360 (1.25%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_top` | `2.500 ns` | 400 MHz | `0.174 ns` | `0.000 ns` | `23189 / 871680 (2.66%)` | `21869 / 1743360 (1.25%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_top` | `2.450 ns` | 408 MHz | `0.124 ns` | `0.000 ns` | `23189 / 871680 (2.66%)` | `21869 / 1743360 (1.25%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_top` | `2.400 ns` | 417 MHz | `0.074 ns` | `0.000 ns` | `23189 / 871680 (2.66%)` | `21869 / 1743360 (1.25%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_top` | `2.350 ns` | 426 MHz | `0.024 ns` | `0.000 ns` | `23189 / 871680 (2.66%)` | `21869 / 1743360 (1.25%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_top` | `2.300 ns` | 435 MHz | `-0.026 ns` | `-0.063 ns` | `23189 / 871680 (2.66%)` | `21869 / 1743360 (1.25%)` | Near miss |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_top` | `2.250 ns` | 444 MHz | `-0.587 ns` | `-6.716 ns` | `23268 / 871680 (2.67%)` | `21295 / 1743360 (1.22%)` | Does not close |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_top` | `2.100 ns` | 476 MHz | `-0.737 ns` | `-568.394 ns` | `23268 / 871680 (2.67%)` | `21295 / 1743360 (1.22%)` | Does not close |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_top` | `2.000 ns` | 500 MHz | `-0.837 ns` | `-1011.505 ns` | `23268 / 871680 (2.67%)` | `21295 / 1743360 (1.22%)` | Does not close |
@@ -103,7 +106,8 @@ This is the current full-system OOC milestone: 100G-style packet ingress,
 Ethernet/IP/UDP stripping, MoldUDP64/ITCH parsing, normalized event buffering,
 and top-of-book quote generation all meet the 322 MHz target in one combined
 top. After adding a payload register slice and staging the frontend beat-offset
-update, the same top also closes 2.500 ns / 400 MHz and 2.450 ns / 408 MHz.
+update, the same top also closes 2.350 ns / 426 MHz and misses 2.300 ns /
+435 MHz by only 26 ps.
 
 ## School Vivado Matrix Command
 
