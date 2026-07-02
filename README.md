@@ -35,6 +35,8 @@ interfaces, and self-checking SystemVerilog testbenches.
 - Optional Vivado out-of-context synthesis script for pre-hardware resource/timing reports.
 - School-side HFT OOC matrix wrapper for U50/U55/Virtex UltraScale+ style targets.
 - Lightweight counter and latency reports in the Questa transcript.
+- Strategy-facing packet-to-book top that turns raw 100G-style feed frames into
+  single-symbol quote updates.
 
 ## Event Format
 
@@ -71,6 +73,9 @@ market_parser/
     market_parser_512_pipeline_fifo.sv
     market_parser_axi_lite_regs.sv
     market_parser_512_system.sv
+    market_parser_100g_cmac_system.sv
+    market_parser_top_of_book.sv
+    market_parser_100g_strategy_top.sv
   verification/
     market_parser_tb.sv
     market_parser_64_tb.sv
@@ -82,6 +87,8 @@ market_parser/
     market_parser_512_pipeline_tb.sv
     market_parser_512_pipeline_fifo_tb.sv
     market_parser_512_system_tb.sv
+    market_parser_top_of_book_tb.sv
+    market_parser_100g_strategy_top_tb.sv
     run_verilator_lint.ps1
     cocotb/
     vectors/
@@ -99,6 +106,7 @@ market_parser/
     project_pitch.md
     register_map.md
     references.md
+    strategy_top.md
     timing_matrix.md
     zedboard_architecture.md
 ```
@@ -127,12 +135,15 @@ Core tests passed: 63
 Wrapper tests passed: 21
 AXI adapter profile tests passed: 66
 100G ingress tests passed: 26
+100G CMAC shell tests passed: 36
 512-bit boundary scan tests passed: 17
 512-bit frontend tests passed: 180
 512-bit event extract tests passed: 42
 512-bit pipeline sweep tests passed: 492
 512-bit pipeline FIFO/stress tests passed: 247
 512-bit system / AXI-Lite tests passed: 49
+Top-of-book tests passed: 70
+100G strategy top tests passed: 34
 Tests failed: 0
 Errors: 0, Warnings: 0
 ```

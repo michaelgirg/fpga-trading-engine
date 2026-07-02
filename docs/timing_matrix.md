@@ -81,6 +81,14 @@ lookup and quote recompute.
 This result shows the trading-oriented post-parser book block closes the same
 100G user-clock target as the CMAC-facing shell.
 
+## Strategy-Facing Packet-To-Book Top
+
+`market_parser_100g_strategy_top` connects the CMAC-facing shell directly to
+`market_parser_top_of_book`, producing quote updates from raw Ethernet/IPv4/UDP
+feed frames. The target for this combined top is still the 3.102 ns / 322 MHz
+100G user-clock class. This row should be added after the next school Vivado
+OOC run.
+
 ## School Vivado Matrix Command
 
 On the school Linux host:

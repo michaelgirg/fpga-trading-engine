@@ -80,6 +80,7 @@ On `xcu50-fsvh2104-2-e`, out-of-context Vivado synthesis closes the 3.102 ns /
 cancel, execute, delete, replace, wrong-symbol, and malformed-event cases. It
 checks best bid/ask price, aggregated size, timestamp propagation, and counters.
 
-Next useful work is wiring this block behind `market_parser_100g_cmac_system`
-in a strategy-facing top and adding a Python golden-model book builder for
-larger replay tests.
+`market_parser_100g_strategy_top` now wires this block behind
+`market_parser_100g_cmac_system`, giving the project a packet-to-quote
+integration path. Next useful work is a Python golden-model book builder for
+larger replay tests and a school Vivado OOC check of the combined strategy top.
