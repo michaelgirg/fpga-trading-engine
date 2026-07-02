@@ -45,8 +45,8 @@ top-of-book integration path. The combined `market_parser_100g_strategy_top`
 takes raw 100G-style Ethernet/IP/UDP feed frames through payload stripping,
 MoldUDP64/ITCH parsing, normalized event buffering, and single-symbol
 top-of-book quote generation. On the same U50-class target it meets the 3.102
-ns / 322 MHz target with WNS `0.573 ns`, closes 2.750 ns / 364 MHz, and misses
-2.500 ns / 400 MHz by only `0.029 ns`.
+ns / 322 MHz target with WNS `0.776 ns` and closes 2.500 ns / 400 MHz with WNS
+`0.174 ns`.
 
 That does not pretend to be a finished 100G trading NIC; it shows the right
 interface boundary, buffering, observability, and parallel parsing stages needed

@@ -19,7 +19,7 @@ placed-and-routed board timing closure.
 | Zynq demo | `xc7z020clg484-1` | `market_parser_512_pipeline` | `3.102 ns` | 322 MHz | `-3.290 ns` | `-9750.711 ns` | Does not close |
 | U50-class HFT reference | `xcu50-fsvh2104-2-e` | `market_parser_512_frontend` | `3.102 ns` | 322 MHz | `0.872 ns` | `0.000 ns` | Meets |
 | U50-class HFT reference | `xcu50-fsvh2104-2-e` | `market_parser_512_pipeline` | `3.102 ns` | 322 MHz | `1.091 ns` | `0.000 ns` | Meets |
-| U50-class HFT reference | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_top` | `3.102 ns` | 322 MHz | `0.573 ns` | `0.000 ns` | Meets |
+| U50-class HFT reference | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_top` | `3.102 ns` | 322 MHz | `0.776 ns` | `0.000 ns` | Meets |
 
 ## U50 Frontend Clock Sweep
 
@@ -91,9 +91,10 @@ feed frames. The target for this combined top is still the 3.102 ns / 322 MHz
 
 | Part | Top | Period | Approx. frequency | WNS | TNS | LUTs | Registers | Status |
 | :--- | :--- | ---: | ---: | ---: | ---: | :--- | :--- | :--- |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_top` | `3.102 ns` | 322 MHz | `0.573 ns` | `0.000 ns` | `23081 / 871680 (2.65%)` | `21875 / 1743360 (1.25%)` | Meets |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_top` | `2.750 ns` | 364 MHz | `0.221 ns` | `0.000 ns` | `23280 / 871680 (2.67%)` | `21881 / 1743360 (1.26%)` | Meets |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_top` | `2.500 ns` | 400 MHz | `-0.029 ns` | `-0.069 ns` | `23288 / 871680 (2.67%)` | `21881 / 1743360 (1.26%)` | Near miss |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_top` | `3.102 ns` | 322 MHz | `0.776 ns` | `0.000 ns` | `23007 / 871680 (2.64%)` | `21869 / 1743360 (1.25%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_top` | `2.750 ns` | 364 MHz | `0.424 ns` | `0.000 ns` | `23188 / 871680 (2.66%)` | `21869 / 1743360 (1.25%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_top` | `2.500 ns` | 400 MHz | `0.174 ns` | `0.000 ns` | `23189 / 871680 (2.66%)` | `21869 / 1743360 (1.25%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_top` | `2.450 ns` | 408 MHz | `0.124 ns` | `0.000 ns` | `23189 / 871680 (2.66%)` | `21869 / 1743360 (1.25%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_top` | `2.250 ns` | 444 MHz | `-0.587 ns` | `-6.716 ns` | `23268 / 871680 (2.67%)` | `21295 / 1743360 (1.22%)` | Does not close |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_top` | `2.100 ns` | 476 MHz | `-0.737 ns` | `-568.394 ns` | `23268 / 871680 (2.67%)` | `21295 / 1743360 (1.22%)` | Does not close |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_top` | `2.000 ns` | 500 MHz | `-0.837 ns` | `-1011.505 ns` | `23268 / 871680 (2.67%)` | `21295 / 1743360 (1.22%)` | Does not close |
@@ -101,8 +102,8 @@ feed frames. The target for this combined top is still the 3.102 ns / 322 MHz
 This is the current full-system OOC milestone: 100G-style packet ingress,
 Ethernet/IP/UDP stripping, MoldUDP64/ITCH parsing, normalized event buffering,
 and top-of-book quote generation all meet the 322 MHz target in one combined
-top. After adding a payload register slice, the same top also closes 2.750 ns /
-364 MHz and is only 29 ps short of 2.500 ns / 400 MHz.
+top. After adding a payload register slice and staging the frontend beat-offset
+update, the same top also closes 2.500 ns / 400 MHz and 2.450 ns / 408 MHz.
 
 ## School Vivado Matrix Command
 
