@@ -19,13 +19,13 @@ module market_parser_100g_strategy_impl_harness (
     logic [ 63:0] s_axis_cmac_rx_tkeep;
     logic         s_axis_cmac_rx_tlast;
 
-    logic         quote_valid;
-    logic [15:0]  quote_stock_locate;
-    logic [31:0]  quote_bid_price;
-    logic [31:0]  quote_bid_shares;
-    logic [31:0]  quote_ask_price;
-    logic [31:0]  quote_ask_shares;
-    logic [47:0]  quote_timestamp;
+    (* keep = "true" *) logic         quote_valid;
+    (* keep = "true" *) logic [15:0]  quote_stock_locate;
+    (* keep = "true" *) logic [31:0]  quote_bid_price;
+    (* keep = "true" *) logic [31:0]  quote_bid_shares;
+    (* keep = "true" *) logic [31:0]  quote_ask_price;
+    (* keep = "true" *) logic [31:0]  quote_ask_shares;
+    (* keep = "true" *) logic [47:0]  quote_timestamp;
 
     logic        s_axi_awready;
     logic        s_axi_wready;
@@ -36,21 +36,21 @@ module market_parser_100g_strategy_impl_harness (
     logic [ 1:0] s_axi_rresp;
     logic        s_axi_rvalid;
 
-    logic [31:0] cmac_accepted_frame_count;
-    logic [31:0] cmac_dropped_frame_count;
-    logic [31:0] cmac_header_error_count;
-    logic [31:0] cmac_payload_packet_count;
-    logic [15:0] cmac_payload_fifo_level;
+    (* keep = "true" *) logic [31:0] cmac_accepted_frame_count;
+    (* keep = "true" *) logic [31:0] cmac_dropped_frame_count;
+    (* keep = "true" *) logic [31:0] cmac_header_error_count;
+    (* keep = "true" *) logic [31:0] cmac_payload_packet_count;
+    (* keep = "true" *) logic [15:0] cmac_payload_fifo_level;
 
-    logic [31:0] book_accepted_event_count;
-    logic [31:0] book_applied_event_count;
-    logic [31:0] book_ignored_event_count;
-    logic [31:0] book_table_overflow_count;
-    logic [31:0] book_quote_update_count;
+    (* keep = "true" *) logic [31:0] book_accepted_event_count;
+    (* keep = "true" *) logic [31:0] book_applied_event_count;
+    (* keep = "true" *) logic [31:0] book_ignored_event_count;
+    (* keep = "true" *) logic [31:0] book_table_overflow_count;
+    (* keep = "true" *) logic [31:0] book_quote_update_count;
 
     logic [3:0] beat_index;
     logic [5:0] gap_count;
-    logic [31:0] status_mix;
+    logic [31:0] status_sample;
 
     function automatic logic [511:0] replay_data(input logic [3:0] index);
         case (index)
@@ -157,37 +157,27 @@ module market_parser_100g_strategy_impl_harness (
         .book_quote_update_count        (book_quote_update_count)
     );
 
-    always_comb begin
-        status_mix = cmac_accepted_frame_count
-                   ^ cmac_dropped_frame_count
-                   ^ cmac_header_error_count
-                   ^ cmac_payload_packet_count
-                   ^ {16'd0, cmac_payload_fifo_level}
-                   ^ book_accepted_event_count
-                   ^ book_applied_event_count
-                   ^ book_ignored_event_count
-                   ^ book_table_overflow_count
-                   ^ book_quote_update_count
-                   ^ quote_bid_price
-                   ^ quote_bid_shares
-                   ^ quote_ask_price
-                   ^ quote_ask_shares
-                   ^ quote_timestamp[31:0]
-                   ^ {16'd0, quote_timestamp[47:32]}
-                   ^ {16'd0, quote_stock_locate}
-                   ^ s_axi_rdata
-                   ^ {30'd0, s_axi_bresp}
-                   ^ {30'd0, s_axi_rresp}
-                   ^ {24'd0, s_axi_awready, s_axi_wready, s_axi_bvalid,
-                              s_axi_arready, s_axi_rvalid, quote_valid,
-                              s_axis_cmac_rx_tready, s_axis_cmac_rx_tvalid};
-    end
-
     always_ff @(posedge clk) begin
         if (rst) begin
-            status <= 32'd0;
+            status_sample <= 32'd0;
+            status        <= 32'd0;
         end else begin
-            status <= {status[30:0], status[31]} ^ status_mix ^ 32'h9e37_79b9;
+            status_sample <= {
+                cmac_accepted_frame_count[3:0],
+                cmac_payload_packet_count[3:0],
+                book_accepted_event_count[3:0],
+                book_quote_update_count[3:0],
+                quote_bid_price[3:0],
+                quote_bid_shares[3:0],
+                quote_ask_price[3:0],
+                quote_ask_shares[3:0]
+            };
+            status <= {status[30:0], status[31]}
+                    ^ status_sample
+                    ^ {24'd0, s_axi_awready, s_axi_wready, s_axi_bvalid,
+                              s_axi_arready, s_axi_rvalid, quote_valid,
+                              s_axis_cmac_rx_tready, s_axis_cmac_rx_tvalid}
+                    ^ 32'h9e37_79b9;
         end
     end
 
