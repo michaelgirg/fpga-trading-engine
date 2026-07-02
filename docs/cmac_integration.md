@@ -91,9 +91,12 @@ A first real hardware integration should include:
    100G CMAC user-clock target.
 4. Run the dense tiny-message, mixed-message, malformed, and backpressure
    regressions with the shell attached.
-5. Implement the full shell on the selected school-supported part and compare
-   post-route WNS/TNS against the OOC timing matrix.
-6. Only after timing closes, add board traffic tests using replayed UDP payloads
+5. Use `tools/probe_cmac_ip.tcl` to record the CMAC/100G IP definitions visible
+   in the selected Vivado install.
+6. Implement the full RTL shell with `tools/run_hft_impl_matrix.sh` on the
+   selected school-supported part and compare post-route WNS/TNS against the
+   OOC timing matrix.
+7. Only after timing closes, add board traffic tests using replayed UDP payloads
    and verify counters/events through the management plane.
 
 The key claim should stay precise: the repo now has a 512-bit parser

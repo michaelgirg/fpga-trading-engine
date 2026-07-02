@@ -96,6 +96,8 @@ market_parser/
   tools/
     itch_packets.py
     generate_vectors.py
+    probe_cmac_ip.tcl
+    run_hft_impl_matrix.sh
     run_vivado_ooc.ps1
     run_vivado_ooc.tcl
     run_hft_ooc_matrix.sh
@@ -104,6 +106,7 @@ market_parser/
     architecture.md
     cmac_integration.md
     high_speed_profiles.md
+    implementation_timing.md
     project_pitch.md
     register_map.md
     references.md
@@ -258,8 +261,8 @@ python tools/generate_vectors.py
 
 ## Pre-Hardware Next Build Steps
 
-1. Integrate with actual AMD CMAC IP, clocking, resets, and board constraints.
-2. Run full implementation timing on the selected U50/U55-class board target.
-3. Expand replay coverage toward longer session-style book traces and malformed market-data frames.
+1. Run the checked-in implementation timing flow on the selected U50/U55-class board target.
+2. Probe the school Vivado CMAC/100G IP catalog and pick the concrete board-shell IP boundary.
+3. Integrate with actual AMD CMAC IP, clocking, resets, and board constraints.
 4. Use the 1.950 ns parser near miss as an optional timing cleanup target.
 5. Keep the ZedBoard wrapper and software demo as a separate optional functional hardware track.
