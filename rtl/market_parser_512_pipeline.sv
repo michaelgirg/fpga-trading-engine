@@ -43,6 +43,8 @@ module market_parser_512_pipeline #(
     localparam int DESC_IDX_WIDTH = (DESC_FIFO_DEPTH <= 1) ? 1 : $clog2(DESC_FIFO_DEPTH);
     localparam int BEAT_IDX_WIDTH = (PACKET_BEATS_MAX <= 1) ? 1 : $clog2(PACKET_BEATS_MAX);
     localparam int EXTRACTION_WINDOW_BEATS = EXTRACTION_WINDOW_BYTES / 64;
+    localparam int FIELD_EXTRACT_BYTES = 40;
+    localparam int FIELD_COARSE_BYTES  = FIELD_EXTRACT_BYTES + 8;
 
     localparam logic [7:0] DESC_FLAG_MALFORMED = 8'h02;
     localparam logic [7:0] DESC_FLAG_TRUNCATED = 8'h08;
@@ -83,6 +85,18 @@ module market_parser_512_pipeline #(
     logic [15:0] desc_message_end_q     [DESC_FIFO_DEPTH];
     logic [ 7:0] desc_flags_q           [DESC_FIFO_DEPTH];
 
+    logic        desc_head_valid_r;
+    logic [63:0] desc_head_packet_sequence_r;
+    logic [15:0] desc_head_message_index_r;
+    logic [15:0] desc_head_message_length_r;
+    logic [15:0] desc_head_message_start_r;
+    logic [15:0] desc_head_message_end_r;
+    logic [ 7:0] desc_head_flags_r;
+    logic [BEAT_IDX_WIDTH:0] desc_head_start_beat_r;
+    logic [BEAT_IDX_WIDTH:0] desc_head_required_beat_r;
+    logic                    desc_head_forced_ready_r;
+    logic                    desc_head_window_ready_r;
+
     logic [DESC_IDX_WIDTH-1:0] desc_wr_ptr_r;
     logic [DESC_IDX_WIDTH-1:0] desc_rd_ptr_r;
     logic [DESC_IDX_WIDTH:0]   desc_count_r;
@@ -97,7 +111,20 @@ module market_parser_512_pipeline #(
     logic                    desc_space_available;
     logic                    desc_push;
     logic                    desc_pop;
+    logic                    desc_head_load;
+    logic                    desc_head_consume;
     logic                    desc_window_ready;
+    logic                    desc_head_ready_next;
+    logic                    possible_final_desc_blocked;
+    logic [DESC_IDX_WIDTH:0] desc_visible_count;
+    logic                    extract_req_ready;
+    logic                    extract_coarse_ready;
+    logic                    extract_field_ready;
+    logic                    extract_result_ready;
+    logic                    extract_req_to_coarse;
+    logic                    extract_coarse_to_field;
+    logic                    extract_field_to_result;
+    logic                    extract_result_to_output;
     logic                    pipe_idle;
 
     logic [15:0] window_base_byte;
@@ -109,6 +136,40 @@ module market_parser_512_pipeline #(
     logic          extract_event_supported;
     logic [255:0]  extract_event_data;
     logic [31:0]   extract_error_flags;
+
+    logic          extract_req_valid_r;
+    logic [15:0]   extract_req_window_base_byte_r;
+    logic [EXTRACTION_WINDOW_BYTES*8-1:0] extract_req_window_data_r;
+    logic [  EXTRACTION_WINDOW_BYTES-1:0] extract_req_window_keep_r;
+    logic [15:0]   extract_req_message_length_r;
+    logic [15:0]   extract_req_message_start_r;
+    logic [15:0]   extract_req_message_end_r;
+    logic [ 7:0]   extract_req_flags_r;
+    logic          extract_req_last_r;
+
+    logic          extract_coarse_valid_r;
+    logic [FIELD_COARSE_BYTES*8-1:0] extract_coarse_data_r;
+    logic [ 2:0]   extract_coarse_fine_lane_r;
+    logic          extract_coarse_complete_r;
+    logic [15:0]   extract_coarse_message_length_r;
+    logic [ 7:0]   extract_coarse_flags_r;
+    logic          extract_coarse_last_r;
+
+    logic          extract_field_valid_r;
+    logic [FIELD_EXTRACT_BYTES*8-1:0] extract_field_data_r;
+    logic          extract_field_complete_r;
+    logic [15:0]   extract_field_message_length_r;
+    logic [ 7:0]   extract_field_flags_r;
+    logic          extract_field_last_r;
+    logic [15:0]   extract_field_extract_length;
+    logic [ 7:0]   extract_field_extract_flags;
+    logic [EXTRACTION_WINDOW_BYTES*8-1:0] extract_field_window_data;
+    logic [  EXTRACTION_WINDOW_BYTES-1:0] extract_field_window_keep;
+
+    logic          extract_result_valid_r;
+    logic [255:0]  extract_result_data_r;
+    logic [31:0]   extract_result_error_flags_r;
+    logic          extract_result_last_r;
 
     logic          event_valid_r;
     logic [255:0]  event_data_r;
@@ -128,9 +189,26 @@ module market_parser_512_pipeline #(
     assign input_accepted         = s_axis_rx_tvalid && s_axis_rx_tready;
     assign frontend_desc_ready    = desc_space_available;
     assign desc_push              = frontend_desc_valid && frontend_desc_ready;
-    assign extract_desc_valid     = (desc_count_r != '0) && desc_window_ready && (!event_valid_r || event_ready);
-    assign desc_pop               = extract_event_valid && (!event_valid_r || event_ready);
-    assign pipe_idle              = packet_done_r && !frontend_desc_valid && (desc_count_r == '0) && !event_valid_r;
+    assign desc_visible_count     = desc_count_r +
+                                    (desc_head_valid_r ? (DESC_IDX_WIDTH+1)'(1) : '0);
+    assign possible_final_desc_blocked = packet_done_r && !frontend_ready && (desc_visible_count == 1);
+    assign extract_result_ready   = !extract_result_valid_r || (!event_valid_r || event_ready);
+    assign extract_field_ready    = !extract_field_valid_r || extract_result_ready;
+    assign extract_coarse_ready   = !extract_coarse_valid_r || extract_field_ready;
+    assign extract_req_ready      = !extract_req_valid_r || extract_coarse_ready;
+    assign extract_desc_valid     = extract_field_valid_r;
+    assign extract_req_to_coarse  = extract_req_valid_r && extract_coarse_ready;
+    assign extract_coarse_to_field = extract_coarse_valid_r && extract_field_ready;
+    assign extract_field_to_result = extract_field_valid_r && extract_result_ready;
+    assign extract_result_to_output = extract_result_valid_r && (!event_valid_r || event_ready);
+    assign desc_head_load         = !desc_head_valid_r && (desc_count_r != '0);
+    assign desc_head_consume      = extract_req_ready && desc_head_valid_r && desc_head_window_ready_r &&
+                                    !possible_final_desc_blocked;
+    assign desc_pop               = desc_head_consume;
+    assign pipe_idle              = packet_done_r && frontend_ready && !frontend_desc_valid &&
+                                    (desc_count_r == '0) && !desc_head_valid_r && !extract_req_valid_r &&
+                                    !extract_coarse_valid_r && !extract_field_valid_r &&
+                                    !extract_result_valid_r && !event_valid_r;
 
     assign event_valid = event_valid_r;
     assign event_data  = event_data_r;
@@ -142,39 +220,112 @@ module market_parser_512_pipeline #(
     assign event_count           = event_count_r;
     assign extractor_error_count = extractor_error_count_r;
     assign bad_frame_count       = bad_frame_count_r;
+    // Completeness is checked before final packing; keep the packer off the
+    // wide length/keep timing path and carry incompleteness as a descriptor flag.
+    assign extract_field_extract_length = 16'd1;
+    assign extract_field_extract_flags  = extract_field_flags_r |
+                                          (extract_field_complete_r ? 8'h00 : DESC_FLAG_TRUNCATED);
+
+    always_comb begin
+        extract_field_window_data = '0;
+        extract_field_window_data[FIELD_EXTRACT_BYTES*8-1:0] = extract_field_data_r;
+        extract_field_window_keep = {EXTRACTION_WINDOW_BYTES{1'b1}};
+    end
+
+    function automatic logic [BEAT_IDX_WIDTH:0] limited_required_beat(
+        input logic [15:0] message_start_byte,
+        input logic [15:0] message_end_byte
+    );
+        logic [BEAT_IDX_WIDTH:0] start_beat;
+        logic [BEAT_IDX_WIDTH:0] end_beat;
+        logic [BEAT_IDX_WIDTH:0] max_window_beat;
+
+        start_beat      = (BEAT_IDX_WIDTH+1)'(message_start_byte[15:6]);
+        end_beat        = (BEAT_IDX_WIDTH+1)'(message_end_byte[15:6]);
+        max_window_beat = start_beat + (BEAT_IDX_WIDTH+1)'(EXTRACTION_WINDOW_BEATS - 1);
+        if (end_beat > max_window_beat) begin
+            limited_required_beat = max_window_beat;
+        end else begin
+            limited_required_beat = end_beat;
+        end
+    endfunction
 
     function automatic logic descriptor_window_ready(
-        input logic [15:0] message_start_byte,
-        input logic [15:0] message_end_byte,
-        input logic [ 7:0] message_flags,
+        input logic [BEAT_IDX_WIDTH:0] start_beat,
+        input logic [BEAT_IDX_WIDTH:0] required_beat,
+        input logic forced_ready,
         input logic [BEAT_IDX_WIDTH:0] stored_beats,
         input logic packet_done
     );
-        int start_beat;
-        int end_beat;
-        int required_beat;
-
-        start_beat = int'(message_start_byte[15:6]);
-        end_beat   = int'(message_end_byte[15:6]);
-        required_beat = end_beat;
-        if (required_beat > start_beat + EXTRACTION_WINDOW_BEATS - 1) begin
-            required_beat = start_beat + EXTRACTION_WINDOW_BEATS - 1;
-        end
-
         descriptor_window_ready =
-            (start_beat < int'(stored_beats)) &&
-            ((required_beat < int'(stored_beats)) ||
+            (start_beat < stored_beats) &&
+            ((required_beat < stored_beats) ||
              packet_done ||
-             ((message_flags & (DESC_FLAG_MALFORMED | DESC_FLAG_TRUNCATED)) != 8'h00));
+             forced_ready);
+    endfunction
+
+    function automatic logic request_range_complete(
+        input logic [  EXTRACTION_WINDOW_BYTES-1:0] req_keep,
+        input logic [                         15:0] message_length,
+        input logic [                          5:0] start_lane
+    );
+        logic complete;
+        int first_lane;
+        int last_lane;
+
+        first_lane = int'(start_lane);
+        last_lane  = first_lane + int'(message_length) - 1;
+        complete   = (message_length != 16'd0) && (last_lane < EXTRACTION_WINDOW_BYTES);
+        if (complete) begin
+            complete = req_keep[first_lane] && req_keep[last_lane];
+        end
+        request_range_complete = complete;
+    endfunction
+
+    function automatic logic [FIELD_COARSE_BYTES*8-1:0] select_coarse_field_data(
+        input logic [EXTRACTION_WINDOW_BYTES*8-1:0] req_data,
+        input logic [                         5:0] start_lane
+    );
+        logic [FIELD_COARSE_BYTES*8-1:0] selected;
+        int coarse_lane;
+        int source_lane;
+
+        selected    = '0;
+        coarse_lane = int'({start_lane[5:3], 3'b000});
+        for (int lane = 0; lane < FIELD_COARSE_BYTES; lane++) begin
+            source_lane = coarse_lane + lane;
+            if (source_lane < EXTRACTION_WINDOW_BYTES) begin
+                selected[lane*8 +: 8] = req_data[source_lane*8 +: 8];
+            end
+        end
+        select_coarse_field_data = selected;
+    endfunction
+
+    function automatic logic [FIELD_EXTRACT_BYTES*8-1:0] select_fine_field_data(
+        input logic [FIELD_COARSE_BYTES*8-1:0] coarse_data,
+        input logic [                    2:0] fine_lane
+    );
+        logic [FIELD_EXTRACT_BYTES*8-1:0] selected;
+        int source_lane;
+
+        selected = '0;
+        for (int lane = 0; lane < FIELD_EXTRACT_BYTES; lane++) begin
+            source_lane = int'(fine_lane) + lane;
+            if (source_lane < FIELD_COARSE_BYTES) begin
+                selected[lane*8 +: 8] = coarse_data[source_lane*8 +: 8];
+            end
+        end
+        select_fine_field_data = selected;
     endfunction
 
     assign desc_window_ready = descriptor_window_ready(
-        desc_message_start_q[desc_rd_ptr_r],
-        desc_message_end_q[desc_rd_ptr_r],
-        desc_flags_q[desc_rd_ptr_r],
+        desc_head_start_beat_r,
+        desc_head_required_beat_r,
+        desc_head_forced_ready_r,
         packet_beats_stored_r,
         packet_done_r
     );
+    assign desc_head_ready_next = desc_head_window_ready_r || desc_window_ready;
 
     market_parser_512_frontend #(
         .DESC_QUEUE_DEPTH(8)
@@ -214,7 +365,7 @@ module market_parser_512_pipeline #(
         .beat_write_index       (16'(packet_beat_count_r)),
         .beat_write_data        (s_axis_rx_tdata),
         .beat_write_keep        (s_axis_rx_tkeep),
-        .read_message_start_byte(desc_message_start_q[desc_rd_ptr_r]),
+        .read_message_start_byte(desc_head_message_start_r),
         .window_base_byte       (window_base_byte),
         .window_data            (window_data),
         .window_keep            (window_keep)
@@ -224,13 +375,13 @@ module market_parser_512_pipeline #(
         .WINDOW_BYTES(EXTRACTION_WINDOW_BYTES)
     ) extractor_i (
         .desc_valid             (extract_desc_valid),
-        .window_base_byte       (window_base_byte),
-        .window_data            (window_data),
-        .window_keep            (window_keep),
-        .desc_message_length    (desc_message_length_q[desc_rd_ptr_r]),
-        .desc_message_start_byte(desc_message_start_q[desc_rd_ptr_r]),
-        .desc_message_end_byte  (desc_message_end_q[desc_rd_ptr_r]),
-        .desc_flags             (desc_flags_q[desc_rd_ptr_r]),
+        .window_base_byte       (16'd0),
+        .window_data            (extract_field_window_data),
+        .window_keep            (extract_field_window_keep),
+        .desc_message_length    (extract_field_extract_length),
+        .desc_message_start_byte(16'd0),
+        .desc_message_end_byte  (16'd0),
+        .desc_flags             (extract_field_extract_flags),
         .event_valid            (extract_event_valid),
         .event_complete         (extract_event_complete),
         .event_supported        (extract_event_supported),
@@ -256,11 +407,48 @@ module market_parser_512_pipeline #(
             desc_wr_ptr_r           <= '0;
             desc_rd_ptr_r           <= '0;
             desc_count_r            <= '0;
+            desc_head_valid_r       <= 1'b0;
+            desc_head_packet_sequence_r <= '0;
+            desc_head_message_index_r <= '0;
+            desc_head_message_length_r <= '0;
+            desc_head_message_start_r <= '0;
+            desc_head_message_end_r <= '0;
+            desc_head_flags_r       <= '0;
+            desc_head_start_beat_r  <= '0;
+            desc_head_required_beat_r <= '0;
+            desc_head_forced_ready_r <= 1'b0;
+            desc_head_window_ready_r <= 1'b0;
             packet_beat_count_r     <= '0;
             packet_beats_stored_r   <= '0;
             accepting_packet_r      <= 1'b1;
             packet_done_r           <= 1'b0;
             clear_window            <= 1'b1;
+            extract_req_valid_r      <= 1'b0;
+            extract_req_window_base_byte_r <= '0;
+            extract_req_window_data_r <= '0;
+            extract_req_window_keep_r <= '0;
+            extract_req_message_length_r <= '0;
+            extract_req_message_start_r <= '0;
+            extract_req_message_end_r <= '0;
+            extract_req_flags_r      <= '0;
+            extract_req_last_r       <= 1'b0;
+            extract_coarse_valid_r   <= 1'b0;
+            extract_coarse_data_r    <= '0;
+            extract_coarse_fine_lane_r <= '0;
+            extract_coarse_complete_r <= 1'b0;
+            extract_coarse_message_length_r <= '0;
+            extract_coarse_flags_r   <= '0;
+            extract_coarse_last_r    <= 1'b0;
+            extract_field_valid_r    <= 1'b0;
+            extract_field_data_r     <= '0;
+            extract_field_complete_r <= 1'b0;
+            extract_field_message_length_r <= '0;
+            extract_field_flags_r    <= '0;
+            extract_field_last_r     <= 1'b0;
+            extract_result_valid_r   <= 1'b0;
+            extract_result_data_r    <= '0;
+            extract_result_error_flags_r <= '0;
+            extract_result_last_r    <= 1'b0;
             event_valid_r           <= 1'b0;
             event_data_r            <= '0;
             event_last_r            <= 1'b0;
@@ -276,9 +464,53 @@ module market_parser_512_pipeline #(
             event_last_next  = 1'b0;
             clear_window <= 1'b0;
 
-            if (event_valid_r && event_ready) begin
+            if (extract_result_to_output) begin
+                event_valid_r <= 1'b1;
+                event_data_r  <= extract_result_data_r;
+                event_last_r  <= extract_result_last_r;
+                event_count_r <= event_count_r + 1'b1;
+                if (extract_result_error_flags_r != 32'h0000_0000) begin
+                    extractor_error_count_r <= extractor_error_count_r + 1'b1;
+                end
+            end else if (event_valid_r && event_ready) begin
                 event_valid_r <= 1'b0;
                 event_last_r  <= 1'b0;
+            end
+
+            if (extract_field_to_result) begin
+                extract_result_valid_r       <= extract_event_valid;
+                extract_result_data_r        <= extract_event_data;
+                extract_result_error_flags_r <= extract_error_flags;
+                extract_result_last_r        <= extract_field_last_r;
+            end else if (extract_result_to_output) begin
+                extract_result_valid_r <= 1'b0;
+            end
+
+            if (extract_coarse_to_field) begin
+                extract_field_valid_r          <= 1'b1;
+                extract_field_data_r           <= select_fine_field_data(extract_coarse_data_r,
+                                                                         extract_coarse_fine_lane_r);
+                extract_field_complete_r       <= extract_coarse_complete_r;
+                extract_field_message_length_r <= extract_coarse_message_length_r;
+                extract_field_flags_r          <= extract_coarse_flags_r;
+                extract_field_last_r           <= extract_coarse_last_r;
+            end else if (extract_field_to_result) begin
+                extract_field_valid_r <= 1'b0;
+            end
+
+            if (extract_req_to_coarse) begin
+                extract_coarse_valid_r          <= 1'b1;
+                extract_coarse_data_r           <= select_coarse_field_data(extract_req_window_data_r,
+                                                                            extract_req_message_start_r[5:0]);
+                extract_coarse_fine_lane_r      <= extract_req_message_start_r[2:0];
+                extract_coarse_complete_r       <= request_range_complete(extract_req_window_keep_r,
+                                                                          extract_req_message_length_r,
+                                                                          extract_req_message_start_r[5:0]);
+                extract_coarse_message_length_r <= extract_req_message_length_r;
+                extract_coarse_flags_r          <= extract_req_flags_r;
+                extract_coarse_last_r           <= extract_req_last_r;
+            end else if (extract_coarse_to_field) begin
+                extract_coarse_valid_r <= 1'b0;
             end
 
             if (desc_push) begin
@@ -309,25 +541,49 @@ module market_parser_512_pipeline #(
                 end
             end
 
-            if (desc_pop) begin
-                event_last_next = packet_done_r && !frontend_desc_valid && (desc_count_next == 1);
-                event_valid_r   <= 1'b1;
-                event_data_r    <= extract_event_data;
-                event_last_r    <= event_last_next;
-                event_count_r   <= event_count_r + 1'b1;
-                if (extract_error_flags != 32'h0000_0000) begin
-                    extractor_error_count_r <= extractor_error_count_r + 1'b1;
-                end
+            if (desc_head_load) begin
+                desc_head_valid_r          <= 1'b1;
+                desc_head_packet_sequence_r <= desc_packet_sequence_q[desc_rd_ptr_r];
+                desc_head_message_index_r  <= desc_message_index_q[desc_rd_ptr_r];
+                desc_head_message_length_r <= desc_message_length_q[desc_rd_ptr_r];
+                desc_head_message_start_r  <= desc_message_start_q[desc_rd_ptr_r];
+                desc_head_message_end_r    <= desc_message_end_q[desc_rd_ptr_r];
+                desc_head_flags_r          <= desc_flags_q[desc_rd_ptr_r];
+                desc_head_start_beat_r     <= (BEAT_IDX_WIDTH+1)'(desc_message_start_q[desc_rd_ptr_r][15:6]);
+                desc_head_required_beat_r  <= limited_required_beat(desc_message_start_q[desc_rd_ptr_r],
+                                                                     desc_message_end_q[desc_rd_ptr_r]);
+                desc_head_forced_ready_r   <= (desc_flags_q[desc_rd_ptr_r] &
+                                               (DESC_FLAG_MALFORMED | DESC_FLAG_TRUNCATED)) != 8'h00;
+                desc_head_window_ready_r   <= 1'b0;
+                desc_rd_ptr_next           = inc_desc_ptr(desc_rd_ptr_r);
+                desc_count_next            = desc_count_next - 1'b1;
+            end else if (desc_head_valid_r && !desc_head_window_ready_r) begin
+                desc_head_window_ready_r <= desc_head_ready_next;
+            end
 
-                desc_rd_ptr_next = inc_desc_ptr(desc_rd_ptr_r);
-                desc_count_next  = desc_count_next - 1'b1;
+            if (desc_pop) begin
+                event_last_next = packet_done_r && frontend_ready && !frontend_desc_valid &&
+                                  (desc_count_next == 0);
+                extract_req_valid_r            <= 1'b1;
+                extract_req_window_base_byte_r <= window_base_byte;
+                extract_req_window_data_r      <= window_data;
+                extract_req_window_keep_r      <= window_keep;
+                extract_req_message_length_r   <= desc_head_message_length_r;
+                extract_req_message_start_r    <= desc_head_message_start_r;
+                extract_req_message_end_r      <= desc_head_message_end_r;
+                extract_req_flags_r            <= desc_head_flags_r;
+                extract_req_last_r             <= event_last_next;
+                desc_head_valid_r              <= 1'b0;
+                desc_head_window_ready_r       <= 1'b0;
+            end else if (extract_req_to_coarse) begin
+                extract_req_valid_r <= 1'b0;
             end
 
             desc_wr_ptr_r <= desc_wr_ptr_next;
             desc_rd_ptr_r <= desc_rd_ptr_next;
             desc_count_r  <= desc_count_next;
 
-            if (pipe_idle || (desc_pop && event_last_next && event_ready)) begin
+            if (pipe_idle) begin
                 clear_window          <= 1'b1;
                 desc_wr_ptr_r         <= '0;
                 desc_rd_ptr_r         <= '0;
@@ -336,6 +592,12 @@ module market_parser_512_pipeline #(
                 packet_beats_stored_r <= '0;
                 accepting_packet_r    <= 1'b1;
                 packet_done_r         <= 1'b0;
+                desc_head_valid_r     <= 1'b0;
+                desc_head_window_ready_r <= 1'b0;
+                extract_req_valid_r    <= 1'b0;
+                extract_coarse_valid_r <= 1'b0;
+                extract_field_valid_r  <= 1'b0;
+                extract_result_valid_r <= 1'b0;
             end
         end
     end

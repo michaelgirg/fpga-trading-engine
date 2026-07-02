@@ -28,6 +28,23 @@ The verification suite now includes no-idle back-to-back packet stress,
 FIFO-pressure checks, 128/256/512-byte extraction-window sweeps, cocotb
 randomized repeated-packet and malformed-frame tests, and a Vivado
 out-of-context synthesis hook.
+
+For timing, I separate the accessible demo target from the HFT reference
+target. The 512-bit path does not close at 322 MHz on Zynq-7020, so ZedBoard is
+positioned as a functional hardware demo only. On a school Vivado 2024.2
+U50-class UltraScale+ target (`xcu50-fsvh2104-2-e`), OOC synthesis meets the
+same 3.102 ns target with positive slack: WNS `0.872 ns` for the 512-bit
+frontend and WNS `1.091 ns` for the integrated 512-bit pipeline. A clock sweep
+of the integrated pipeline meets through `2.000 ns` / 500 MHz and misses
+`1.950 ns` / ~513 MHz by only `0.020 ns`.
+After a lane-offset retiming cleanup, the standalone 512-bit frontend also
+meets `2.100 ns` and misses `2.000 ns` by only `0.018 ns`.
+
+The repo also includes a school-side HFT OOC matrix wrapper and an explicit
+CMAC integration note, so the next hardware story is U50/U55/Virtex-class
+comparison plus a real 100G payload-strip shell rather than forcing the project
+through the ZedBoard path.
+
 That does not pretend to be a finished 100G trading NIC; it shows the right
 interface boundary, buffering, observability, and parallel parsing stages needed
 for one.
@@ -42,7 +59,9 @@ cycle-level latency reports, AXI-Lite control/status registers, and 512-bit
 cut-through parallel event pipeline with queued normalized-event output,
 back-to-back packet stress, FIFO-pressure accounting, 128/256/512-byte
 extraction-window sweeps, cocotb randomized checks, and a Vivado OOC synthesis
-flow.
+flow that meets a 3.102 ns target on a U50-class UltraScale+ reference part.
+The integrated pipeline also meets a `2.100 ns` OOC target on that reference
+part.
 
 ## What To Emphasize
 
@@ -62,5 +81,9 @@ flow.
 The byte-serial parser remains the mature golden correctness path. The 512-bit
 parallel path is now cut-through within a packet and uses a four-beat/256-byte
 default packet-local extraction window with 128/256/512-byte sweep coverage,
-but it has not been timing-closed on real 100G hardware. The next production
-step is reviewing OOC synthesis reports and timing closure.
+and OOC synthesis meets a 3.102 ns target on a U50-class UltraScale+ reference
+part, with sweep headroom through 2.100 ns. That is not full placed-and-routed
+board timing closure or a completed 100G MAC integration. The next production
+steps are optional 1.950 ns timing cleanup, broader school-target timing comparison,
+deeper burst/payload stress, 100G MAC/CMAC integration, and full implementation
+timing closure.

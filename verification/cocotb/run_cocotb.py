@@ -1,14 +1,13 @@
-from __future__ import annotations
-
 import argparse
 import os
 import subprocess
 from pathlib import Path
+from typing import List
 
 from cocotb_tools.runner import get_runner
 
 
-def rtl_sources(repo_root: Path) -> list[Path]:
+def rtl_sources(repo_root: Path) -> List[Path]:
     rtl = repo_root / "rtl"
     return [
         rtl / "market_parser_pkg.sv",

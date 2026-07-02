@@ -1,5 +1,6 @@
 from pathlib import Path
 import random
+from typing import List
 
 import cocotb
 from cocotb.clock import Clock
@@ -16,7 +17,7 @@ def load_hex_bytes(path: Path) -> bytes:
     return bytes(int(line.strip(), 16) for line in path.read_text().splitlines() if line.strip())
 
 
-def load_hex_words(path: Path) -> list[int]:
+def load_hex_words(path: Path) -> List[int]:
     return [int(line.strip(), 16) for line in path.read_text().splitlines() if line.strip()]
 
 
@@ -102,7 +103,7 @@ async def send_repeated_packets(dut, packet: bytes, count: int, max_gap: int):
         await send_axis_packet(dut, packet, max_gap=max_gap)
 
 
-async def collect_events(dut, count: int) -> list[int]:
+async def collect_events(dut, count: int) -> List[int]:
     events = []
     cycles = 0
     while len(events) < count and cycles < 1000:

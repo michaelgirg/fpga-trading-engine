@@ -26,13 +26,14 @@ interfaces, and self-checking SystemVerilog testbenches.
 - First-beat 512-bit boundary scanner for MoldUDP64 header fields and early ITCH message-length candidates.
 - Multi-beat 512-bit descriptor frontend for packet-relative ITCH message descriptors.
 - Parallel 512-bit event extractor that turns descriptors plus a parameterized packet window into normalized events.
-- Cut-through 512-bit parallel pipeline that wires descriptor generation, four-beat/256-byte default window buffering, and event extraction into one event stream.
+- Cut-through 512-bit parallel pipeline that wires descriptor generation, four-beat/256-byte default window buffering, staged field alignment, and event extraction into one event stream.
 - Output event FIFO wrapper that decouples normalized parser events from downstream consumer backpressure.
-- Back-to-back no-idle packet stress and FIFO-pressure regression with randomized event readiness.
+- Back-to-back no-idle, dense tiny-message, and FIFO-pressure regressions with randomized event readiness.
 - Extraction-window sweep regression at 128, 256, and 512 bytes.
 - Pre-hardware 512-bit system wrapper with AXI-Lite control/status registers, parser enable, sticky error flags, software-visible counter clear, and event FIFO status.
 - Optional cocotb randomized verification and Verilator lint hook for industry-style Python/open-source checks.
 - Optional Vivado out-of-context synthesis script for pre-hardware resource/timing reports.
+- School-side HFT OOC matrix wrapper for U50/U55/Virtex UltraScale+ style targets.
 - Lightweight counter and latency reports in the Questa transcript.
 
 ## Event Format
@@ -89,13 +90,16 @@ market_parser/
     generate_vectors.py
     run_vivado_ooc.ps1
     run_vivado_ooc.tcl
+    run_hft_ooc_matrix.sh
   docs/
     100g_readiness.md
     architecture.md
+    cmac_integration.md
     high_speed_profiles.md
     project_pitch.md
     register_map.md
     references.md
+    timing_matrix.md
     zedboard_architecture.md
 ```
 
@@ -124,11 +128,11 @@ Wrapper tests passed: 21
 AXI adapter profile tests passed: 66
 100G ingress tests passed: 26
 512-bit boundary scan tests passed: 17
-512-bit frontend tests passed: 88
+512-bit frontend tests passed: 180
 512-bit event extract tests passed: 42
-512-bit pipeline sweep tests passed: 210
+512-bit pipeline sweep tests passed: 492
 512-bit pipeline FIFO/stress tests passed: 247
-512-bit system / AXI-Lite tests passed: 47
+512-bit system / AXI-Lite tests passed: 49
 Tests failed: 0
 Errors: 0, Warnings: 0
 ```
@@ -180,7 +184,7 @@ The default top is `market_parser_512_system` and the default part is the
 ZedBoard `xc7z020clg484-1`. For a different board or a narrower top:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\tools\run_vivado_ooc.ps1 -Top market_parser_512_pipeline -Part <xilinx-part> -ClockPeriodNs 3.102
+powershell -ExecutionPolicy Bypass -File .\tools\run_vivado_ooc.ps1 -Top market_parser_512_pipeline -Part <xilinx-part> -ClockPeriodNs 3.102 -Directive RuntimeOptimized
 ```
 
 Reports are written under `build/vivado_ooc/<top>/`.
@@ -190,6 +194,36 @@ Summarize generated Vivado reports:
 ```powershell
 python tools/summarize_vivado_reports.py build/vivado_ooc/market_parser_512_pipeline
 ```
+
+Run the school Linux HFT matrix wrapper after sourcing Vivado:
+
+```bash
+source /apps/xilinx/Vivado/2024.2/settings64.sh
+bash tools/run_hft_ooc_matrix.sh
+```
+
+The matrix wrapper writes per-run reports and a `summary.tsv` under
+`build/hft_ooc_matrix/<timestamp>/`. Override the run with
+`MARKET_PARSER_PARTS`, `MARKET_PARSER_TOPS`, and `MARKET_PARSER_PERIODS` when
+you want a smaller sweep.
+
+Current Zynq-7020 OOC timing at a 3.102 ns target does not close for the
+512-bit path. The latest `market_parser_512_pipeline` run reports WNS
+`-3.290 ns`; the latest standalone `market_parser_512_frontend` run reports
+WNS `-3.341 ns`. Zynq-7020 is therefore treated as a future functional demo
+target, not the 100G timing target.
+
+On a school Vivado 2024.2 install targeting the U50-class
+`xcu50-fsvh2104-2-e` part, OOC synthesis at the same 3.102 ns target meets
+timing: `market_parser_512_frontend` reports WNS `0.872 ns`, and
+`market_parser_512_pipeline` reports WNS `1.091 ns`. This is an OOC synthesis
+result for a realistic reference FPGA target, not full placed-and-routed
+board-level timing closure. A follow-up OOC clock sweep for
+`market_parser_512_pipeline` on the same U50-class part closes through
+`2.000 ns` (500 MHz, WNS `0.030 ns`) and misses `1.950 ns` (~513 MHz) by
+`0.020 ns`. After a lane-offset retiming cleanup, the standalone
+`market_parser_512_frontend` also closes at `2.100 ns`; the integrated parser
+top is the 500 MHz timing headline.
 
 ## Test Vector Generation
 
@@ -202,7 +236,8 @@ python tools/generate_vectors.py
 
 ## Pre-Hardware Next Build Steps
 
-1. Run Vivado OOC synthesis and record resource/timing summaries for the 512-bit pipeline and system tops.
-2. Add more cocotb randomized packet/backpressure tests around the AXI-Lite system wrapper.
-3. Add deeper event FIFO and 512-byte long-payload stress cases.
-4. Only after the simulation and OOC synthesis story is stronger, add the ZedBoard-specific wrapper and software demo.
+1. Use the school Vivado matrix to compare U50/U55/Virtex UltraScale+ class parts.
+2. Use the 1.950 ns near miss as an optional next timing cleanup target.
+3. Attach the 512-bit parser to a concrete CMAC-facing payload-strip shell.
+4. Add deeper event FIFO, 512-byte long-payload, and AXI-Lite system stress cases.
+5. Keep the ZedBoard wrapper and software demo as a separate optional functional hardware track.

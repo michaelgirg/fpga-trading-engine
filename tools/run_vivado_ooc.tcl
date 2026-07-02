@@ -25,6 +25,14 @@ if {$argc >= 3} {
     set clock_period_ns 3.102
 }
 
+if {$argc >= 4} {
+    set synth_directive [lindex $argv 3]
+} elseif {[info exists ::env(MARKET_PARSER_SYNTH_DIRECTIVE)]} {
+    set synth_directive $::env(MARKET_PARSER_SYNTH_DIRECTIVE)
+} else {
+    set synth_directive Default
+}
+
 set out_dir [file normalize [file join $repo_root "build" "vivado_ooc" $top_name]]
 file mkdir $out_dir
 
@@ -50,6 +58,7 @@ puts "Repo: $repo_root"
 puts "Top:  $top_name"
 puts "Part: $part_name"
 puts "Clock period: $clock_period_ns ns"
+puts "Synthesis directive: $synth_directive"
 
 foreach rtl_file $rtl_files {
     read_verilog -sv [file join $repo_root $rtl_file]
@@ -61,7 +70,7 @@ puts $xdc_file "create_clock -name clk -period $clock_period_ns \[get_ports clk\
 close $xdc_file
 read_xdc $xdc_path
 
-synth_design -top $top_name -part $part_name -mode out_of_context -flatten_hierarchy rebuilt
+synth_design -top $top_name -part $part_name -mode out_of_context -flatten_hierarchy rebuilt -directive $synth_directive
 
 report_utilization -file [file join $out_dir "utilization.rpt"]
 report_timing_summary -file [file join $out_dir "timing_summary.rpt"]

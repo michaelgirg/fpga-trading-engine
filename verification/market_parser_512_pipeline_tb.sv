@@ -14,6 +14,8 @@ module market_parser_512_pipeline_tb #(
     localparam int MIXED_PACKET_BYTES = 276;
     localparam int CUSTOM_PACKET_BYTES = 256;
     localparam int LONG_PACKET_BYTES = 202;
+    localparam int DENSE_SYSTEM_EVENTS = 10;
+    localparam int DENSE_PACKET_BYTES = 20 + (DENSE_SYSTEM_EVENTS * 14);
     localparam int EXPECTED_EVENTS = 10;
     localparam int MIXED_EVENTS = 8;
 
@@ -280,6 +282,62 @@ module market_parser_512_pipeline_tb #(
         for (int i = 23; i < 40; i++) custom_packet_mem[i] = 8'h22;
     endtask
 
+    task automatic build_dense_system_event_packet();
+        int len_offset;
+        int msg_start;
+
+        for (int i = 0; i < CUSTOM_PACKET_BYTES; i++) custom_packet_mem[i] = 8'h00;
+        custom_packet_mem[0] = "S"; custom_packet_mem[1] = "I"; custom_packet_mem[2] = "M";
+        custom_packet_mem[3] = "0"; custom_packet_mem[4] = "0"; custom_packet_mem[5] = "0";
+        custom_packet_mem[6] = "0"; custom_packet_mem[7] = "0"; custom_packet_mem[8] = "0";
+        custom_packet_mem[9] = "1";
+        custom_packet_mem[17] = 8'd64;
+        custom_packet_mem[19] = DENSE_SYSTEM_EVENTS[7:0];
+
+        for (int i = 0; i < DENSE_SYSTEM_EVENTS; i++) begin
+            len_offset = 20 + (i * 14);
+            msg_start = len_offset + 2;
+            custom_packet_mem[len_offset] = 8'h00;
+            custom_packet_mem[len_offset + 1] = 8'd12;
+            custom_packet_mem[msg_start] = "S";
+            custom_packet_mem[msg_start + 1] = 8'h01;
+            custom_packet_mem[msg_start + 2] = 8'(i);
+            custom_packet_mem[msg_start + 3] = 8'h02;
+            custom_packet_mem[msg_start + 4] = 8'(i);
+            custom_packet_mem[msg_start + 5] = 8'h00;
+            custom_packet_mem[msg_start + 6] = 8'h00;
+            custom_packet_mem[msg_start + 7] = 8'h00;
+            custom_packet_mem[msg_start + 8] = 8'h00;
+            custom_packet_mem[msg_start + 9] = 8'h40;
+            custom_packet_mem[msg_start + 10] = 8'(i);
+            custom_packet_mem[msg_start + 11] = "O";
+        end
+    endtask
+
+    task automatic check_and_accept_dense_system_event(input int idx, input bit expected_last);
+        logic [15:0] expected_stock_locate;
+        logic [15:0] expected_tracking_number;
+        logic [47:0] expected_timestamp;
+
+        expected_stock_locate = {8'h01, idx[7:0]};
+        expected_tracking_number = {8'h02, idx[7:0]};
+        expected_timestamp = {40'h0000000040, idx[7:0]};
+
+        wait_event($sformatf("dense system event %0d", idx));
+        check(event_keep == 32'hffff_ffff, $sformatf("dense system event %0d keep all bytes", idx));
+        check(event_data[7:0] == EVENT_SYSTEM, $sformatf("dense system event %0d kind", idx));
+        check(event_data[15:8] == "S", $sformatf("dense system event %0d message type", idx));
+        check(event_data[31:16] == expected_stock_locate,
+              $sformatf("dense system event %0d stock locate", idx));
+        check(event_data[47:32] == expected_tracking_number,
+              $sformatf("dense system event %0d tracking number", idx));
+        check(event_data[95:48] == expected_timestamp,
+              $sformatf("dense system event %0d timestamp", idx));
+        check(event_data[239:232] == 8'h00, $sformatf("dense system event %0d flags", idx));
+        check(event_last == expected_last, $sformatf("dense system event %0d last flag", idx));
+        accept_current_event();
+    endtask
+
     task automatic build_long_unknown_packet();
         for (int i = 0; i < CUSTOM_PACKET_BYTES; i++) custom_packet_mem[i] = 8'h00;
         custom_packet_mem[0] = "S"; custom_packet_mem[1] = "I"; custom_packet_mem[2] = "M";
@@ -349,6 +407,22 @@ module market_parser_512_pipeline_tb #(
         check(descriptor_count == 32'd1, "truncated descriptor count");
         check(event_count == 32'd1, "truncated event count");
         check(extractor_error_count == 32'd1, "truncated packet increments extractor error count");
+
+        reset_dut();
+        build_dense_system_event_packet();
+        fork
+            send_packet(DENSE_PACKET_BYTES, custom_packet_mem, 1'b0, 1'b0);
+            begin
+                for (int i = 0; i < DENSE_SYSTEM_EVENTS; i++) begin
+                    check_and_accept_dense_system_event(i, i == DENSE_SYSTEM_EVENTS - 1);
+                end
+            end
+        join
+        repeat (4) @(posedge clk);
+        check(packet_count == 32'd1, "dense system packet count");
+        check(descriptor_count == DENSE_SYSTEM_EVENTS[31:0], "dense system descriptor count");
+        check(event_count == DENSE_SYSTEM_EVENTS[31:0], "dense system event count");
+        check(extractor_error_count == 32'd0, "dense system extractor error count");
 
         reset_dut();
         build_long_unknown_packet();

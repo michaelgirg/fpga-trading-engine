@@ -12,9 +12,56 @@ counting, and sticky error flags. The regression now sweeps 128-, 256-, and
 512-byte extraction windows, and the repo includes a Vivado out-of-context
 synthesis hook for pre-hardware resource and timing reports.
 
+Latest local Vivado OOC timing at a 3.102 ns target clock on the ZedBoard
+`xc7z020clg484-1` part does not close:
+
+- `market_parser_512_pipeline`: WNS `-3.290 ns`, TNS `-9750.711 ns`,
+  LUTs `19435 / 53200`, registers `12900 / 106400`.
+- `market_parser_512_frontend`: WNS `-3.341 ns`, TNS `-501.212 ns`,
+  LUTs `1171 / 53200`, registers `1049 / 106400`.
+
+That result is useful for stress-testing the RTL, but it is not the intended
+100G target. Zynq-7020 is a functional demo target.
+
+On a school Vivado 2024.2 install targeting the U50-class
+`xcu50-fsvh2104-2-e` part, OOC synthesis at the same 3.102 ns target meets
+timing:
+
+- `market_parser_512_frontend`: WNS `0.872 ns`, TNS `0.000 ns`,
+  CLB LUTs `1205 / 871680`, CLB registers `1049 / 1743360`.
+- `market_parser_512_pipeline`: WNS `1.091 ns`, TNS `0.000 ns`,
+  CLB LUTs `12326 / 871680`, CLB registers `12700 / 1743360`.
+
+The U50-class report is an OOC synthesis result with Vivado's standard
+out-of-context clock-source warning. It is strong evidence that the architecture
+is realistic for an UltraScale+ 100G-class target, but it is still not full
+placed-and-routed board-level timing closure.
+
+A U50-class OOC clock sweep for `market_parser_512_pipeline` shows useful
+headroom beyond the 100G-facing 322 MHz target:
+
+| Target period | Approx. frequency | WNS | TNS | Result |
+| :--- | ---: | ---: | ---: | :--- |
+| `3.102 ns` | 322 MHz | `1.091 ns` | `0.000 ns` | Meets |
+| `2.750 ns` | 364 MHz | `0.739 ns` | `0.000 ns` | Meets |
+| `2.500 ns` | 400 MHz | `0.489 ns` | `0.000 ns` | Meets |
+| `2.250 ns` | 444 MHz | `0.239 ns` | `0.000 ns` | Meets |
+| `2.100 ns` | 476 MHz | `0.082 ns` | `0.000 ns` | Meets |
+| `2.000 ns` | 500 MHz | `0.030 ns` | `0.000 ns` | Meets |
+| `1.950 ns` | 513 MHz | `-0.020 ns` | `-0.041 ns` | Near miss |
+
+After a lane-offset retiming cleanup, `market_parser_512_frontend` also closes
+at `2.100 ns`, reporting WNS `0.082 ns` and TNS `0.000 ns`. It now misses
+`2.000 ns` by only `0.018 ns`; the integrated 512-bit pipeline closes the
+`2.000 ns` target with WNS `0.030 ns`.
+
 This is the right integration boundary for future hardware such as a board with
 a 100G Ethernet MAC. It is not a claim that the current byte-serial parser can
 sustain worst-case 100G traffic indefinitely.
+
+The maintained HFT timing table and school-side matrix command are in
+`docs/timing_matrix.md`. The concrete MAC-facing attachment plan is in
+`docs/cmac_integration.md`.
 
 ## Hardware-Facing Interface
 
@@ -54,6 +101,9 @@ checks that the ingress side accepts the burst without stalls.
 - Integrated `market_parser_512_pipeline` path that emits normalized events
   from 512-bit input beats using the descriptor frontend, window buffer, and
   extractor.
+- Staged coarse/fine field alignment in the integrated pipeline so parallel
+  extraction no longer packs directly from a full dynamic packet window in one
+  cycle.
 - Cut-through regression proving the first mixed-packet event appears before
   packet end and remains stable while later 512-bit beats are accepted.
 - `market_parser_512_pipeline_fifo` wrapper that queues normalized events
@@ -70,6 +120,9 @@ checks that the ingress side accepts the burst without stalls.
   while event readiness randomly stalls.
 - FIFO-pressure regression that fills the event FIFO, offers another packet,
   and verifies event integrity plus nonzero backpressure accounting.
+- Dense tiny-message regression that packs ten 12-byte System Event messages
+  into a few 512-bit beats, including a descriptor whose payload crosses a beat
+  boundary.
 - AXI-Lite system regression covering enable/disable, readable counters,
   software-visible counter clear, sticky error flag clearing, FIFO status, and
   FIFO read-count behavior.
@@ -93,10 +146,14 @@ To make the parser itself sustained-line-rate capable, the next architecture
 step is proving the integrated parallel path through implementation-style
 checks:
 
-1. Run Vivado OOC synthesis and inspect timing/resource reports.
-2. Add deeper event FIFO buffering and more burst-depth sweeps.
-3. Add 512-byte long-payload stress cases.
-4. Prove timing at the selected 100G MAC user clock on the target FPGA.
+1. Keep the U50/U55-class OOC result as the HFT reference timing target and use
+   the 1.950 ns near miss as the next optional timing cleanup target.
+2. Run the school Vivado matrix across U50/U55/Virtex UltraScale+ style parts.
+3. Add deeper event FIFO buffering, more burst-depth sweeps, and 512-byte
+   long-payload stress cases.
+4. Integrate against a concrete 100G MAC/CMAC shell and board clocking model.
+5. Prove full implementation timing at the selected 100G MAC user clock on the
+   target FPGA.
 
 ## Honest Interview Summary
 
@@ -106,4 +163,6 @@ descriptor frontend, parallel event extraction block, and integrated
 cut-through 512-bit event pipeline are in place. The project also has a
 pre-hardware AXI-Lite management wrapper, which makes it easier to explain how
 software would control and observe the parser. The remaining production steps
-are OOC report review, deeper burst/payload stress, and timing closure.
+are broader school-target timing comparison, deeper burst/payload stress, 100G
+MAC integration, full implementation timing closure, and a separate optional
+ZedBoard functional demo.

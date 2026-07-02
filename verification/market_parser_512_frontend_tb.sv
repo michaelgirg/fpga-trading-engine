@@ -10,8 +10,10 @@ module market_parser_512_frontend_tb #(
 );
     localparam realtime HALF_CLK_PERIOD = CLK_PERIOD / 2.0;
     localparam int MIXED_PACKET_BYTES = 276;
-    localparam int CUSTOM_PACKET_BYTES = 128;
+    localparam int CUSTOM_PACKET_BYTES = 192;
     localparam int EXPECTED_MIXED_DESCS = 8;
+    localparam int DENSE_SYSTEM_EVENTS = 10;
+    localparam int DENSE_PACKET_BYTES = 20 + (DENSE_SYSTEM_EVENTS * 14);
 
     localparam logic [7:0] DESC_FLAG_CROSSES_BEAT = 8'h01;
     localparam logic [7:0] DESC_FLAG_BAD_FRAME    = 8'h04;
@@ -209,6 +211,68 @@ module market_parser_512_frontend_tb #(
         for (int i = 66; i <= 76; i++) custom_packet_mem[i] = 8'h55;
     endtask
 
+    task automatic build_dense_system_event_packet();
+        int len_offset;
+        int msg_start;
+
+        for (int i = 0; i < CUSTOM_PACKET_BYTES; i++) custom_packet_mem[i] = 8'h00;
+        custom_packet_mem[0] = "S"; custom_packet_mem[1] = "I"; custom_packet_mem[2] = "M";
+        custom_packet_mem[3] = "0"; custom_packet_mem[4] = "0"; custom_packet_mem[5] = "0";
+        custom_packet_mem[6] = "0"; custom_packet_mem[7] = "0"; custom_packet_mem[8] = "0";
+        custom_packet_mem[9] = "1";
+        custom_packet_mem[17] = 8'd64;
+        custom_packet_mem[19] = DENSE_SYSTEM_EVENTS[7:0];
+
+        for (int i = 0; i < DENSE_SYSTEM_EVENTS; i++) begin
+            len_offset = 20 + (i * 14);
+            msg_start = len_offset + 2;
+            custom_packet_mem[len_offset] = 8'h00;
+            custom_packet_mem[len_offset + 1] = 8'd12;
+            custom_packet_mem[msg_start] = "S";
+            custom_packet_mem[msg_start + 1] = 8'h01;
+            custom_packet_mem[msg_start + 2] = 8'(i);
+            custom_packet_mem[msg_start + 3] = 8'h02;
+            custom_packet_mem[msg_start + 4] = 8'(i);
+            custom_packet_mem[msg_start + 5] = 8'h00;
+            custom_packet_mem[msg_start + 6] = 8'h00;
+            custom_packet_mem[msg_start + 7] = 8'h00;
+            custom_packet_mem[msg_start + 8] = 8'h00;
+            custom_packet_mem[msg_start + 9] = 8'h40;
+            custom_packet_mem[msg_start + 10] = 8'(i);
+            custom_packet_mem[msg_start + 11] = "O";
+        end
+    endtask
+
+    task automatic check_dense_system_desc(input int idx);
+        int len_offset;
+        int start_offset;
+        int end_offset;
+        bit expected_type_valid;
+        logic [7:0] expected_desc_flags;
+
+        len_offset = 20 + (idx * 14);
+        start_offset = 22 + (idx * 14);
+        end_offset = start_offset + 11;
+        expected_type_valid = ((len_offset / 64) == (start_offset / 64));
+        expected_desc_flags = ((start_offset / 64) != (end_offset / 64)) ? DESC_FLAG_CROSSES_BEAT : 8'h00;
+
+        wait_desc($sformatf("dense system message %0d", idx));
+        check(desc_packet_sequence == 64'd64, $sformatf("dense system message %0d sequence", idx));
+        check(desc_message_index == idx[15:0], $sformatf("dense system message %0d index", idx));
+        check(desc_message_length == 16'd12, $sformatf("dense system message %0d length", idx));
+        check(desc_message_start_byte == start_offset[15:0],
+              $sformatf("dense system message %0d start offset", idx));
+        check(desc_message_end_byte == end_offset[15:0],
+              $sformatf("dense system message %0d end offset", idx));
+        check(desc_message_type_valid == expected_type_valid,
+              $sformatf("dense system message %0d type-valid flag", idx));
+        if (expected_type_valid) begin
+            check(desc_message_type == "S", $sformatf("dense system message %0d type", idx));
+        end
+        check(desc_flags == expected_desc_flags, $sformatf("dense system message %0d flags", idx));
+        @(posedge clk);
+    endtask
+
     task automatic build_bad_frame_packet();
         for (int i = 0; i < CUSTOM_PACKET_BYTES; i++) custom_packet_mem[i] = 8'h00;
         custom_packet_mem[0] = "S"; custom_packet_mem[1] = "I"; custom_packet_mem[2] = "M";
@@ -270,6 +334,20 @@ module market_parser_512_frontend_tb #(
                 @(posedge clk);
             end
         join
+
+        reset_dut();
+        build_dense_system_event_packet();
+        fork
+            send_packet(DENSE_PACKET_BYTES, custom_packet_mem, 1'b0);
+            begin
+                for (int i = 0; i < DENSE_SYSTEM_EVENTS; i++) begin
+                    check_dense_system_desc(i);
+                end
+            end
+        join
+        check(packet_count == 32'd1, "dense system packet count");
+        check(descriptor_count == DENSE_SYSTEM_EVENTS[31:0], "dense system descriptor count");
+        check(error_count == 32'd0, "dense system error count");
 
         reset_dut();
         send_truncated_header();

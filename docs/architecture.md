@@ -5,7 +5,7 @@
 This project should look like the beginning of a real FPGA feed handler, not a
 toy decoder. The parser core is kept independent from the final transport so it
 can be simulated first, observed through production-style registers, and later
-wrapped for ZedBoard.
+wrapped for a CMAC-facing shell or a smaller functional board demo.
 
 ## Pipeline Shape
 
@@ -78,8 +78,12 @@ packet-local four-beat/256-byte default window buffer, and parallel extractor
 into one normalized event stream. The current integrated version is cut-through
 within a packet: once a descriptor's extraction window is available, it can emit an
 event before the packet has ended while later packet beats continue arriving.
-It is the bridge between the correctness-first parser and a future sustained
-line-rate parser with deeper windows and timing closure.
+OOC synthesis meets a 3.102 ns target on a U50-class UltraScale+ reference part
+and sweeps cleanly through 2.100 ns, while the same 512-bit path does not close
+at the 3.102 ns target on Zynq-7020. It is the bridge between the
+correctness-first parser and a future sustained line-rate parser with deeper
+windows, 100G MAC integration, and full implementation timing closure. The
+current timing matrix is tracked in `docs/timing_matrix.md`.
 
 The `market_parser_512_pipeline_fifo` block adds a normalized event FIFO after
 the parallel parser. That makes the downstream boundary more production-like:
@@ -88,7 +92,9 @@ events can be queued while software, DMA, or strategy logic temporarily stalls.
 The `market_parser_512_system` block is the current pre-hardware top level. It
 connects the FIFO-backed 512-bit parser to `market_parser_axi_lite_regs`, which
 adds parser enable control, software-visible counters, FIFO status, sticky
-error flags, and clear-by-baseline behavior through an AXI-Lite slave.
+error flags, and clear-by-baseline behavior through an AXI-Lite slave. For a
+production-shaped 100G shell, the parser should sit behind a CMAC
+Ethernet/IP/UDP header-strip block as described in `docs/cmac_integration.md`.
 
 ## ZedBoard Path
 

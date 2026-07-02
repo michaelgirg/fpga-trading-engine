@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """Summarize Vivado OOC reports into a small Markdown file."""
 
-from __future__ import annotations
-
 import argparse
 import re
 from pathlib import Path
+from typing import Dict, List, Optional
 
 
-def find_first(patterns: list[str], text: str) -> str:
+def find_first(patterns: List[str], text: str) -> str:
     for pattern in patterns:
         match = re.search(pattern, text, flags=re.MULTILINE)
         if match:
@@ -23,7 +22,7 @@ def relative_display_path(path: Path) -> str:
         return path.name
 
 
-def parse_design_timing_summary(text: str) -> dict[str, str] | None:
+def parse_design_timing_summary(text: str) -> Optional[Dict[str, str]]:
     in_summary = False
     for line in text.splitlines():
         if "Design Timing Summary" in line:
@@ -48,7 +47,7 @@ def parse_design_timing_summary(text: str) -> dict[str, str] | None:
     return None
 
 
-def parse_timing(report_dir: Path) -> dict[str, str]:
+def parse_timing(report_dir: Path) -> Dict[str, str]:
     timing_path = report_dir / "timing_summary.rpt"
     if not timing_path.exists():
         return {"timing_report": "missing"}
@@ -68,7 +67,7 @@ def parse_timing(report_dir: Path) -> dict[str, str]:
     }
 
 
-def parse_utilization(report_dir: Path) -> dict[str, str]:
+def parse_utilization(report_dir: Path) -> Dict[str, str]:
     util_path = report_dir / "utilization.rpt"
     if not util_path.exists():
         return {"utilization_report": "missing"}
@@ -82,7 +81,8 @@ def parse_utilization(report_dir: Path) -> dict[str, str]:
         if len(cells) < 5:
             continue
         name = cells[0].rstrip("*")
-        if name in {"Slice LUTs", "Slice Registers", "Block RAM Tile", "DSPs"}:
+        if name in {"Slice LUTs", "Slice Registers", "CLB LUTs", "CLB Registers",
+                    "Block RAM Tile", "DSPs"}:
             rows[name] = {
                 "used": cells[1],
                 "available": cells[-2],
@@ -91,14 +91,14 @@ def parse_utilization(report_dir: Path) -> dict[str, str]:
 
     return {
         "utilization_report": util_path.name,
-        "slice_luts": format_util(rows.get("Slice LUTs")),
-        "slice_registers": format_util(rows.get("Slice Registers")),
+        "slice_luts": format_util(rows.get("Slice LUTs") or rows.get("CLB LUTs")),
+        "slice_registers": format_util(rows.get("Slice Registers") or rows.get("CLB Registers")),
         "block_ram_tiles": format_util(rows.get("Block RAM Tile")),
         "dsps": format_util(rows.get("DSPs")),
     }
 
 
-def format_util(row: dict[str, str] | None) -> str:
+def format_util(row: Optional[Dict[str, str]]) -> str:
     if row is None:
         return "not found"
     return f"{row['used']} / {row['available']} ({row['util']}%)"

@@ -4,10 +4,7 @@ This is not an exchange feed client. It only creates small deterministic
 packets for simulation and reference checks.
 """
 
-from __future__ import annotations
-
-from dataclasses import dataclass
-from typing import Iterable
+from typing import Iterable, List, Optional, Tuple
 
 
 SESSION = b"SIM0000001"
@@ -27,18 +24,43 @@ FLAG_MALFORMED = 0x02
 FLAG_UNKNOWN = 0x04
 
 
-@dataclass(frozen=True)
 class ParsedEvent:
-    event_kind: int
-    msg_type: int
-    stock_locate: int = 0
-    tracking_number: int = 0
-    timestamp: int = 0
-    order_ref: int = 0
-    shares: int = 0
-    price: int = 0
-    side: int = 0
-    flags: int = 0
+    __slots__ = (
+        "event_kind",
+        "msg_type",
+        "stock_locate",
+        "tracking_number",
+        "timestamp",
+        "order_ref",
+        "shares",
+        "price",
+        "side",
+        "flags",
+    )
+
+    def __init__(
+        self,
+        event_kind: int,
+        msg_type: int,
+        stock_locate: int = 0,
+        tracking_number: int = 0,
+        timestamp: int = 0,
+        order_ref: int = 0,
+        shares: int = 0,
+        price: int = 0,
+        side: int = 0,
+        flags: int = 0,
+    ) -> None:
+        self.event_kind = event_kind
+        self.msg_type = msg_type
+        self.stock_locate = stock_locate
+        self.tracking_number = tracking_number
+        self.timestamp = timestamp
+        self.order_ref = order_ref
+        self.shares = shares
+        self.price = price
+        self.side = side
+        self.flags = flags
 
     def pack_u256(self) -> int:
         value = 0
@@ -309,7 +331,7 @@ def parse_itch_message(msg: bytes, flags: int = 0) -> ParsedEvent:
     )
 
 
-def parse_mold_packet(packet: bytes, expected_sequence: int | None = None) -> tuple[list[ParsedEvent], int]:
+def parse_mold_packet(packet: bytes, expected_sequence: Optional[int] = None) -> Tuple[List[ParsedEvent], int]:
     if len(packet) < 20:
         raise ValueError("packet is shorter than the MoldUDP64 header")
 

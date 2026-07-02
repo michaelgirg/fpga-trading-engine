@@ -35,41 +35,36 @@ module market_parser_512_event_extract #(
     localparam logic [31:0] EXTRACT_ERR_BAD_FRAME  = 32'h0000_0004;
     localparam logic [31:0] EXTRACT_ERR_UNKNOWN    = 32'h0000_0008;
 
-    function automatic logic offset_valid(input int abs_offset);
-        int window_lane;
-        window_lane = abs_offset - int'(window_base_byte);
-        offset_valid = (window_lane >= 0 && window_lane < WINDOW_BYTES && window_keep[window_lane]);
+    localparam int FIELD_PREFIX_BYTES = (WINDOW_BYTES < 128) ? WINDOW_BYTES : 128;
+
+    function automatic logic field_lane_valid(input int lane);
+        field_lane_valid = (lane >= 0 && lane < FIELD_PREFIX_BYTES && window_keep[lane]);
     endfunction
 
-    function automatic logic [7:0] byte_at(input int abs_offset);
-        int window_lane;
-        window_lane = abs_offset - int'(window_base_byte);
-        if (window_lane >= 0 && window_lane < WINDOW_BYTES) begin
-            byte_at = window_data[window_lane*8 +: 8];
+    function automatic logic [7:0] field_byte_at_lane(input int lane);
+        if (lane >= 0 && lane < FIELD_PREFIX_BYTES) begin
+            field_byte_at_lane = window_data[lane*8 +: 8];
         end else begin
-            byte_at = 8'h00;
+            field_byte_at_lane = 8'h00;
         end
     endfunction
 
-    function automatic logic range_valid(input int first_abs_offset, input int last_abs_offset);
+    function automatic logic range_valid(input int first_lane, input int message_length);
         logic valid;
-        int abs_offset;
-        valid = (first_abs_offset <= last_abs_offset) &&
-                (first_abs_offset >= int'(window_base_byte)) &&
-                (last_abs_offset < (int'(window_base_byte) + WINDOW_BYTES));
-        for (int lane = 0; lane < WINDOW_BYTES; lane++) begin
-            abs_offset = int'(window_base_byte) + lane;
-            if (valid && abs_offset >= first_abs_offset && abs_offset <= last_abs_offset &&
-                !window_keep[lane]) begin
-                valid = 1'b0;
-            end
+        int last_lane;
+        last_lane = first_lane + message_length - 1;
+        valid = (message_length > 0) &&
+                (first_lane >= 0) &&
+                (last_lane < WINDOW_BYTES);
+        if (valid) begin
+            valid = window_keep[first_lane] && window_keep[last_lane];
         end
         range_valid = valid;
     endfunction
 
     always_comb begin
         int msg_start;
-        int msg_end;
+        int msg_len;
         logic [ 7:0] msg_type;
         logic [15:0] stock_locate;
         logic [15:0] tracking_number;
@@ -80,8 +75,8 @@ module market_parser_512_event_extract #(
         logic [ 7:0] side;
         logic [ 7:0] event_flags;
 
-        msg_start = int'(desc_message_start_byte);
-        msg_end   = int'(desc_message_end_byte);
+        msg_start = int'(desc_message_start_byte[5:0]);
+        msg_len   = int'(desc_message_length);
 
         msg_type        = 8'h00;
         stock_locate    = '0;
@@ -94,7 +89,7 @@ module market_parser_512_event_extract #(
         event_flags     = '0;
 
         event_valid         = desc_valid;
-        event_complete      = desc_valid && desc_message_length != 16'd0 && range_valid(msg_start, msg_end);
+        event_complete      = desc_valid && desc_message_length != 16'd0 && range_valid(msg_start, msg_len);
         event_supported     = 1'b0;
         extract_error_flags = '0;
 
@@ -111,8 +106,8 @@ module market_parser_512_event_extract #(
             extract_error_flags = extract_error_flags | EXTRACT_ERR_INCOMPLETE;
         end
 
-        if (desc_valid && offset_valid(msg_start)) begin
-            msg_type = byte_at(msg_start);
+        if (desc_valid && field_lane_valid(msg_start)) begin
+            msg_type = field_byte_at_lane(msg_start);
         end
 
         event_supported = is_supported_msg(msg_type);
@@ -121,67 +116,62 @@ module market_parser_512_event_extract #(
             extract_error_flags = extract_error_flags | EXTRACT_ERR_UNKNOWN;
         end
 
-        if (event_complete) begin
-            if (desc_message_length >= 16'd3) begin
-                stock_locate = {byte_at(msg_start + 1), byte_at(msg_start + 2)};
-            end
-            if (desc_message_length >= 16'd5) begin
-                tracking_number = {byte_at(msg_start + 3), byte_at(msg_start + 4)};
-            end
-            if (desc_message_length >= 16'd11) begin
-                timestamp = {
-                    byte_at(msg_start + 5), byte_at(msg_start + 6),
-                    byte_at(msg_start + 7), byte_at(msg_start + 8),
-                    byte_at(msg_start + 9), byte_at(msg_start + 10)
-                };
-            end
-            if (desc_message_length >= 16'd19 && has_order_ref(msg_type)) begin
-                order_ref = {
-                    byte_at(msg_start + 11), byte_at(msg_start + 12),
-                    byte_at(msg_start + 13), byte_at(msg_start + 14),
-                    byte_at(msg_start + 15), byte_at(msg_start + 16),
-                    byte_at(msg_start + 17), byte_at(msg_start + 18)
-                };
-            end
+        if (desc_valid) begin
+            stock_locate = {field_byte_at_lane(msg_start + 1), field_byte_at_lane(msg_start + 2)};
+            tracking_number = {field_byte_at_lane(msg_start + 3), field_byte_at_lane(msg_start + 4)};
+            timestamp = {
+                field_byte_at_lane(msg_start + 5), field_byte_at_lane(msg_start + 6),
+                field_byte_at_lane(msg_start + 7), field_byte_at_lane(msg_start + 8),
+                field_byte_at_lane(msg_start + 9), field_byte_at_lane(msg_start + 10)
+            };
+        end
 
-            if ((msg_type == ITCH_ADD_ORDER || msg_type == ITCH_ADD_ORDER_MP ||
-                 msg_type == ITCH_TRADE) && desc_message_length >= 16'd36) begin
-                side   = byte_at(msg_start + 19);
-                shares = {
-                    byte_at(msg_start + 20), byte_at(msg_start + 21),
-                    byte_at(msg_start + 22), byte_at(msg_start + 23)
-                };
+        if (has_order_ref(msg_type)) begin
+            order_ref = {
+                field_byte_at_lane(msg_start + 11), field_byte_at_lane(msg_start + 12),
+                field_byte_at_lane(msg_start + 13), field_byte_at_lane(msg_start + 14),
+                field_byte_at_lane(msg_start + 15), field_byte_at_lane(msg_start + 16),
+                field_byte_at_lane(msg_start + 17), field_byte_at_lane(msg_start + 18)
+            };
+        end
+
+        if (msg_type == ITCH_ADD_ORDER || msg_type == ITCH_ADD_ORDER_MP ||
+            msg_type == ITCH_TRADE) begin
+            side   = field_byte_at_lane(msg_start + 19);
+            shares = {
+                field_byte_at_lane(msg_start + 20), field_byte_at_lane(msg_start + 21),
+                field_byte_at_lane(msg_start + 22), field_byte_at_lane(msg_start + 23)
+            };
+            price = {
+                field_byte_at_lane(msg_start + 32), field_byte_at_lane(msg_start + 33),
+                field_byte_at_lane(msg_start + 34), field_byte_at_lane(msg_start + 35)
+            };
+        end else if (msg_type == ITCH_EXECUTED || msg_type == ITCH_EXEC_PRICE ||
+                     msg_type == ITCH_CANCEL) begin
+            shares = {
+                field_byte_at_lane(msg_start + 19), field_byte_at_lane(msg_start + 20),
+                field_byte_at_lane(msg_start + 21), field_byte_at_lane(msg_start + 22)
+            };
+            if (msg_type == ITCH_EXEC_PRICE) begin
                 price = {
-                    byte_at(msg_start + 32), byte_at(msg_start + 33),
-                    byte_at(msg_start + 34), byte_at(msg_start + 35)
-                };
-            end else if ((msg_type == ITCH_EXECUTED || msg_type == ITCH_EXEC_PRICE ||
-                          msg_type == ITCH_CANCEL) && desc_message_length >= 16'd23) begin
-                shares = {
-                    byte_at(msg_start + 19), byte_at(msg_start + 20),
-                    byte_at(msg_start + 21), byte_at(msg_start + 22)
-                };
-                if (msg_type == ITCH_EXEC_PRICE && desc_message_length >= 16'd36) begin
-                    price = {
-                        byte_at(msg_start + 32), byte_at(msg_start + 33),
-                        byte_at(msg_start + 34), byte_at(msg_start + 35)
-                    };
-                end
-            end else if (msg_type == ITCH_REPLACE && desc_message_length >= 16'd35) begin
-                shares = {
-                    byte_at(msg_start + 27), byte_at(msg_start + 28),
-                    byte_at(msg_start + 29), byte_at(msg_start + 30)
-                };
-                price = {
-                    byte_at(msg_start + 31), byte_at(msg_start + 32),
-                    byte_at(msg_start + 33), byte_at(msg_start + 34)
-                };
-            end else if (msg_type == ITCH_CROSS_TRADE && desc_message_length >= 16'd36) begin
-                price = {
-                    byte_at(msg_start + 32), byte_at(msg_start + 33),
-                    byte_at(msg_start + 34), byte_at(msg_start + 35)
+                    field_byte_at_lane(msg_start + 32), field_byte_at_lane(msg_start + 33),
+                    field_byte_at_lane(msg_start + 34), field_byte_at_lane(msg_start + 35)
                 };
             end
+        end else if (msg_type == ITCH_REPLACE) begin
+            shares = {
+                field_byte_at_lane(msg_start + 27), field_byte_at_lane(msg_start + 28),
+                field_byte_at_lane(msg_start + 29), field_byte_at_lane(msg_start + 30)
+            };
+            price = {
+                field_byte_at_lane(msg_start + 31), field_byte_at_lane(msg_start + 32),
+                field_byte_at_lane(msg_start + 33), field_byte_at_lane(msg_start + 34)
+            };
+        end else if (msg_type == ITCH_CROSS_TRADE) begin
+            price = {
+                field_byte_at_lane(msg_start + 32), field_byte_at_lane(msg_start + 33),
+                field_byte_at_lane(msg_start + 34), field_byte_at_lane(msg_start + 35)
+            };
         end
 
         event_data = pack_event(

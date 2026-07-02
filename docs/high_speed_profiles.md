@@ -51,21 +51,29 @@ All profiles use the same packet vectors and expected normalized event words.
   and 512 bytes.
 - cocotb adds Python-randomized repeated-packet, gap/stall, bad-frame, and
   truncated-packet checks around the 512-bit pipeline.
-- Vivado OOC scripts provide a first hook for resource and timing reports.
+- Vivado OOC scripts provide resource and timing reports. The 512-bit frontend
+  and integrated 512-bit pipeline meet a 3.102 ns OOC synthesis target on the
+  U50-class `xcu50-fsvh2104-2-e` UltraScale+ reference part. The integrated
+  pipeline also meets through a 2.100 ns OOC target on that part. The school
+  matrix wrapper in `tools/run_hft_ooc_matrix.sh` is the next comparison path
+  for U50/U55/Virtex UltraScale+ class targets.
 
 ## What This Does Not Claim
 
 The current adapter serializes valid byte lanes into the byte-oriented parser
 core. The newer 512-bit descriptor frontend, window buffer, and event extractor
-are wired together in a first-stage cut-through parallel pipeline, but this is
-not yet a proven sustained-line-rate parser.
+are wired together in a first-stage cut-through parallel pipeline, and OOC
+synthesis meets the 322 MHz-class target on a U50-class UltraScale+ reference
+part, with OOC clock-sweep headroom through about 476 MHz. This is still not a
+proven sustained-line-rate parser.
 
 A true line-rate design would need a more parallel frontend, such as:
 
-1. Reviewing Vivado OOC resource/timing reports.
-2. Packing normalized events independently from packet ingestion.
-3. Applying deeper backpressure without losing beat-level alignment.
-4. Closing timing at the MAC clock rate on the target FPGA.
+1. Packing normalized events independently from packet ingestion.
+2. Applying deeper backpressure without losing beat-level alignment.
+3. Integrating with a concrete 100G MAC/CMAC and board clocking shell.
+   `docs/cmac_integration.md` tracks the expected attachment boundary.
+4. Closing full implementation timing at the MAC clock rate on the target FPGA.
 
 This project intentionally separates those concerns. The current design proves
 protocol correctness and frontend-width portability first; a future line-rate
