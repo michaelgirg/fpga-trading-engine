@@ -264,11 +264,6 @@ module market_parser_512_frontend #(
                 beat_bad_frame_r        <= s_axis_rx_tuser_bad_frame;
                 beat_scan_base_offset_r <= accepted_base_offset;
                 beat_valid_lanes_r      <= 7'(accepted_valid_lanes);
-                if (s_axis_rx_tlast) begin
-                    beat_base_offset_r <= '0;
-                end else begin
-                    beat_base_offset_r <= 16'(int'(accepted_base_offset) + accepted_valid_lanes);
-                end
             end
 
             if (beat_valid_r && !cand_valid_r && !len_stage_valid_r) begin
@@ -371,6 +366,10 @@ module market_parser_512_frontend #(
 
                     if (beat_last_r) begin
                         in_packet_r            <= 1'b0;
+                        beat_base_offset_r     <= '0;
+                    end else begin
+                        beat_base_offset_r <= 16'(int'(beat_scan_base_offset_r) +
+                                                  int'(beat_valid_lanes_r));
                     end
                 end
             end
@@ -424,7 +423,11 @@ module market_parser_512_frontend #(
                 if (finish_beat) begin
                     beat_valid_r <= 1'b0;
                     if (beat_last_r) begin
-                        in_packet_r <= 1'b0;
+                        in_packet_r        <= 1'b0;
+                        beat_base_offset_r <= '0;
+                    end else begin
+                        beat_base_offset_r <= 16'(int'(beat_scan_base_offset_r) +
+                                                  int'(beat_valid_lanes_r));
                     end
                 end
             end
