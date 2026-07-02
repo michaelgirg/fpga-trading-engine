@@ -32,11 +32,13 @@ placed-and-routed board timing closure.
 
 | Part | Top | Period | Approx. frequency | WNS | TNS | Status |
 | :--- | :--- | ---: | ---: | ---: | ---: | :--- |
-| `xcu50-fsvh2104-2-e` | `market_parser_512_pipeline` | `3.102 ns` | 322 MHz | `1.091 ns` | `0.000 ns` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_512_pipeline` | `3.102 ns` | 322 MHz | `1.132 ns` | `0.000 ns` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_512_pipeline` | `2.750 ns` | 364 MHz | `0.739 ns` | `0.000 ns` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_512_pipeline` | `2.500 ns` | 400 MHz | `0.489 ns` | `0.000 ns` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_512_pipeline` | `2.250 ns` | 444 MHz | `0.239 ns` | `0.000 ns` | Meets |
-| `xcu50-fsvh2104-2-e` | `market_parser_512_pipeline` | `2.100 ns` | 476 MHz | `0.082 ns` | `0.000 ns` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_512_pipeline` | `2.200 ns` | 455 MHz | `0.230 ns` | `0.000 ns` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_512_pipeline` | `2.100 ns` | 476 MHz | `0.130 ns` | `0.000 ns` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_512_pipeline` | `2.050 ns` | 488 MHz | `0.080 ns` | `0.000 ns` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_512_pipeline` | `2.000 ns` | 500 MHz | `0.030 ns` | `0.000 ns` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_512_pipeline` | `1.950 ns` | 513 MHz | `-0.020 ns` | `-0.041 ns` | Near miss |
 
@@ -44,6 +46,26 @@ The integrated pipeline now closes at 2.000 ns / 500 MHz OOC on the U50-class
 target and misses 1.950 ns / 513 MHz by only 0.020 ns. The standalone frontend
 still misses 2.000 ns by 0.018 ns, but the integrated parser top is the
 interview/resume headline.
+
+## U50 CMAC-Facing Shell Sweep
+
+This top includes the Ethernet II / IPv4 / UDP header strip and payload
+realignment shell in front of `market_parser_512_system`. The important target
+is the 3.102 ns 100G CMAC user-clock class; the 2.1 ns and 2.0 ns rows are
+stress sweeps, not required CMAC operating points.
+
+| Part | Top | Period | Approx. frequency | WNS | TNS | LUTs | Registers | Status |
+| :--- | :--- | ---: | ---: | ---: | ---: | :--- | :--- | :--- |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_system` | `3.102 ns` | 322 MHz | `0.265 ns` | `0.000 ns` | `21723 / 871680 (2.49%)` | `18170 / 1743360 (1.04%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_system` | `2.200 ns` | 455 MHz | `-0.637 ns` | `-157.722 ns` | `21888 / 871680 (2.51%)` | `18170 / 1743360 (1.04%)` | Does not close |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_system` | `2.100 ns` | 476 MHz | `-0.737 ns` | `-569.690 ns` | `21888 / 871680 (2.51%)` | `18170 / 1743360 (1.04%)` | Does not close |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_system` | `2.050 ns` | 488 MHz | `-0.787 ns` | `-779.328 ns` | `21888 / 871680 (2.51%)` | `18170 / 1743360 (1.04%)` | Does not close |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_system` | `2.000 ns` | 500 MHz | `-0.837 ns` | `-991.538 ns` | `21888 / 871680 (2.51%)` | `18170 / 1743360 (1.04%)` | Does not close |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_system` | `1.950 ns` | 513 MHz | `-0.887 ns` | `-1212.754 ns` | `21888 / 871680 (2.51%)` | `18170 / 1743360 (1.04%)` | Does not close |
+
+The shell result shows the board-facing path closes at the realistic 512-bit
+100G receive clock with margin. The 500 MHz result should remain attached to
+the parser pipeline itself, not the full Ethernet header-strip shell.
 
 ## School Vivado Matrix Command
 

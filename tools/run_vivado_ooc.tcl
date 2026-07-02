@@ -42,6 +42,7 @@ set rtl_files [list \
     rtl/market_parser_axis_adapter.sv \
     rtl/market_parser_64.sv \
     rtl/market_parser_100g_ingress.sv \
+    rtl/market_parser_udp_payload_strip.sv \
     rtl/market_parser_512_boundary_scan.sv \
     rtl/market_parser_512_frontend.sv \
     rtl/market_parser_512_event_extract.sv \
@@ -51,6 +52,7 @@ set rtl_files [list \
     rtl/market_parser_512_pipeline_fifo.sv \
     rtl/market_parser_axi_lite_regs.sv \
     rtl/market_parser_512_system.sv \
+    rtl/market_parser_100g_cmac_system.sv \
 ]
 
 puts "Market Parser Vivado OOC synthesis"
