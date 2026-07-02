@@ -55,6 +55,12 @@ module market_parser_100g_cmac_system #(
     output logic [31:0]       cmac_payload_packet_count,
     output logic [15:0]       cmac_payload_fifo_level
 );
+    logic         strip_rx_tvalid;
+    logic         strip_rx_tready;
+    logic [511:0] strip_rx_tdata;
+    logic [ 63:0] strip_rx_tkeep;
+    logic         strip_rx_tlast;
+    logic         strip_rx_tuser_bad_frame;
     logic         payload_tvalid;
     logic         payload_tready;
     logic [511:0] payload_tdata;
@@ -68,18 +74,38 @@ module market_parser_100g_cmac_system #(
     logic         parser_payload_tlast;
     logic         parser_payload_tuser_bad_frame;
 
+    market_parser_axis_register_slice #(
+        .DATA_WIDTH(512),
+        .KEEP_WIDTH(64)
+    ) cmac_rx_slice_i (
+        .clk                   (clk),
+        .rst                   (rst),
+        .s_axis_tvalid         (s_axis_cmac_rx_tvalid),
+        .s_axis_tready         (s_axis_cmac_rx_tready),
+        .s_axis_tdata          (s_axis_cmac_rx_tdata),
+        .s_axis_tkeep          (s_axis_cmac_rx_tkeep),
+        .s_axis_tlast          (s_axis_cmac_rx_tlast),
+        .s_axis_tuser_bad_frame(s_axis_cmac_rx_tuser_bad_frame),
+        .m_axis_tvalid         (strip_rx_tvalid),
+        .m_axis_tready         (strip_rx_tready),
+        .m_axis_tdata          (strip_rx_tdata),
+        .m_axis_tkeep          (strip_rx_tkeep),
+        .m_axis_tlast          (strip_rx_tlast),
+        .m_axis_tuser_bad_frame(strip_rx_tuser_bad_frame)
+    );
+
     market_parser_udp_payload_strip #(
         .FEED_UDP_PORT(FEED_UDP_PORT),
         .FIFO_DEPTH   (STRIP_FIFO_DEPTH)
     ) payload_strip_i (
         .clk                            (clk),
         .rst                            (rst),
-        .s_axis_rx_tvalid               (s_axis_cmac_rx_tvalid),
-        .s_axis_rx_tready               (s_axis_cmac_rx_tready),
-        .s_axis_rx_tdata                (s_axis_cmac_rx_tdata),
-        .s_axis_rx_tkeep                (s_axis_cmac_rx_tkeep),
-        .s_axis_rx_tlast                (s_axis_cmac_rx_tlast),
-        .s_axis_rx_tuser_bad_frame      (s_axis_cmac_rx_tuser_bad_frame),
+        .s_axis_rx_tvalid               (strip_rx_tvalid),
+        .s_axis_rx_tready               (strip_rx_tready),
+        .s_axis_rx_tdata                (strip_rx_tdata),
+        .s_axis_rx_tkeep                (strip_rx_tkeep),
+        .s_axis_rx_tlast                (strip_rx_tlast),
+        .s_axis_rx_tuser_bad_frame      (strip_rx_tuser_bad_frame),
         .m_axis_payload_tvalid          (payload_tvalid),
         .m_axis_payload_tready          (payload_tready),
         .m_axis_payload_tdata           (payload_tdata),

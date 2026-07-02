@@ -30,6 +30,12 @@ The integration wrapper is `market_parser_100g_cmac_system`. It accepts a
 the UDP payload so MoldUDP64 byte 0 lands on parser lane 0, and exposes simple
 accepted/drop/header-error/payload counters.
 
+The raw CMAC stream is registered before the header-strip block and again before
+the parser system. Those slices are intentional implementation boundaries:
+they keep the wide CMAC-facing stream local to the packet filter and avoid a
+single routed path from board-shell RX flops through UDP realignment into the
+payload FIFO.
+
 The current filter intentionally targets the common low-latency feed shape:
 Ethernet II, IPv4 without options, UDP, no VLAN tag, and no IP fragmentation.
 VLAN, IPv6, IP options, RSS/flow steering, checksum policy, and full board
