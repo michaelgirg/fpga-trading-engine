@@ -75,8 +75,9 @@ single-symbol book within the target CMAC user-clock class.
 ## Next Timing Check
 
 The 2.750 ns row misses by only 87 ps, so it is the best diagnostic point for
-timing cleanup. Pull the worst setup path from that report before changing RTL.
-If the path is in the packet-strip / parser shell, use a small register slice or
-decoupling FIFO. If it is in top-of-book state, reduce the table path or add a
-registered event boundary. The 2.000 ns parser-core result remains a parser
-pipeline headline, not a requirement for this full packet-to-book shell.
+timing cleanup. The first failing path runs from the UDP payload-strip FIFO
+`tkeep` output into the parser frontend beat-offset update, so the CMAC system
+now inserts a one-deep AXI-stream register slice between the payload stripper
+and parser system. The next timing run should recheck 2.750 ns first, then 2.500
+ns if 2.750 ns closes. The 2.000 ns parser-core result remains a parser pipeline
+headline, not a requirement for this full packet-to-book shell.

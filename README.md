@@ -63,6 +63,7 @@ market_parser/
     market_parser.sv
     market_parser_axis_adapter.sv
     market_parser_64.sv
+    market_parser_axis_register_slice.sv
     market_parser_100g_ingress.sv
     market_parser_512_boundary_scan.sv
     market_parser_512_frontend.sv

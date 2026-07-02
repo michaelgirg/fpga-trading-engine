@@ -2,6 +2,7 @@ rtl/market_parser_pkg.sv
 rtl/market_parser.sv
 rtl/market_parser_axis_adapter.sv
 rtl/market_parser_64.sv
+rtl/market_parser_axis_register_slice.sv
 rtl/market_parser_100g_ingress.sv
 rtl/market_parser_udp_payload_strip.sv
 rtl/market_parser_512_boundary_scan.sv

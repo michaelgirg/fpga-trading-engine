@@ -61,6 +61,12 @@ module market_parser_100g_cmac_system #(
     logic [ 63:0] payload_tkeep;
     logic         payload_tlast;
     logic         payload_tuser_bad_frame;
+    logic         parser_payload_tvalid;
+    logic         parser_payload_tready;
+    logic [511:0] parser_payload_tdata;
+    logic [ 63:0] parser_payload_tkeep;
+    logic         parser_payload_tlast;
+    logic         parser_payload_tuser_bad_frame;
 
     market_parser_udp_payload_strip #(
         .FEED_UDP_PORT(FEED_UDP_PORT),
@@ -87,6 +93,26 @@ module market_parser_100g_cmac_system #(
         .payload_fifo_level             (cmac_payload_fifo_level)
     );
 
+    market_parser_axis_register_slice #(
+        .DATA_WIDTH(512),
+        .KEEP_WIDTH(64)
+    ) payload_slice_i (
+        .clk                   (clk),
+        .rst                   (rst),
+        .s_axis_tvalid         (payload_tvalid),
+        .s_axis_tready         (payload_tready),
+        .s_axis_tdata          (payload_tdata),
+        .s_axis_tkeep          (payload_tkeep),
+        .s_axis_tlast          (payload_tlast),
+        .s_axis_tuser_bad_frame(payload_tuser_bad_frame),
+        .m_axis_tvalid         (parser_payload_tvalid),
+        .m_axis_tready         (parser_payload_tready),
+        .m_axis_tdata          (parser_payload_tdata),
+        .m_axis_tkeep          (parser_payload_tkeep),
+        .m_axis_tlast          (parser_payload_tlast),
+        .m_axis_tuser_bad_frame(parser_payload_tuser_bad_frame)
+    );
+
     market_parser_512_system #(
         .PACKET_BEATS_MAX        (PACKET_BEATS_MAX),
         .DESC_FIFO_DEPTH         (DESC_FIFO_DEPTH),
@@ -96,12 +122,12 @@ module market_parser_100g_cmac_system #(
     ) parser_system_i (
         .clk                       (clk),
         .rst                       (rst),
-        .s_axis_rx_tvalid          (payload_tvalid),
-        .s_axis_rx_tready          (payload_tready),
-        .s_axis_rx_tdata           (payload_tdata),
-        .s_axis_rx_tkeep           (payload_tkeep),
-        .s_axis_rx_tlast           (payload_tlast),
-        .s_axis_rx_tuser_bad_frame (payload_tuser_bad_frame),
+        .s_axis_rx_tvalid          (parser_payload_tvalid),
+        .s_axis_rx_tready          (parser_payload_tready),
+        .s_axis_rx_tdata           (parser_payload_tdata),
+        .s_axis_rx_tkeep           (parser_payload_tkeep),
+        .s_axis_rx_tlast           (parser_payload_tlast),
+        .s_axis_rx_tuser_bad_frame (parser_payload_tuser_bad_frame),
         .event_valid               (event_valid),
         .event_ready               (event_ready),
         .event_data                (event_data),
