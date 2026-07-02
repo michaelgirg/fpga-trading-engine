@@ -71,6 +71,9 @@ For the default 16-entry table this adds a small, deterministic multi-cycle
 latency after applied events, but keeps the FPGA timing path short enough for
 the 100G user-clock target.
 
+On `xcu50-fsvh2104-2-e`, out-of-context Vivado synthesis closes the 3.102 ns /
+322 MHz target with WNS `0.605 ns`, using 1413 LUTs and 3146 registers.
+
 ## Validation
 
 `market_parser_top_of_book_tb` drives synthetic normalized events through add,

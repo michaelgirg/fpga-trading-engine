@@ -67,6 +67,20 @@ The shell result shows the board-facing path closes at the realistic 512-bit
 100G receive clock with margin. The 500 MHz result should remain attached to
 the parser pipeline itself, not the full Ethernet header-strip shell.
 
+## U50 Top-Of-Book Engine
+
+`market_parser_top_of_book` consumes normalized ITCH events and maintains a
+small single-symbol book. The first version used a one-cycle full-table
+recompute and did not close 3.102 ns. The current implementation uses iterative
+lookup and quote recompute.
+
+| Part | Top | Period | Approx. frequency | WNS | TNS | LUTs | Registers | Status |
+| :--- | :--- | ---: | ---: | ---: | ---: | :--- | :--- | :--- |
+| `xcu50-fsvh2104-2-e` | `market_parser_top_of_book` | `3.102 ns` | 322 MHz | `0.605 ns` | `0.000 ns` | `1413 / 871680 (0.16%)` | `3146 / 1743360 (0.18%)` | Meets |
+
+This result shows the trading-oriented post-parser book block closes the same
+100G user-clock target as the CMAC-facing shell.
+
 ## School Vivado Matrix Command
 
 On the school Linux host:
