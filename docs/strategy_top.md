@@ -42,6 +42,11 @@ containing a MoldUDP64 payload with three ITCH Add Order messages. The test
 drives the raw 512-bit frame into the top and checks the resulting bid/ask
 quote stream plus CMAC and book counters.
 
+The same test also loads a generated replay packet and expected quote stream
+from `verification/vectors/`. Those expected quotes come from the Python
+`TopOfBookModel` golden model, so the RTL book is checked against independent
+software state rather than hardcoded waveform expectations.
+
 The current smoke case proves:
 
 - accepted raw feed frame count increments once;
@@ -50,6 +55,8 @@ The current smoke case proves:
 - three quote updates are emitted for initial bid, initial ask, and better bid;
 - no ingress drops, parser header errors, ignored book events, or table
   overflows occur.
+- replayed add, execute, cancel, delete, replace, trade, wrong-symbol, and
+  unknown-message cases match the Python golden quote stream and counters.
 
 ## Vivado Timing Result
 

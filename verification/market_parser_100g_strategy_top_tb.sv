@@ -6,7 +6,8 @@
 // End-to-end smoke test for the strategy-facing top:
 // raw Ethernet/IPv4/UDP frame -> MoldUDP64/ITCH parser -> top-of-book quote.
 module market_parser_100g_strategy_top_tb #(
-    parameter realtime CLK_PERIOD = 3.102ns
+    parameter realtime CLK_PERIOD = 3.102ns,
+    parameter string   VECTOR_DIR = "verification/vectors"
 );
     localparam realtime HALF_CLK_PERIOD = CLK_PERIOD / 2.0;
     localparam logic [15:0] FEED_UDP_PORT = 16'd5000;
@@ -20,6 +21,8 @@ module market_parser_100g_strategy_top_tb #(
     localparam int RAW_PACKET_BYTES = HEADER_BYTES + MOLD_PACKET_BYTES;
     localparam int RX_BYTES_PER_BEAT = 64;
     localparam int EXPECTED_RAW_BEATS = (RAW_PACKET_BYTES + RX_BYTES_PER_BEAT - 1) / RX_BYTES_PER_BEAT;
+
+`include "verification/vectors/top_book_replay_meta.svh"
 
     typedef logic [7:0] byte_t;
 
@@ -79,6 +82,8 @@ module market_parser_100g_strategy_top_tb #(
 
     byte_t mold_packet_mem[MOLD_PACKET_BYTES];
     byte_t raw_packet_mem  [RAW_PACKET_BYTES];
+    byte_t replay_raw_packet_mem[TOP_BOOK_REPLAY_RAW_PACKET_BYTES];
+    logic [191:0] expected_quote_mem[TOP_BOOK_REPLAY_EXPECTED_QUOTES];
 
     market_parser_100g_strategy_top #(
         .FEED_UDP_PORT      (FEED_UDP_PORT),
@@ -164,6 +169,16 @@ module market_parser_100g_strategy_top_tb #(
         repeat (6) @(posedge clk);
         rst = 1'b0;
         repeat (3) @(posedge clk);
+    endtask
+
+    task automatic load_replay_vectors();
+        string raw_path;
+        string quote_path;
+
+        raw_path   = {VECTOR_DIR, "/top_book_replay_raw_packet.hex"};
+        quote_path = {VECTOR_DIR, "/top_book_replay_expected_quotes.hex"};
+        $readmemh(raw_path, replay_raw_packet_mem);
+        $readmemh(quote_path, expected_quote_mem);
     endtask
 
     task automatic put_byte(ref int offset, input byte_t value);
@@ -387,6 +402,26 @@ module market_parser_100g_strategy_top_tb #(
         quote_ready = 1'b0;
     endtask
 
+    task automatic expect_quote_word(input logic [191:0] exp_quote,
+                                     input string msg);
+        logic [15:0] exp_stock_locate;
+        logic [31:0] exp_bid_price;
+        logic [31:0] exp_bid_shares;
+        logic [31:0] exp_ask_price;
+        logic [31:0] exp_ask_shares;
+        logic [47:0] exp_timestamp;
+
+        exp_stock_locate = exp_quote[15:0];
+        exp_bid_price    = exp_quote[47:16];
+        exp_bid_shares   = exp_quote[79:48];
+        exp_ask_price    = exp_quote[111:80];
+        exp_ask_shares   = exp_quote[143:112];
+        exp_timestamp    = exp_quote[191:144];
+
+        check(exp_stock_locate == TARGET_STOCK_LOCATE, {msg, " expected stock locate"});
+        expect_quote(exp_bid_price, exp_bid_shares, exp_ask_price, exp_ask_shares, exp_timestamp, msg);
+    endtask
+
     initial begin : run_tests
         passed = 0;
         failed = 0;
@@ -419,6 +454,36 @@ module market_parser_100g_strategy_top_tb #(
         check(book_ignored_event_count == 32'd0, "strategy top book ignored-event counter");
         check(book_table_overflow_count == 32'd0, "strategy top book overflow counter");
         check(book_quote_update_count == 32'd3, "strategy top book quote-update counter");
+
+        reset_dut();
+        ingress_stall_cycles_seen = 0;
+        raw_beat_count = 0;
+        load_replay_vectors();
+        send_packet_100g_burst(TOP_BOOK_REPLAY_RAW_PACKET_BYTES, replay_raw_packet_mem);
+
+        for (int quote_idx = 0; quote_idx < TOP_BOOK_REPLAY_EXPECTED_QUOTES; quote_idx++) begin
+            expect_quote_word(expected_quote_mem[quote_idx],
+                              $sformatf("golden replay quote %0d", quote_idx));
+        end
+
+        repeat (30) @(posedge clk);
+        check(ingress_stall_cycles_seen == 0, "golden replay accepts frame with no input stalls");
+        check(raw_beat_count == TOP_BOOK_REPLAY_EXPECTED_RAW_BEATS, "golden replay raw beat count");
+        check(cmac_accepted_frame_count == 32'd1, "golden replay accepted-frame counter");
+        check(cmac_payload_packet_count == 32'd1, "golden replay payload-packet counter");
+        check(cmac_dropped_frame_count == 32'd0, "golden replay drop counter stays zero");
+        check(cmac_header_error_count == 32'd0, "golden replay header-error counter stays zero");
+        check(cmac_payload_fifo_level == 16'd0, "golden replay payload FIFO drains");
+        check(book_accepted_event_count == 32'(TOP_BOOK_REPLAY_EXPECTED_EVENTS),
+              "golden replay book accepted-event counter");
+        check(book_applied_event_count == 32'(TOP_BOOK_REPLAY_EXPECTED_APPLIED),
+              "golden replay book applied-event counter");
+        check(book_ignored_event_count == 32'(TOP_BOOK_REPLAY_EXPECTED_IGNORED),
+              "golden replay book ignored-event counter");
+        check(book_table_overflow_count == 32'(TOP_BOOK_REPLAY_EXPECTED_OVERFLOW),
+              "golden replay book overflow counter");
+        check(book_quote_update_count == 32'(TOP_BOOK_REPLAY_EXPECTED_QUOTES),
+              "golden replay book quote-update counter");
 
         $display("========================================================");
         $display("Tests passed: %0d", passed);

@@ -144,7 +144,7 @@ AXI adapter profile tests passed: 66
 512-bit pipeline FIFO/stress tests passed: 247
 512-bit system / AXI-Lite tests passed: 49
 Top-of-book tests passed: 70
-100G strategy top tests passed: 34
+100G strategy top tests passed: 118
 Tests failed: 0
 Errors: 0, Warnings: 0
 ```
@@ -248,8 +248,9 @@ shell target.
 
 ## Test Vector Generation
 
-The Python helper creates deterministic MoldUDP64/ITCH packets and the expected
-normalized event words:
+The Python helper creates deterministic MoldUDP64/ITCH packets, expected
+normalized event words, and a golden-model top-of-book replay packet used by
+the 100G strategy-top regression:
 
 ```powershell
 python tools/generate_vectors.py
@@ -257,8 +258,8 @@ python tools/generate_vectors.py
 
 ## Pre-Hardware Next Build Steps
 
-1. Add larger replay-style strategy tests and a Python golden-model book checker.
-2. Integrate with actual AMD CMAC IP, clocking, resets, and board constraints.
-3. Run full implementation timing on the selected U50/U55-class board target.
+1. Integrate with actual AMD CMAC IP, clocking, resets, and board constraints.
+2. Run full implementation timing on the selected U50/U55-class board target.
+3. Expand replay coverage toward longer session-style book traces and malformed market-data frames.
 4. Use the 1.950 ns parser near miss as an optional timing cleanup target.
 5. Keep the ZedBoard wrapper and software demo as a separate optional functional hardware track.
