@@ -17,6 +17,7 @@ rtl/market_parser_512_system.sv
 rtl/market_parser_100g_cmac_system.sv
 rtl/market_parser_top_of_book.sv
 rtl/market_parser_100g_strategy_top.sv
+rtl/market_parser_100g_strategy_impl_harness.sv
 verification/market_parser_tb.sv
 verification/market_parser_64_tb.sv
 verification/market_parser_axis_adapter_tb.sv

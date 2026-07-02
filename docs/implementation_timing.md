@@ -11,11 +11,15 @@ non-project Vivado implementation flow for that purpose:
 - `tools/probe_cmac_ip.tcl` records the CMAC/100G/Ethernet IP definitions
   visible in the school Vivado install for the chosen part.
 
-The first routed target should be `market_parser_100g_strategy_top` at
-`3.102 ns` on `xcu50-fsvh2104-2-e`. That checks the full raw-packet-to-book
-RTL shell at the 100G user-clock class. If it passes, run `2.500 ns` and
-`2.350 ns` as stress points. If it fails, inspect `post_place_timing_summary.rpt`
-and `timing_summary.rpt` before changing RTL.
+The first routed target should be `market_parser_100g_strategy_impl_harness` at
+`3.102 ns` on `xcu50-fsvh2104-2-e`. The harness keeps
+`market_parser_100g_strategy_top` internal, drives a generated replay packet
+through its CMAC-style RX stream, and exposes only `clk`, `rst`, and a compact
+status hash as package pins. That avoids meaningless IO-placement failure from
+trying to assign every debug counter and 512-bit stream lane to package pins.
+If it passes, run `2.500 ns` and `2.350 ns` as stress points. If it fails,
+inspect `post_place_timing_summary.rpt` and `timing_summary.rpt` before
+changing RTL.
 
 This is still an RTL implementation flow, not a finished Alveo shell. The CMAC
 probe is intentionally separate because the actual IP wrapper depends on the

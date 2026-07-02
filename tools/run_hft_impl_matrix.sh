@@ -32,7 +32,7 @@ if ! command -v vivado >/dev/null 2>&1; then
 fi
 
 PARTS=${MARKET_PARSER_PARTS:-"xcu50-fsvh2104-2-e"}
-TOPS=${MARKET_PARSER_TOPS:-"market_parser_100g_strategy_top"}
+TOPS=${MARKET_PARSER_TOPS:-"market_parser_100g_strategy_impl_harness"}
 PERIODS=${MARKET_PARSER_PERIODS:-"3.102 2.500 2.350"}
 SYNTH_DIRECTIVE=${MARKET_PARSER_SYNTH_DIRECTIVE:-"RuntimeOptimized"}
 PLACE_DIRECTIVE=${MARKET_PARSER_PLACE_DIRECTIVE:-"Explore"}

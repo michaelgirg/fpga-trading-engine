@@ -77,6 +77,7 @@ market_parser/
     market_parser_100g_cmac_system.sv
     market_parser_top_of_book.sv
     market_parser_100g_strategy_top.sv
+    market_parser_100g_strategy_impl_harness.sv
   verification/
     market_parser_tb.sv
     market_parser_64_tb.sv
