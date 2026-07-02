@@ -56,6 +56,21 @@ Output is an explicit quote update:
 The module uses ready/valid on both sides and stalls event input while a quote
 update is pending or while the book is recomputing.
 
+## Timing Architecture
+
+The first version used a full combinational order-table scan to recompute best
+bid and ask after each applied event. That simulated correctly, but synthesized
+as a long comparator/adder chain. The current implementation is intentionally
+iterative:
+
+- One table entry is checked per cycle during order lookup.
+- One table entry is checked per cycle during quote recompute.
+- Event input is backpressured during lookup/recompute.
+
+For the default 16-entry table this adds a small, deterministic multi-cycle
+latency after applied events, but keeps the FPGA timing path short enough for
+the 100G user-clock target.
+
 ## Validation
 
 `market_parser_top_of_book_tb` drives synthetic normalized events through add,
