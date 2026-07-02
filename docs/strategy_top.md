@@ -55,11 +55,18 @@ The current smoke case proves:
 
 School Vivado 2024.2 OOC synthesis closes `market_parser_100g_strategy_top` on
 the U50-class `xcu50-fsvh2104-2-e` part at the 3.102 ns / 322 MHz 100G
-user-clock target:
+user-clock target. A follow-up sweep shows the combined packet-to-book path is
+close to 2.750 ns, but does not close above the 100G target without additional
+timing work:
 
-| Period | Approx. frequency | WNS | TNS | LUTs | Registers | BRAM | DSP |
-| ---: | ---: | ---: | ---: | :--- | :--- | :--- | :--- |
-| `3.102 ns` | 322 MHz | `0.265 ns` | `0.000 ns` | `23086 / 871680 (2.65%)` | `21294 / 1743360 (1.22%)` | `0 / 1344 (0.00%)` | `0 / 5952 (0.00%)` |
+| Period | Approx. frequency | WNS | TNS | LUTs | Registers | Status |
+| ---: | ---: | ---: | ---: | :--- | :--- | :--- |
+| `3.102 ns` | 322 MHz | `0.265 ns` | `0.000 ns` | `23086 / 871680 (2.65%)` | `21294 / 1743360 (1.22%)` | Meets |
+| `2.750 ns` | 364 MHz | `-0.087 ns` | `-0.366 ns` | `23267 / 871680 (2.67%)` | `21294 / 1743360 (1.22%)` | Near miss |
+| `2.500 ns` | 400 MHz | `-0.337 ns` | `-2.732 ns` | `23268 / 871680 (2.67%)` | `21295 / 1743360 (1.22%)` | Does not close |
+| `2.250 ns` | 444 MHz | `-0.587 ns` | `-6.716 ns` | `23268 / 871680 (2.67%)` | `21295 / 1743360 (1.22%)` | Does not close |
+| `2.100 ns` | 476 MHz | `-0.737 ns` | `-568.394 ns` | `23268 / 871680 (2.67%)` | `21295 / 1743360 (1.22%)` | Does not close |
+| `2.000 ns` | 500 MHz | `-0.837 ns` | `-1011.505 ns` | `23268 / 871680 (2.67%)` | `21295 / 1743360 (1.22%)` | Does not close |
 
 This is the current packet-to-book timing milestone: a raw 100G-style feed
 frame can be stripped, parsed into normalized ITCH events, and applied to the
@@ -67,7 +74,9 @@ single-symbol book within the target CMAC user-clock class.
 
 ## Next Timing Check
 
-The next useful hardware step is no longer proving the standalone strategy top
-at 3.102 ns; that passes. The next checks are actual board-level integration
-work: AMD CMAC IP, clock/reset constraints, implementation timing, and larger
-replay-style traffic stress.
+The 2.750 ns row misses by only 87 ps, so it is the best diagnostic point for
+timing cleanup. Pull the worst setup path from that report before changing RTL.
+If the path is in the packet-strip / parser shell, use a small register slice or
+decoupling FIFO. If it is in top-of-book state, reduce the table path or add a
+registered event boundary. The 2.000 ns parser-core result remains a parser
+pipeline headline, not a requirement for this full packet-to-book shell.

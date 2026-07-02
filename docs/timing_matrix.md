@@ -92,11 +92,18 @@ feed frames. The target for this combined top is still the 3.102 ns / 322 MHz
 | Part | Top | Period | Approx. frequency | WNS | TNS | LUTs | Registers | Status |
 | :--- | :--- | ---: | ---: | ---: | ---: | :--- | :--- | :--- |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_top` | `3.102 ns` | 322 MHz | `0.265 ns` | `0.000 ns` | `23086 / 871680 (2.65%)` | `21294 / 1743360 (1.22%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_top` | `2.750 ns` | 364 MHz | `-0.087 ns` | `-0.366 ns` | `23267 / 871680 (2.67%)` | `21294 / 1743360 (1.22%)` | Near miss |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_top` | `2.500 ns` | 400 MHz | `-0.337 ns` | `-2.732 ns` | `23268 / 871680 (2.67%)` | `21295 / 1743360 (1.22%)` | Does not close |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_top` | `2.250 ns` | 444 MHz | `-0.587 ns` | `-6.716 ns` | `23268 / 871680 (2.67%)` | `21295 / 1743360 (1.22%)` | Does not close |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_top` | `2.100 ns` | 476 MHz | `-0.737 ns` | `-568.394 ns` | `23268 / 871680 (2.67%)` | `21295 / 1743360 (1.22%)` | Does not close |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_top` | `2.000 ns` | 500 MHz | `-0.837 ns` | `-1011.505 ns` | `23268 / 871680 (2.67%)` | `21295 / 1743360 (1.22%)` | Does not close |
 
 This is the current full-system OOC milestone: 100G-style packet ingress,
 Ethernet/IP/UDP stripping, MoldUDP64/ITCH parsing, normalized event buffering,
 and top-of-book quote generation all meet the 322 MHz target in one combined
-top.
+top. The 2.750 ns near miss is the right report to inspect for future timing
+cleanup because it exposes the limiting setup path without the much larger
+endpoint fanout seen at 2.100 ns and 2.000 ns.
 
 ## School Vivado Matrix Command
 
