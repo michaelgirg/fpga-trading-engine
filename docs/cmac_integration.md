@@ -95,8 +95,8 @@ before wiring a wrapper.
 ## CMAC UltraScale+ Probe Result
 
 The July 3, 2026 school Vivado 2024.2 probe successfully created
-`cmac_usplus:3.1` for `xcu50-fsvh2104-2-e` and generated an instantiation
-template. The default IP configuration is important:
+`cmac_usplus:3.1` for `xcu50-fsvh2104-2-e` and generated instantiation
+templates. The default IP configuration is important:
 
 - `CONFIG.USER_INTERFACE = LBUS`
 - `CONFIG.ENABLE_AXIS = 0`
@@ -108,20 +108,25 @@ template. The default IP configuration is important:
 - `CONFIG.RX_FRAME_CRC_CHECKING = Enable FCS Stripping`
 - `CONFIG.RX_MAX_PACKET_LEN = 9600`
 
-That means the checked-in AXI-stream-style CMAC shell is currently the parser's
-internal packet interface, not yet proof that the default AMD CMAC template can
-be wired directly into it. The next probe should explicitly request the AXIS
-user interface:
+The AXIS-requested probe was also accepted:
+
+- `CONFIG.USER_INTERFACE = AXIS`
+- `CONFIG.ENABLE_AXIS = 1`
+- generated `cmac_usplus_0.veo`
+- generated `cmac_usplus_0.vho`
+
+Use this command shape to regenerate the AXIS template:
 
 ```bash
 vivado -mode batch -source tools/probe_cmac_usplus_config.tcl \
   -tclargs xcu50-fsvh2104-2-e cmac_usplus_0 AXIS
 ```
 
-If Vivado accepts `CONFIG.USER_INTERFACE = AXIS`, the generated template becomes
-the preferred production wrapper boundary. If the selected board shell stays on
-LBUS, add a thin LBUS-to-AXI-stream receive adapter ahead of
-`market_parser_100g_cmac_system`.
+The generated AXIS template is the preferred production wrapper boundary for
+the next integration pass. If a selected board shell later exposes only LBUS,
+add a thin LBUS-to-AXI-stream receive adapter ahead of
+`market_parser_100g_cmac_system`; the school U50 IP itself can produce an AXIS
+boundary.
 
 ## Minimum Board Shell
 
@@ -152,9 +157,8 @@ A first real hardware integration should include:
    regressions with the shell attached.
 5. Use `tools/probe_cmac_ip.tcl` to record the CMAC/100G IP definitions visible
    in the selected Vivado install.
-6. Use `tools/probe_cmac_usplus_config.tcl` to record the `cmac_usplus:3.1`
-   configuration properties and instantiation template in both default and
-   AXIS-requested modes.
+6. Extract the generated AXIS `.veo` port list and wire the RX side into a
+   vendor-IP wrapper around `market_parser_100g_cmac_system`.
 7. Keep `tools/run_hft_impl_matrix.sh` as the routed RTL harness regression for
    the selected school-supported part.
 8. Replace the harness boundary with actual CMAC IP, board clocks, resets, and
