@@ -78,6 +78,20 @@ The routed implementation harness for the full strategy path also closes this
 a compact board-like IO surface; it is implementation evidence for the RTL
 path, not a replacement for actual CMAC IP and board constraints.
 
+The school Vivado 2024.2 IP catalog for `xcu50-fsvh2104-2-e` includes the
+UltraScale+ CMAC IP needed for a real board shell:
+
+- `xilinx.com:ip:cmac_usplus:3.1`
+- `xilinx.com:ip:cmac:2.6`
+- `xilinx.com:ip:dcmac:2.5`
+- related Ethernet IP such as `xxv_ethernet`, `l_ethernet`, and
+  `ethernet_1_10_25g`
+
+For the U50-class UltraScale+ target, `cmac_usplus:3.1` is the likely next IP
+boundary. Use `tools/probe_cmac_usplus_config.tcl` to dump the exact core
+properties and generated instantiation template from the school Vivado install
+before wiring a wrapper.
+
 ## Minimum Board Shell
 
 A first real hardware integration should include:
@@ -105,11 +119,13 @@ A first real hardware integration should include:
    regressions with the shell attached.
 5. Use `tools/probe_cmac_ip.tcl` to record the CMAC/100G IP definitions visible
    in the selected Vivado install.
-6. Keep `tools/run_hft_impl_matrix.sh` as the routed RTL harness regression for
+6. Use `tools/probe_cmac_usplus_config.tcl` to record the `cmac_usplus:3.1`
+   configuration properties and instantiation template.
+7. Keep `tools/run_hft_impl_matrix.sh` as the routed RTL harness regression for
    the selected school-supported part.
-7. Replace the harness boundary with actual CMAC IP, board clocks, resets, and
+8. Replace the harness boundary with actual CMAC IP, board clocks, resets, and
    constraints.
-8. Only after board-constrained timing closes, add board traffic tests using replayed UDP payloads
+9. Only after board-constrained timing closes, add board traffic tests using replayed UDP payloads
    and verify counters/events through the management plane.
 
 The key claim should stay precise: the repo now has a 512-bit parser

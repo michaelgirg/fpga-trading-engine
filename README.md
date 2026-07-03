@@ -98,6 +98,7 @@ market_parser/
     itch_packets.py
     generate_vectors.py
     probe_cmac_ip.tcl
+    probe_cmac_usplus_config.tcl
     run_hft_impl_matrix.sh
     run_vivado_ooc.ps1
     run_vivado_ooc.tcl

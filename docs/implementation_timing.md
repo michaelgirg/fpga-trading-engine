@@ -10,6 +10,9 @@ non-project Vivado implementation flow for that purpose:
   style as the OOC matrix.
 - `tools/probe_cmac_ip.tcl` records the CMAC/100G/Ethernet IP definitions
   visible in the school Vivado install for the chosen part.
+- `tools/probe_cmac_usplus_config.tcl` creates a local `cmac_usplus:3.1` IP
+  instance and records its configurable properties/template for the selected
+  part.
 
 The first routed target is `market_parser_100g_strategy_impl_harness` at
 `3.102 ns` on `xcu50-fsvh2104-2-e`. The harness keeps
@@ -44,6 +47,10 @@ This is still an RTL implementation flow, not a finished Alveo shell. The CMAC
 probe is intentionally separate because the actual IP wrapper depends on the
 available Vivado IP definition, board shell, GT placement, reference clocks,
 resets, and management interface.
+
+The U50-class school install exposes `xilinx.com:ip:cmac_usplus:3.1`, so the
+next implementation-realism step is probing that exact IP configuration and
+then replacing the harness source with the generated CMAC RX boundary.
 
 ## Report Files
 
