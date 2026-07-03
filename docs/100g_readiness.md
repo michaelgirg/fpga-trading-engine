@@ -32,10 +32,11 @@ timing:
 - `market_parser_512_pipeline`: WNS `1.091 ns`, TNS `0.000 ns`,
   CLB LUTs `12326 / 871680`, CLB registers `12700 / 1743360`.
 
-The U50-class report is an OOC synthesis result with Vivado's standard
-out-of-context clock-source warning. It is strong evidence that the architecture
-is realistic for an UltraScale+ 100G-class target, but it is still not full
-placed-and-routed board-level timing closure.
+The U50-class OOC report is strong evidence that the architecture is realistic
+for an UltraScale+ 100G-class target. The repo also now has a routed
+implementation harness result for the full packet-to-book strategy path at the
+same 3.102 ns / 322 MHz target: WNS `0.000 ns`, TNS `0.000 ns`, 18492 LUTs, and
+21194 registers on `xcu50-fsvh2104-2-e`.
 
 A U50-class OOC clock sweep for `market_parser_512_pipeline` shows useful
 headroom beyond the 100G-facing 322 MHz target:
@@ -131,6 +132,8 @@ checks that the ingress side accepts the burst without stalls.
 - Verilator tooling hook for open-source linting.
 - Vivado out-of-context synthesis script for `market_parser_512_system` or any
   selected parser top.
+- Routed Vivado implementation harness for the full strategy path, closing the
+  3.102 ns / 322 MHz U50-class 100G target.
 
 ## What Still Blocks True Sustained 100G Parsing
 
@@ -140,7 +143,8 @@ eligible events before packet end. That is a real cut-through architecture
 milestone, and the repo now has back-to-back/FIFO-pressure stress coverage.
 It is still not a proven sustained-worst-case 100G parser: it uses a
 packet-local window store with a four-beat/256-byte default extraction window,
-and has not been through implementation timing closure.
+and the routed result is an implementation harness rather than a complete board
+design with real CMAC IP and board constraints.
 
 To make the parser itself sustained-line-rate capable, the next architecture
 step is proving the integrated parallel path through implementation-style
@@ -152,8 +156,8 @@ checks:
 3. Add deeper event FIFO buffering, more burst-depth sweeps, and 512-byte
    long-payload stress cases.
 4. Integrate against a concrete 100G MAC/CMAC shell and board clocking model.
-5. Prove full implementation timing at the selected 100G MAC user clock on the
-   target FPGA.
+5. Repeat routed implementation timing with the actual CMAC IP boundary and
+   board constraints.
 
 ## Honest Interview Summary
 
@@ -163,6 +167,6 @@ descriptor frontend, parallel event extraction block, and integrated
 cut-through 512-bit event pipeline are in place. The project also has a
 pre-hardware AXI-Lite management wrapper, which makes it easier to explain how
 software would control and observe the parser. The remaining production steps
-are broader school-target timing comparison, deeper burst/payload stress, 100G
-MAC integration, full implementation timing closure, and a separate optional
-ZedBoard functional demo.
+are broader school-target timing comparison, deeper burst/payload stress, real
+100G MAC integration, board-constrained implementation timing, and a separate
+optional ZedBoard functional demo.

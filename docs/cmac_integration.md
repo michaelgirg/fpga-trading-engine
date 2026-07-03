@@ -72,6 +72,12 @@ Out-of-context synthesis on `xcu50-fsvh2104-2-e` shows
 the full header-strip shell; those frequencies are parser-core stress targets
 rather than required 100G CMAC shell targets.
 
+The routed implementation harness for the full strategy path also closes this
+3.102 ns target post-route on `xcu50-fsvh2104-2-e` with WNS `0.000 ns` and TNS
+`0.000 ns`. That harness keeps the full packet-to-book logic internal and uses
+a compact board-like IO surface; it is implementation evidence for the RTL
+path, not a replacement for actual CMAC IP and board constraints.
+
 ## Minimum Board Shell
 
 A first real hardware integration should include:
@@ -99,12 +105,14 @@ A first real hardware integration should include:
    regressions with the shell attached.
 5. Use `tools/probe_cmac_ip.tcl` to record the CMAC/100G IP definitions visible
    in the selected Vivado install.
-6. Implement the full RTL shell with `tools/run_hft_impl_matrix.sh` on the
-   selected school-supported part and compare post-route WNS/TNS against the
-   OOC timing matrix.
-7. Only after timing closes, add board traffic tests using replayed UDP payloads
+6. Keep `tools/run_hft_impl_matrix.sh` as the routed RTL harness regression for
+   the selected school-supported part.
+7. Replace the harness boundary with actual CMAC IP, board clocks, resets, and
+   constraints.
+8. Only after board-constrained timing closes, add board traffic tests using replayed UDP payloads
    and verify counters/events through the management plane.
 
 The key claim should stay precise: the repo now has a 512-bit parser
-architecture that closes OOC on a realistic U50-class target, plus a CMAC-facing
+architecture that closes OOC on a realistic U50-class target, a routed RTL
+implementation harness that closes the 100G user-clock class, and a CMAC-facing
 Ethernet/IP/UDP ingress shell. It is not yet a finished trading NIC.

@@ -46,7 +46,9 @@ takes raw 100G-style Ethernet/IP/UDP feed frames through payload stripping,
 MoldUDP64/ITCH parsing, normalized event buffering, and single-symbol
 top-of-book quote generation. On the same U50-class target it meets the 3.102
 ns / 322 MHz target with WNS `0.776 ns` and closes 2.350 ns / 426 MHz, while
-2.300 ns / 435 MHz misses by only `0.026 ns`.
+2.300 ns / 435 MHz misses by only `0.026 ns`. A routed implementation harness
+for that full strategy path also closes the 3.102 ns target post-route after
+adding a CMAC RX register slice before payload stripping.
 
 That does not pretend to be a finished 100G trading NIC; it shows the right
 interface boundary, buffering, observability, and parallel parsing stages needed
@@ -64,8 +66,9 @@ back-to-back packet stress, FIFO-pressure accounting, 128/256/512-byte
 extraction-window sweeps, cocotb randomized checks, a CMAC-facing packet shell,
 and a top-of-book quote path. Vivado OOC synthesis meets a 3.102 ns target on a
 U50-class UltraScale+ reference part for the full packet-to-book strategy top,
-and the parser pipeline closes through `2.000 ns` / 500 MHz on that same
-reference target.
+the routed implementation harness closes that same 100G target post-route, and
+the parser pipeline closes through `2.000 ns` / 500 MHz on the same reference
+target.
 
 ## What To Emphasize
 
@@ -86,8 +89,8 @@ The byte-serial parser remains the mature golden correctness path. The 512-bit
 parallel path is now cut-through within a packet and uses a four-beat/256-byte
 default packet-local extraction window with 128/256/512-byte sweep coverage,
 and OOC synthesis meets a 3.102 ns target on a U50-class UltraScale+ reference
-part, with sweep headroom through 2.100 ns. That is not full placed-and-routed
-board timing closure or a completed 100G MAC integration. The next production
-steps are actual AMD CMAC IP integration, board-level clock/reset constraints,
-full implementation timing closure, larger replay-style book tests, broader
+part, with sweep headroom through 2.100 ns. The routed implementation harness
+also closes the 3.102 ns / 322 MHz target, but it is still not a completed 100G
+MAC integration. The next production steps are actual AMD CMAC IP integration,
+board-level clock/reset constraints, larger replay-style book tests, broader
 school-target timing comparison, and optional 1.950 ns parser timing cleanup.

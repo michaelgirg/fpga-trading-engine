@@ -11,15 +11,30 @@ non-project Vivado implementation flow for that purpose:
 - `tools/probe_cmac_ip.tcl` records the CMAC/100G/Ethernet IP definitions
   visible in the school Vivado install for the chosen part.
 
-The first routed target should be `market_parser_100g_strategy_impl_harness` at
+The first routed target is `market_parser_100g_strategy_impl_harness` at
 `3.102 ns` on `xcu50-fsvh2104-2-e`. The harness keeps
 `market_parser_100g_strategy_top` internal, drives a generated replay packet
 through its CMAC-style RX stream, and exposes only `clk`, `rst`, and a compact
 status hash as package pins. That avoids meaningless IO-placement failure from
 trying to assign every debug counter and 512-bit stream lane to package pins.
-If it passes, run `2.500 ns` and `2.350 ns` as stress points. If it fails,
-inspect `post_place_timing_summary.rpt` and `timing_summary.rpt` before
-changing RTL.
+
+## Measured Routed Result
+
+Vivado 2024.2 post-route implementation on the school U50-class target closes
+the 100G user-clock class after adding a CMAC RX register slice before payload
+stripping:
+
+| Part | Top | Period | Frequency | WNS | TNS | LUTs | Registers | Status |
+| :--- | :--- | ---: | ---: | ---: | ---: | :--- | :--- | :--- |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_impl_harness` | `3.102 ns` | 322.4 MHz | `0.000 ns` | `0.000 ns` | `18492 / 871680 (2.12%)` | `21194 / 1743360 (1.22%)` | Meets |
+
+The prior routed attempt failed with a path from raw CMAC `tkeep` into the UDP
+payload-strip FIFO write logic. Registering the CMAC RX stream before header
+strip creates the intended implementation boundary and removes the false
+board-pin/debug-port placement problem.
+
+Follow-up stress points can use `2.500 ns` and `2.350 ns`, but the key routed
+milestone is the `3.102 ns` / 322 MHz pass.
 
 This is still an RTL implementation flow, not a finished Alveo shell. The CMAC
 probe is intentionally separate because the actual IP wrapper depends on the

@@ -7,9 +7,9 @@ realistic 100G-class FPGA, not the ZedBoard. Zynq-7020 remains useful as a
 functional demo target, but it does not close the 512-bit path at the
 322 MHz-class 100G-facing clock.
 
-All numbers below are out-of-context Vivado synthesis reports. They are useful
-architecture evidence and regression targets, but they are not full
-placed-and-routed board timing closure.
+Most numbers below are out-of-context Vivado synthesis reports. They are useful
+architecture evidence and regression targets. The routed implementation section
+captures the stronger post-route harness result at the 100G user-clock target.
 
 ## Measured Results
 
@@ -109,6 +109,22 @@ top. After adding a payload register slice and staging the frontend beat-offset
 update, the same top also closes 2.350 ns / 426 MHz and misses 2.300 ns /
 435 MHz by only 26 ps.
 
+## Routed Implementation Harness
+
+`market_parser_100g_strategy_impl_harness` keeps the full strategy top internal,
+drives a generated replay packet through the CMAC-style RX stream, and exposes
+only a small board-like IO surface. This avoids trying to place every debug
+counter and 512-bit stream lane as package pins while still routing the full
+packet-to-book datapath.
+
+| Part | Top | Period | Approx. frequency | WNS | TNS | LUTs | Registers | Status |
+| :--- | :--- | ---: | ---: | ---: | ---: | :--- | :--- | :--- |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_impl_harness` | `3.102 ns` | 322 MHz | `0.000 ns` | `0.000 ns` | `18492 / 871680 (2.12%)` | `21194 / 1743360 (1.22%)` | Meets |
+
+This is the current routed implementation milestone for the HFT path. It uses
+the checked-in implementation harness and closes the 100G user-clock class after
+adding a CMAC RX register slice before the UDP payload-strip block.
+
 ## School Vivado Matrix Command
 
 On the school Linux host:
@@ -143,6 +159,6 @@ matrix across the school-installed 100G-class parts:
 | Alveo U55N/U55C-class | `xcu55n-fsvh2892-2L-e`, `xcu55c-fsvh2892-2L-e` | More realistic high-end network accelerator comparison. |
 | Virtex UltraScale+ | `xcvu45p-fsvh2104-2-e` | Larger FPGA fabric target with the same parser architecture. |
 
-Once a board target is selected, the next step is full implementation timing
-with the actual CMAC, clocking, resets, packet-header strip logic, and floorplan
-constraints.
+Once a board target is selected, the next step is replacing the harness boundary
+with the actual CMAC IP, clocking, resets, packet-header strip logic, and
+floorplan constraints.

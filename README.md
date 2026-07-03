@@ -250,6 +250,11 @@ with WNS `0.024 ns` and near-misses `2.300 ns` / 435 MHz by `0.026 ns`, so
 500 MHz remains the parser-pipeline headline rather than the full packet-to-book
 shell target.
 
+A routed implementation harness for the full strategy path now also closes the
+3.102 ns / 322 MHz target on the same U50-class part after registering the CMAC
+RX stream before UDP payload stripping. The post-route result reports WNS
+`0.000 ns`, TNS `0.000 ns`, 18492 LUTs, 21194 registers, and no BRAM/DSP usage.
+
 ## Test Vector Generation
 
 The Python helper creates deterministic MoldUDP64/ITCH packets, expected
@@ -262,8 +267,8 @@ python tools/generate_vectors.py
 
 ## Pre-Hardware Next Build Steps
 
-1. Run the checked-in implementation timing flow on the selected U50/U55-class board target.
-2. Probe the school Vivado CMAC/100G IP catalog and pick the concrete board-shell IP boundary.
-3. Integrate with actual AMD CMAC IP, clocking, resets, and board constraints.
+1. Probe the school Vivado CMAC/100G IP catalog and pick the concrete board-shell IP boundary.
+2. Integrate with actual AMD CMAC IP, clocking, resets, and board constraints.
+3. Run the routed implementation flow again with the real CMAC boundary.
 4. Use the 1.950 ns parser near miss as an optional timing cleanup target.
 5. Keep the ZedBoard wrapper and software demo as a separate optional functional hardware track.
