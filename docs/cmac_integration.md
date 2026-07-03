@@ -36,6 +36,12 @@ they keep the wide CMAC-facing stream local to the packet filter and avoid a
 single routed path from board-shell RX flops through UDP realignment into the
 payload FIFO.
 
+The UDP payload-strip block also stages the accepted RX beat and predecodes the
+valid-byte/header fields before writing its payload FIFO. That stage is a timing
+boundary for the generated CMAC AXIS wrapper path, where Vivado otherwise built
+a long path from RX `tkeep` through byte-count/header logic into the payload
+FIFO write controls.
+
 The current filter intentionally targets the common low-latency feed shape:
 Ethernet II, IPv4 without options, UDP, no VLAN tag, and no IP fragmentation.
 VLAN, IPv6, IP options, RSS/flow steering, checksum policy, and full board
