@@ -17,12 +17,15 @@ rtl/market_parser_512_system.sv
 rtl/market_parser_100g_cmac_system.sv
 rtl/market_parser_top_of_book.sv
 rtl/market_parser_100g_strategy_top.sv
+rtl/market_parser_cmac_axis_rx_bridge.sv
+rtl/market_parser_100g_cmac_axis_strategy_top.sv
 rtl/market_parser_100g_strategy_impl_harness.sv
 verification/market_parser_tb.sv
 verification/market_parser_64_tb.sv
 verification/market_parser_axis_adapter_tb.sv
 verification/market_parser_100g_ingress_tb.sv
 verification/market_parser_100g_cmac_system_tb.sv
+verification/market_parser_cmac_axis_rx_bridge_tb.sv
 verification/market_parser_512_boundary_scan_tb.sv
 verification/market_parser_512_frontend_tb.sv
 verification/market_parser_512_event_extract_tb.sv

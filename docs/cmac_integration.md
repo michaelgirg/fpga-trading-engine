@@ -128,13 +128,30 @@ add a thin LBUS-to-AXI-stream receive adapter ahead of
 `market_parser_100g_cmac_system`; the school U50 IP itself can produce an AXIS
 boundary.
 
+The generated AXIS RX port list has:
+
+- `rx_axis_tvalid`
+- `rx_axis_tdata[511:0]`
+- `rx_axis_tkeep[63:0]`
+- `rx_axis_tlast`
+- `rx_axis_tuser`
+- no `rx_axis_tready`
+
+Because the real CMAC RX stream cannot be backpressured, the repo now includes
+`market_parser_cmac_axis_rx_bridge`. It buffers complete CMAC RX packets before
+presenting them to the existing ready/valid shell, and drops a whole current
+packet if the buffer fills so the parser never sees a truncated frame. The
+wrapper `market_parser_100g_cmac_axis_strategy_top` is the owned RTL boundary
+for wiring the generated CMAC AXIS template into the packet-to-book strategy
+path.
+
 ## Minimum Board Shell
 
 A first real hardware integration should include:
 
 - CMAC example design or board shell with RX statistics exposed.
-- AXIS CMAC RX template wiring, or an LBUS-to-AXI-stream adapter if the board
-  shell exposes LBUS.
+- AXIS CMAC RX template wiring into `market_parser_100g_cmac_axis_strategy_top`,
+  or an LBUS-to-AXI-stream adapter if a later board shell exposes only LBUS.
 - The checked-in `market_parser_100g_cmac_system` shell for Ethernet/IP/UDP
   filtering and MoldUDP64 payload realignment.
 - Payload FIFO sizing review for the selected CMAC backpressure behavior.
@@ -157,8 +174,8 @@ A first real hardware integration should include:
    regressions with the shell attached.
 5. Use `tools/probe_cmac_ip.tcl` to record the CMAC/100G IP definitions visible
    in the selected Vivado install.
-6. Extract the generated AXIS `.veo` port list and wire the RX side into a
-   vendor-IP wrapper around `market_parser_100g_cmac_system`.
+6. Run OOC synthesis on `market_parser_100g_cmac_axis_strategy_top` to measure
+   the no-backpressure CMAC RX boundary before adding the generated vendor IP.
 7. Keep `tools/run_hft_impl_matrix.sh` as the routed RTL harness regression for
    the selected school-supported part.
 8. Replace the harness boundary with actual CMAC IP, board clocks, resets, and

@@ -65,6 +65,7 @@ market_parser/
     market_parser_64.sv
     market_parser_axis_register_slice.sv
     market_parser_100g_ingress.sv
+    market_parser_udp_payload_strip.sv
     market_parser_512_boundary_scan.sv
     market_parser_512_frontend.sv
     market_parser_512_event_extract.sv
@@ -77,12 +78,16 @@ market_parser/
     market_parser_100g_cmac_system.sv
     market_parser_top_of_book.sv
     market_parser_100g_strategy_top.sv
+    market_parser_cmac_axis_rx_bridge.sv
+    market_parser_100g_cmac_axis_strategy_top.sv
     market_parser_100g_strategy_impl_harness.sv
   verification/
     market_parser_tb.sv
     market_parser_64_tb.sv
     market_parser_axis_adapter_tb.sv
     market_parser_100g_ingress_tb.sv
+    market_parser_100g_cmac_system_tb.sv
+    market_parser_cmac_axis_rx_bridge_tb.sv
     market_parser_512_boundary_scan_tb.sv
     market_parser_512_frontend_tb.sv
     market_parser_512_event_extract_tb.sv
@@ -251,6 +256,11 @@ with WNS `0.024 ns` and near-misses `2.300 ns` / 435 MHz by `0.026 ns`, so
 500 MHz remains the parser-pipeline headline rather than the full packet-to-book
 shell target.
 
+The school Vivado `cmac_usplus:3.1` probe confirms an AXIS RX template is
+available for the U50-class part. The generated RX stream has no `tready`, so
+`market_parser_100g_cmac_axis_strategy_top` adds a packet-preserving CMAC RX
+buffer before the packet-to-book strategy path.
+
 A routed implementation harness for the full strategy path now also closes the
 3.102 ns / 322 MHz target on the same U50-class part after registering the CMAC
 RX stream before UDP payload stripping. The post-route result reports WNS
@@ -268,9 +278,8 @@ python tools/generate_vectors.py
 
 ## Pre-Hardware Next Build Steps
 
-1. Extract the generated AXIS `cmac_usplus:3.1` `.veo` port list; the school
-   U50 probe accepts `CONFIG.USER_INTERFACE = AXIS` with `ENABLE_AXIS = 1`.
-2. Integrate with actual AMD CMAC IP, clocking, resets, and board constraints.
+1. Run OOC synthesis on `market_parser_100g_cmac_axis_strategy_top`.
+2. Integrate the generated AMD CMAC AXIS IP, clocking, resets, and board constraints.
 3. Run the routed implementation flow again with the real CMAC boundary.
 4. Use the 1.950 ns parser near miss as an optional timing cleanup target.
 5. Keep the ZedBoard wrapper and software demo as a separate optional functional hardware track.
