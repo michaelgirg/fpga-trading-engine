@@ -92,11 +92,44 @@ boundary. Use `tools/probe_cmac_usplus_config.tcl` to dump the exact core
 properties and generated instantiation template from the school Vivado install
 before wiring a wrapper.
 
+## CMAC UltraScale+ Probe Result
+
+The July 3, 2026 school Vivado 2024.2 probe successfully created
+`cmac_usplus:3.1` for `xcu50-fsvh2104-2-e` and generated an instantiation
+template. The default IP configuration is important:
+
+- `CONFIG.USER_INTERFACE = LBUS`
+- `CONFIG.ENABLE_AXIS = 0`
+- `CONFIG.CLOCKING_MODE = Asynchronous`
+- `CONFIG.GT_TYPE = GTY`
+- `CONFIG.GT_REF_CLK_FREQ = 156.25`
+- `CONFIG.NUM_LANES = 10x10`
+- `CONFIG.INCLUDE_RS_FEC = 0`
+- `CONFIG.RX_FRAME_CRC_CHECKING = Enable FCS Stripping`
+- `CONFIG.RX_MAX_PACKET_LEN = 9600`
+
+That means the checked-in AXI-stream-style CMAC shell is currently the parser's
+internal packet interface, not yet proof that the default AMD CMAC template can
+be wired directly into it. The next probe should explicitly request the AXIS
+user interface:
+
+```bash
+vivado -mode batch -source tools/probe_cmac_usplus_config.tcl \
+  -tclargs xcu50-fsvh2104-2-e cmac_usplus_0 AXIS
+```
+
+If Vivado accepts `CONFIG.USER_INTERFACE = AXIS`, the generated template becomes
+the preferred production wrapper boundary. If the selected board shell stays on
+LBUS, add a thin LBUS-to-AXI-stream receive adapter ahead of
+`market_parser_100g_cmac_system`.
+
 ## Minimum Board Shell
 
 A first real hardware integration should include:
 
 - CMAC example design or board shell with RX statistics exposed.
+- AXIS CMAC RX template wiring, or an LBUS-to-AXI-stream adapter if the board
+  shell exposes LBUS.
 - The checked-in `market_parser_100g_cmac_system` shell for Ethernet/IP/UDP
   filtering and MoldUDP64 payload realignment.
 - Payload FIFO sizing review for the selected CMAC backpressure behavior.
@@ -120,7 +153,8 @@ A first real hardware integration should include:
 5. Use `tools/probe_cmac_ip.tcl` to record the CMAC/100G IP definitions visible
    in the selected Vivado install.
 6. Use `tools/probe_cmac_usplus_config.tcl` to record the `cmac_usplus:3.1`
-   configuration properties and instantiation template.
+   configuration properties and instantiation template in both default and
+   AXIS-requested modes.
 7. Keep `tools/run_hft_impl_matrix.sh` as the routed RTL harness regression for
    the selected school-supported part.
 8. Replace the harness boundary with actual CMAC IP, board clocks, resets, and

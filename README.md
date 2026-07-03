@@ -268,8 +268,10 @@ python tools/generate_vectors.py
 
 ## Pre-Hardware Next Build Steps
 
-1. Probe the school Vivado CMAC/100G IP catalog and pick the concrete board-shell IP boundary.
-2. Integrate with actual AMD CMAC IP, clocking, resets, and board constraints.
+1. Rerun the `cmac_usplus:3.1` probe with an explicit AXIS user-interface
+   request; the default U50 probe came up as LBUS with AXIS disabled.
+2. Integrate with actual AMD CMAC IP, clocking, resets, and board constraints,
+   or add an LBUS-to-AXI-stream RX adapter if the selected shell exposes LBUS.
 3. Run the routed implementation flow again with the real CMAC boundary.
 4. Use the 1.950 ns parser near miss as an optional timing cleanup target.
 5. Keep the ZedBoard wrapper and software demo as a separate optional functional hardware track.

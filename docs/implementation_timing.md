@@ -48,9 +48,13 @@ probe is intentionally separate because the actual IP wrapper depends on the
 available Vivado IP definition, board shell, GT placement, reference clocks,
 resets, and management interface.
 
-The U50-class school install exposes `xilinx.com:ip:cmac_usplus:3.1`, so the
-next implementation-realism step is probing that exact IP configuration and
-then replacing the harness source with the generated CMAC RX boundary.
+The U50-class school install exposes `xilinx.com:ip:cmac_usplus:3.1`. The first
+configuration probe successfully created the IP and generated an instantiation
+template, with the default core using `CONFIG.USER_INTERFACE = LBUS` and
+`CONFIG.ENABLE_AXIS = 0`. The next implementation-realism step is to rerun the
+probe with an explicit AXIS request, or otherwise add an LBUS-to-AXI-stream
+receive adapter before replacing the harness source with the generated CMAC RX
+boundary.
 
 ## Report Files
 
