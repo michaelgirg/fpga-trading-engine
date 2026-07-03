@@ -143,7 +143,9 @@ presenting them to the existing ready/valid shell, and drops a whole current
 packet if the buffer fills so the parser never sees a truncated frame. The
 wrapper `market_parser_100g_cmac_axis_strategy_top` is the owned RTL boundary
 for wiring the generated CMAC AXIS template into the packet-to-book strategy
-path.
+path. The default bridge depth is 16 beats to match the current
+`PACKET_BEATS_MAX` timing target; larger RX buffers should be swept separately
+once the board traffic profile and acceptable overflow policy are fixed.
 
 ## Minimum Board Shell
 
