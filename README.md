@@ -265,8 +265,9 @@ After staging the UDP payload-strip predecode path, the CMAC AXIS strategy
 boundary also closes OOC at the 3.102 ns / 322 MHz target on
 `xcu50-fsvh2104-2-e`: `market_parser_100g_cmac_axis_strategy_top` reports WNS
 `0.384 ns`, TNS `0.000 ns`, 23524 LUTs, 23123 registers, and no BRAM/DSP usage.
-This is the source-level handoff point for a generated `cmac_usplus` AXIS RX
-instance.
+A stress sweep for the same boundary closes `2.750 ns` / 364 MHz with WNS
+`0.032 ns`, then misses `2.500 ns` / 400 MHz by `0.218 ns`. This is the
+source-level handoff point for a generated `cmac_usplus` AXIS RX instance.
 
 A routed implementation harness for the full strategy path now also closes the
 3.102 ns / 322 MHz target on the same U50-class part after registering the CMAC
@@ -285,8 +286,8 @@ python tools/generate_vectors.py
 
 ## Pre-Hardware Next Build Steps
 
-1. Stress-sweep `market_parser_100g_cmac_axis_strategy_top` below 3.102 ns to
-   measure margin after the UDP-strip pipeline fix.
+1. Inspect the `2.500 ns` CMAC AXIS boundary miss to decide whether another
+   small pipeline cut is worth it.
 2. Integrate the generated AMD CMAC AXIS IP, clocking, resets, and board constraints.
 3. Run the routed implementation flow again with the real CMAC boundary.
 4. Use the 1.950 ns parser near miss as an optional timing cleanup target.

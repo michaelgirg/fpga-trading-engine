@@ -162,11 +162,16 @@ wrapper closes OOC on the school U50-class target at the 3.102 ns / 322 MHz
 | Part | Top | Period | WNS | TNS | LUTs | Registers | Status |
 | :--- | :--- | ---: | ---: | ---: | :--- | :--- | :--- |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `3.102 ns` | `0.384 ns` | `0.000 ns` | `23524 / 871680 (2.70%)` | `23123 / 1743360 (1.33%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.750 ns` | `0.032 ns` | `0.000 ns` | `23706 / 871680 (2.72%)` | `23123 / 1743360 (1.33%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.500 ns` | `-0.218 ns` | `-0.852 ns` | `23712 / 871680 (2.72%)` | `23124 / 1743360 (1.33%)` | Stress miss |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.350 ns` | `-0.368 ns` | `-198.292 ns` | `23712 / 871680 (2.72%)` | `23124 / 1743360 (1.33%)` | Stress miss |
 
 This pass covers the source-only CMAC AXIS RX bridge, UDP strip/realignment,
 MoldUDP64/ITCH parser pipeline, event buffering, and top-of-book strategy path.
-It is still an OOC RTL result, not a placed vendor-CMAC board design, but it is
-the right source-level boundary for the generated `cmac_usplus` AXIS template.
+The same boundary closes through 2.750 ns / 364 MHz and misses 2.500 ns /
+400 MHz by 0.218 ns. It is still an OOC RTL result, not a placed vendor-CMAC
+board design, but it is the right source-level boundary for the generated
+`cmac_usplus` AXIS template.
 
 ## Minimum Board Shell
 

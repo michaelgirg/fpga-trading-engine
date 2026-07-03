@@ -121,11 +121,16 @@ the UDP-strip and parser path.
 | Part | Top | Period | Approx. frequency | WNS | TNS | LUTs | Registers | Status |
 | :--- | :--- | ---: | ---: | ---: | ---: | :--- | :--- | :--- |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `3.102 ns` | 322 MHz | `0.384 ns` | `0.000 ns` | `23524 / 871680 (2.70%)` | `23123 / 1743360 (1.33%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.750 ns` | 364 MHz | `0.032 ns` | `0.000 ns` | `23706 / 871680 (2.72%)` | `23123 / 1743360 (1.33%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.500 ns` | 400 MHz | `-0.218 ns` | `-0.852 ns` | `23712 / 871680 (2.72%)` | `23124 / 1743360 (1.33%)` | Stress miss |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.350 ns` | 426 MHz | `-0.368 ns` | `-198.292 ns` | `23712 / 871680 (2.72%)` | `23124 / 1743360 (1.33%)` | Stress miss |
 
 The first CMAC AXIS wrapper build missed this target with a long path from RX
 `tkeep` through UDP header/payload realignment into the payload FIFO controls.
 Staging the accepted UDP-strip beat and predecoding valid-byte/header fields
-turned that path into a clean 3.102 ns OOC pass.
+turned that path into a clean 3.102 ns OOC pass. The same boundary now closes
+through 2.750 ns / 364 MHz and exposes the next timing wall at 2.500 ns /
+400 MHz.
 
 ## Routed Implementation Harness
 
