@@ -153,6 +153,21 @@ path. The default bridge depth is 16 beats to match the current
 `PACKET_BEATS_MAX` timing target; larger RX buffers should be swept separately
 once the board traffic profile and acceptable overflow policy are fixed.
 
+## CMAC AXIS Boundary Timing
+
+After staging the UDP payload-strip predecode path, the CMAC AXIS strategy
+wrapper closes OOC on the school U50-class target at the 3.102 ns / 322 MHz
+100G user-clock target:
+
+| Part | Top | Period | WNS | TNS | LUTs | Registers | Status |
+| :--- | :--- | ---: | ---: | ---: | :--- | :--- | :--- |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `3.102 ns` | `0.384 ns` | `0.000 ns` | `23524 / 871680 (2.70%)` | `23123 / 1743360 (1.33%)` | Meets |
+
+This pass covers the source-only CMAC AXIS RX bridge, UDP strip/realignment,
+MoldUDP64/ITCH parser pipeline, event buffering, and top-of-book strategy path.
+It is still an OOC RTL result, not a placed vendor-CMAC board design, but it is
+the right source-level boundary for the generated `cmac_usplus` AXIS template.
+
 ## Minimum Board Shell
 
 A first real hardware integration should include:
@@ -182,8 +197,9 @@ A first real hardware integration should include:
    regressions with the shell attached.
 5. Use `tools/probe_cmac_ip.tcl` to record the CMAC/100G IP definitions visible
    in the selected Vivado install.
-6. Run OOC synthesis on `market_parser_100g_cmac_axis_strategy_top` to measure
-   the no-backpressure CMAC RX boundary before adding the generated vendor IP.
+6. Keep `market_parser_100g_cmac_axis_strategy_top` in the OOC matrix as the
+   no-backpressure CMAC RX boundary regression before adding the generated
+   vendor IP.
 7. Keep `tools/run_hft_impl_matrix.sh` as the routed RTL harness regression for
    the selected school-supported part.
 8. Replace the harness boundary with actual CMAC IP, board clocks, resets, and

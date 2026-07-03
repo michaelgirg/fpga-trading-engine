@@ -20,6 +20,7 @@ captures the stronger post-route harness result at the 100G user-clock target.
 | U50-class HFT reference | `xcu50-fsvh2104-2-e` | `market_parser_512_frontend` | `3.102 ns` | 322 MHz | `0.872 ns` | `0.000 ns` | Meets |
 | U50-class HFT reference | `xcu50-fsvh2104-2-e` | `market_parser_512_pipeline` | `3.102 ns` | 322 MHz | `1.091 ns` | `0.000 ns` | Meets |
 | U50-class HFT reference | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_top` | `3.102 ns` | 322 MHz | `0.776 ns` | `0.000 ns` | Meets |
+| U50-class HFT reference | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `3.102 ns` | 322 MHz | `0.384 ns` | `0.000 ns` | Meets |
 
 ## U50 Frontend Clock Sweep
 
@@ -108,6 +109,23 @@ and top-of-book quote generation all meet the 322 MHz target in one combined
 top. After adding a payload register slice and staging the frontend beat-offset
 update, the same top also closes 2.350 ns / 426 MHz and misses 2.300 ns /
 435 MHz by only 26 ps.
+
+## CMAC AXIS Strategy Boundary
+
+`market_parser_100g_cmac_axis_strategy_top` wraps the packet-to-book strategy
+path with the source-only CMAC AXIS RX bridge needed by the school
+`cmac_usplus:3.1` AXIS template. The generated CMAC RX stream has no `tready`,
+so this top buffers complete packets before presenting ready/valid traffic to
+the UDP-strip and parser path.
+
+| Part | Top | Period | Approx. frequency | WNS | TNS | LUTs | Registers | Status |
+| :--- | :--- | ---: | ---: | ---: | ---: | :--- | :--- | :--- |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `3.102 ns` | 322 MHz | `0.384 ns` | `0.000 ns` | `23524 / 871680 (2.70%)` | `23123 / 1743360 (1.33%)` | Meets |
+
+The first CMAC AXIS wrapper build missed this target with a long path from RX
+`tkeep` through UDP header/payload realignment into the payload FIFO controls.
+Staging the accepted UDP-strip beat and predecoding valid-byte/header fields
+turned that path into a clean 3.102 ns OOC pass.
 
 ## Routed Implementation Harness
 

@@ -53,9 +53,17 @@ configuration probe successfully created the IP and generated an instantiation
 template, with the default core using `CONFIG.USER_INTERFACE = LBUS` and
 `CONFIG.ENABLE_AXIS = 0`. A follow-up AXIS-requested probe also succeeded with
 `CONFIG.USER_INTERFACE = AXIS` and `CONFIG.ENABLE_AXIS = 1`, generating both
-`.veo` and `.vho` templates. The next implementation-realism step is extracting
-the AXIS template port list and replacing the harness source with the generated
-CMAC RX boundary.
+`.veo` and `.vho` templates. The generated AXIS RX side exposes `tvalid`,
+`tdata`, `tkeep`, `tlast`, and `tuser`, but no `tready`, so the repo now
+includes a source-only CMAC AXIS RX bridge and
+`market_parser_100g_cmac_axis_strategy_top` wrapper.
+
+The CMAC AXIS strategy wrapper closes OOC at `3.102 ns` / 322.4 MHz on
+`xcu50-fsvh2104-2-e` with WNS `0.384 ns`, TNS `0.000 ns`, 23524 LUTs, 23123
+registers, and no BRAM/DSP usage after staging the UDP payload-strip predecode
+path. The next implementation-realism step is replacing the source-only wrapper
+boundary with the generated CMAC IP, board clock/reset wiring, and constraints,
+then rerunning routed implementation.
 
 ## Report Files
 

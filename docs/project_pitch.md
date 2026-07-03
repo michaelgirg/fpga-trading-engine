@@ -3,8 +3,8 @@
 ## One-Sentence Summary
 
 This project is a SystemVerilog FPGA market-data parser for Nasdaq
-MoldUDP64/ITCH, built as a simulation-first feed-handler core with a path toward
-ZedBoard demonstration and 100G-capable frontend architecture.
+MoldUDP64/ITCH, built as a simulation-first feed-handler core with a U50-class
+100G-capable frontend architecture and optional ZedBoard demo path.
 
 ## Interview Pitch
 
@@ -48,7 +48,10 @@ top-of-book quote generation. On the same U50-class target it meets the 3.102
 ns / 322 MHz target with WNS `0.776 ns` and closes 2.350 ns / 426 MHz, while
 2.300 ns / 435 MHz misses by only `0.026 ns`. A routed implementation harness
 for that full strategy path also closes the 3.102 ns target post-route after
-adding a CMAC RX register slice before payload stripping.
+adding a CMAC RX register slice before payload stripping. The school
+`cmac_usplus` probe confirmed an AXIS RX template with no `tready`, so I added
+a source-only CMAC AXIS RX bridge and wrapper; that boundary now closes OOC at
+3.102 ns with WNS `0.384 ns`.
 
 That does not pretend to be a finished 100G trading NIC; it shows the right
 interface boundary, buffering, observability, and parallel parsing stages needed
@@ -64,11 +67,11 @@ cycle-level latency reports, AXI-Lite control/status registers, and 512-bit
 cut-through parallel event pipeline with queued normalized-event output,
 back-to-back packet stress, FIFO-pressure accounting, 128/256/512-byte
 extraction-window sweeps, cocotb randomized checks, a CMAC-facing packet shell,
-and a top-of-book quote path. Vivado OOC synthesis meets a 3.102 ns target on a
-U50-class UltraScale+ reference part for the full packet-to-book strategy top,
-the routed implementation harness closes that same 100G target post-route, and
-the parser pipeline closes through `2.000 ns` / 500 MHz on the same reference
-target.
+source-only CMAC AXIS RX buffering, and a top-of-book quote path. Vivado OOC
+synthesis meets a 3.102 ns target on a U50-class UltraScale+ reference part for
+the full packet-to-book strategy top and CMAC AXIS strategy boundary, the routed
+implementation harness closes that same 100G target post-route, and the parser
+pipeline closes through `2.000 ns` / 500 MHz on the same reference target.
 
 ## What To Emphasize
 
@@ -90,7 +93,8 @@ parallel path is now cut-through within a packet and uses a four-beat/256-byte
 default packet-local extraction window with 128/256/512-byte sweep coverage,
 and OOC synthesis meets a 3.102 ns target on a U50-class UltraScale+ reference
 part, with sweep headroom through 2.100 ns. The routed implementation harness
-also closes the 3.102 ns / 322 MHz target, but it is still not a completed 100G
+also closes the 3.102 ns / 322 MHz target, and the source-only CMAC AXIS
+strategy boundary closes that same OOC target. It is still not a completed 100G
 MAC integration. The next production steps are actual AMD CMAC IP integration,
 board-level clock/reset constraints, larger replay-style book tests, broader
 school-target timing comparison, and optional 1.950 ns parser timing cleanup.
