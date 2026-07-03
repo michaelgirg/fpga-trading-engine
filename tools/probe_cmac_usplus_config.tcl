@@ -16,6 +16,8 @@ if {$argc >= 2} {
 
 set out_dir [file normalize [file join $repo_root "build" "cmac_ip_probe" $part_name]]
 file mkdir $out_dir
+set ip_dir [file join $out_dir "ip"]
+file mkdir $ip_dir
 set report_path [file join $out_dir "cmac_usplus_config.txt"]
 set report [open $report_path "w"]
 
@@ -52,8 +54,14 @@ emit $report "Selected IP definition:"
 emit $report "  [lindex $ipdef 0]"
 emit $report ""
 
-create_ip -name cmac_usplus -vendor xilinx.com -library ip -version 3.1 \
-    -module_name $ip_name -dir [file join $out_dir "ip"]
+if {[catch {
+    create_ip -name cmac_usplus -vendor xilinx.com -library ip -version 3.1 \
+        -module_name $ip_name -dir $ip_dir
+} err]} {
+    emit $report "ERROR: create_ip failed: $err"
+    close $report
+    exit 1
+}
 
 set ip [get_ips $ip_name]
 emit $report "Core properties:"
@@ -74,7 +82,7 @@ if {[catch {generate_target instantiation_template $ip} err]} {
     emit $report "Instantiation template generation failed: $err"
 } else {
     emit $report "Generated instantiation template under:"
-    emit $report "  [file join $out_dir ip $ip_name]"
+    emit $report "  [file join $ip_dir $ip_name]"
 }
 
 emit $report ""
