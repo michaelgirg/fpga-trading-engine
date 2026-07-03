@@ -27,13 +27,17 @@ stripping:
 | Part | Top | Period | Frequency | WNS | TNS | LUTs | Registers | Status |
 | :--- | :--- | ---: | ---: | ---: | ---: | :--- | :--- | :--- |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_impl_harness` | `3.102 ns` | 322.4 MHz | `0.000 ns` | `0.000 ns` | `18492 / 871680 (2.12%)` | `21194 / 1743360 (1.22%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_impl_harness` | `2.500 ns` | 400.0 MHz | `-0.826 ns` | `-4858.989 ns` | `18620 / 871680 (2.14%)` | `21169 / 1743360 (1.21%)` | Stress miss |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_impl_harness` | `2.350 ns` | 425.5 MHz | `-0.957 ns` | `-8524.854 ns` | `18632 / 871680 (2.14%)` | `21181 / 1743360 (1.21%)` | Stress miss |
 
 The prior routed attempt failed with a path from raw CMAC `tkeep` into the UDP
 payload-strip FIFO write logic. Registering the CMAC RX stream before header
 strip creates the intended implementation boundary and removes the false
 board-pin/debug-port placement problem.
 
-Follow-up stress points can use `2.500 ns` and `2.350 ns`, but the key routed
+Routed stress points at `2.500 ns` and `2.350 ns` do not close. That is expected
+to be harder than the OOC sweep because the implementation harness includes
+placement, routing, clocking, and a board-like IO boundary. The key routed
 milestone is the `3.102 ns` / 322 MHz pass.
 
 This is still an RTL implementation flow, not a finished Alveo shell. The CMAC
