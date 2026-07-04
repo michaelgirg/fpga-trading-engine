@@ -59,10 +59,10 @@ includes a source-only CMAC AXIS RX bridge and
 `market_parser_100g_cmac_axis_strategy_top` wrapper.
 
 The CMAC AXIS strategy wrapper closes OOC at `3.102 ns` / 322.4 MHz on
-`xcu50-fsvh2104-2-e` with WNS `0.384 ns`, TNS `0.000 ns`, 23524 LUTs, 23123
+`xcu50-fsvh2104-2-e` with WNS `0.449 ns`, TNS `0.000 ns`, 23965 LUTs, 23709
 registers, and no BRAM/DSP usage after staging the UDP payload-strip predecode
 path. A stress sweep closes the same wrapper at `2.750 ns` / 363.6 MHz with WNS
-`0.032 ns`, then misses `2.500 ns` / 400.0 MHz by `0.218 ns`. The next
+`0.097 ns`, then misses `2.500 ns` / 400.0 MHz by `0.153 ns`. The next
 implementation-realism step is replacing the source-only wrapper boundary with
 the generated CMAC IP, board clock/reset wiring, and constraints, then rerunning
 routed implementation.

@@ -264,9 +264,9 @@ buffer before the packet-to-book strategy path.
 After staging the UDP payload-strip predecode path, the CMAC AXIS strategy
 boundary also closes OOC at the 3.102 ns / 322 MHz target on
 `xcu50-fsvh2104-2-e`: `market_parser_100g_cmac_axis_strategy_top` reports WNS
-`0.384 ns`, TNS `0.000 ns`, 23524 LUTs, 23123 registers, and no BRAM/DSP usage.
+`0.449 ns`, TNS `0.000 ns`, 23965 LUTs, 23709 registers, and no BRAM/DSP usage.
 A stress sweep for the same boundary closes `2.750 ns` / 364 MHz with WNS
-`0.032 ns`, then misses `2.500 ns` / 400 MHz by `0.218 ns`. This is the
+`0.097 ns`, then misses `2.500 ns` / 400 MHz by `0.153 ns`. This is the
 source-level handoff point for a generated `cmac_usplus` AXIS RX instance.
 
 A routed implementation harness for the full strategy path now also closes the

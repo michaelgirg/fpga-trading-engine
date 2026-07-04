@@ -20,7 +20,7 @@ captures the stronger post-route harness result at the 100G user-clock target.
 | U50-class HFT reference | `xcu50-fsvh2104-2-e` | `market_parser_512_frontend` | `3.102 ns` | 322 MHz | `0.872 ns` | `0.000 ns` | Meets |
 | U50-class HFT reference | `xcu50-fsvh2104-2-e` | `market_parser_512_pipeline` | `3.102 ns` | 322 MHz | `1.091 ns` | `0.000 ns` | Meets |
 | U50-class HFT reference | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_top` | `3.102 ns` | 322 MHz | `0.776 ns` | `0.000 ns` | Meets |
-| U50-class HFT reference | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `3.102 ns` | 322 MHz | `0.384 ns` | `0.000 ns` | Meets |
+| U50-class HFT reference | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `3.102 ns` | 322 MHz | `0.449 ns` | `0.000 ns` | Meets |
 
 ## U50 Frontend Clock Sweep
 
@@ -120,10 +120,10 @@ the UDP-strip and parser path.
 
 | Part | Top | Period | Approx. frequency | WNS | TNS | LUTs | Registers | Status |
 | :--- | :--- | ---: | ---: | ---: | ---: | :--- | :--- | :--- |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `3.102 ns` | 322 MHz | `0.384 ns` | `0.000 ns` | `23524 / 871680 (2.70%)` | `23123 / 1743360 (1.33%)` | Meets |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.750 ns` | 364 MHz | `0.032 ns` | `0.000 ns` | `23706 / 871680 (2.72%)` | `23123 / 1743360 (1.33%)` | Meets |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.500 ns` | 400 MHz | `-0.218 ns` | `-0.852 ns` | `23712 / 871680 (2.72%)` | `23124 / 1743360 (1.33%)` | Stress miss |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.350 ns` | 426 MHz | `-0.368 ns` | `-198.292 ns` | `23712 / 871680 (2.72%)` | `23124 / 1743360 (1.33%)` | Stress miss |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `3.102 ns` | 322 MHz | `0.449 ns` | `0.000 ns` | `23965 / 871680 (2.75%)` | `23709 / 1743360 (1.36%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.750 ns` | 364 MHz | `0.097 ns` | `0.000 ns` | `24146 / 871680 (2.77%)` | `23709 / 1743360 (1.36%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.500 ns` | 400 MHz | `-0.153 ns` | `-399.967 ns` | `24150 / 871680 (2.77%)` | `23713 / 1743360 (1.36%)` | Stress miss |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.350 ns` | 426 MHz | `-0.303 ns` | `-1015.845 ns` | `24150 / 871680 (2.77%)` | `23713 / 1743360 (1.36%)` | Stress miss |
 
 The first CMAC AXIS wrapper build missed this target with a long path from RX
 `tkeep` through UDP header/payload realignment into the payload FIFO controls.

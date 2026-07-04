@@ -64,6 +64,11 @@ module market_parser_udp_payload_strip #(
     logic [CARRY_BITS-1:0] carry_data_r;
     logic [ 5:0]  carry_count_r;
     logic         bad_frame_seen_r;
+    logic         pre_valid_r;
+    logic [511:0] pre_data_r;
+    logic [ 63:0] pre_keep_r;
+    logic         pre_last_r;
+    logic         pre_bad_frame_r;
     logic         stage_valid_r;
     logic [511:0] stage_data_r;
     logic         stage_last_r;
@@ -82,6 +87,8 @@ module market_parser_udp_payload_strip #(
     logic        fifo_pop_i;
     logic        rx_fire_i;
     logic        stage_fire_i;
+    logic        stage_can_accept_i;
+    logic        pre_fire_i;
     logic [1:0]  push_count_i;
     logic [511:0] push0_data_i;
     logic [ 63:0] push0_keep_i;
@@ -102,9 +109,11 @@ module market_parser_udp_payload_strip #(
     assign stage_fire_i = stage_valid_r &&
                           ((state_r == STATE_DROP) ||
                            (int'(count_r) <= (FIFO_DEPTH - 2)));
+    assign stage_can_accept_i = !stage_valid_r || stage_fire_i;
+    assign pre_fire_i = pre_valid_r && stage_can_accept_i;
     assign rx_fire_i    = s_axis_rx_tvalid && s_axis_rx_tready;
 
-    assign s_axis_rx_tready = !stage_valid_r || stage_fire_i;
+    assign s_axis_rx_tready = !pre_valid_r || pre_fire_i;
 
     assign accepted_frame_count = accepted_frame_count_r;
     assign dropped_frame_count  = dropped_frame_count_r;
@@ -112,17 +121,48 @@ module market_parser_udp_payload_strip #(
     assign payload_packet_count = payload_packet_count_r;
     assign payload_fifo_level   = 16'(count_r);
 
-    function automatic int unsigned leading_keep_count(input logic [63:0] keep);
-        bit stopped;
-        leading_keep_count = 0;
-        stopped = 1'b0;
-        for (int lane = 0; lane < 64; lane++) begin
-            if (!stopped && keep[lane]) begin
-                leading_keep_count++;
-            end else begin
-                stopped = 1'b1;
-            end
+    function automatic logic [6:0] leading_keep_count(input logic [63:0] keep);
+        logic [63:0] window;
+        logic [ 6:0] count;
+
+        window = keep;
+        count  = '0;
+
+        if (&window[0 +: 32]) begin
+            count  += 7'd32;
+            window  = window >> 32;
         end
+
+        if (&window[0 +: 16]) begin
+            count  += 7'd16;
+            window  = window >> 16;
+        end
+
+        if (&window[0 +: 8]) begin
+            count  += 7'd8;
+            window  = window >> 8;
+        end
+
+        if (&window[0 +: 4]) begin
+            count  += 7'd4;
+            window  = window >> 4;
+        end
+
+        if (&window[0 +: 2]) begin
+            count  += 7'd2;
+            window  = window >> 2;
+        end
+
+        if (window[0]) begin
+            count  += 7'd1;
+            window  = window >> 1;
+        end
+
+        if (window[0]) begin
+            count += 7'd1;
+        end
+
+        leading_keep_count = count;
     endfunction
 
     function automatic logic [63:0] keep_for_count(input int unsigned byte_count);
@@ -243,6 +283,11 @@ module market_parser_udp_payload_strip #(
             carry_data_r             <= '0;
             carry_count_r            <= '0;
             bad_frame_seen_r         <= 1'b0;
+            pre_valid_r              <= 1'b0;
+            pre_data_r               <= '0;
+            pre_keep_r               <= '0;
+            pre_last_r               <= 1'b0;
+            pre_bad_frame_r          <= 1'b0;
             stage_valid_r            <= 1'b0;
             stage_data_r             <= '0;
             stage_last_r             <= 1'b0;
@@ -348,27 +393,40 @@ module market_parser_udp_payload_strip #(
                 stage_valid_r <= 1'b0;
             end
 
-            if (rx_fire_i) begin
-                int unsigned byte_count;
-                int unsigned first_tail_count;
-                int unsigned lower_count;
-                int unsigned tail_count;
+            if (pre_fire_i) begin
+                logic [6:0] byte_count;
+                logic [5:0] first_tail_count;
+                logic [5:0] lower_count;
+                logic [5:0] tail_count;
 
-                byte_count       = leading_keep_count(s_axis_rx_tkeep);
-                first_tail_count = (byte_count > HEADER_BYTES) ? (byte_count - HEADER_BYTES) : 0;
-                lower_count      = (byte_count >= HEADER_BYTES) ? HEADER_BYTES : byte_count;
-                tail_count       = (byte_count > HEADER_BYTES) ? (byte_count - HEADER_BYTES) : 0;
+                byte_count       = leading_keep_count(pre_keep_r);
+                first_tail_count = (byte_count > 7'(HEADER_BYTES)) ?
+                                   6'(byte_count - 7'(HEADER_BYTES)) : '0;
+                lower_count      = (byte_count >= 7'(HEADER_BYTES)) ?
+                                   6'(HEADER_BYTES) : 6'(byte_count);
+                tail_count       = first_tail_count;
 
                 stage_valid_r            <= 1'b1;
-                stage_data_r             <= s_axis_rx_tdata;
-                stage_last_r             <= s_axis_rx_tlast;
-                stage_bad_frame_r        <= s_axis_rx_tuser_bad_frame;
-                stage_header_match_r     <= header_matches(s_axis_rx_tdata, s_axis_rx_tkeep,
-                                                            s_axis_rx_tuser_bad_frame);
-                stage_byte_count_r       <= 7'(byte_count);
-                stage_first_tail_count_r <= 6'(first_tail_count);
-                stage_lower_count_r      <= 6'(lower_count);
-                stage_tail_count_r       <= 6'(tail_count);
+                stage_data_r             <= pre_data_r;
+                stage_last_r             <= pre_last_r;
+                stage_bad_frame_r        <= pre_bad_frame_r;
+                stage_header_match_r     <= header_matches(pre_data_r, pre_keep_r, pre_bad_frame_r);
+                stage_byte_count_r       <= byte_count;
+                stage_first_tail_count_r <= first_tail_count;
+                stage_lower_count_r      <= lower_count;
+                stage_tail_count_r       <= tail_count;
+            end
+
+            if (pre_fire_i) begin
+                pre_valid_r <= 1'b0;
+            end
+
+            if (rx_fire_i) begin
+                pre_valid_r     <= 1'b1;
+                pre_data_r      <= s_axis_rx_tdata;
+                pre_keep_r      <= s_axis_rx_tkeep;
+                pre_last_r      <= s_axis_rx_tlast;
+                pre_bad_frame_r <= s_axis_rx_tuser_bad_frame;
             end
         end
     end
