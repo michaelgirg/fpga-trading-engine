@@ -84,6 +84,12 @@ The routed implementation harness for the full strategy path also closes this
 a compact board-like IO surface; it is implementation evidence for the RTL
 path, not a replacement for actual CMAC IP and board constraints.
 
+The source-only CMAC AXIS routed harness also closes the same target post-route.
+`market_parser_100g_cmac_axis_impl_harness` reports WNS `0.022 ns`, TNS
+`0.000 ns`, 19418 LUTs, 22531 registers, and no BRAM/DSP usage on
+`xcu50-fsvh2104-2-e`. This is the current strongest RTL proof for the
+CMAC-AXIS-facing path before inserting the generated vendor IP.
+
 The school Vivado 2024.2 IP catalog for `xcu50-fsvh2104-2-e` includes the
 UltraScale+ CMAC IP needed for a real board shell:
 

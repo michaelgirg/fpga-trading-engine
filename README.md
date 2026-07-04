@@ -81,6 +81,7 @@ market_parser/
     market_parser_cmac_axis_rx_bridge.sv
     market_parser_100g_cmac_axis_strategy_top.sv
     market_parser_100g_strategy_impl_harness.sv
+    market_parser_100g_cmac_axis_impl_harness.sv
   verification/
     market_parser_tb.sv
     market_parser_64_tb.sv
@@ -273,6 +274,9 @@ A routed implementation harness for the full strategy path now also closes the
 3.102 ns / 322 MHz target on the same U50-class part after registering the CMAC
 RX stream before UDP payload stripping. The post-route result reports WNS
 `0.000 ns`, TNS `0.000 ns`, 18492 LUTs, 21194 registers, and no BRAM/DSP usage.
+The source-only CMAC AXIS harness also closes post-route at the same target:
+`market_parser_100g_cmac_axis_impl_harness` reports WNS `0.022 ns`, TNS
+`0.000 ns`, 19418 LUTs, 22531 registers, and no BRAM/DSP usage.
 
 ## Test Vector Generation
 
@@ -286,9 +290,8 @@ python tools/generate_vectors.py
 
 ## Pre-Hardware Next Build Steps
 
-1. Inspect the `2.500 ns` CMAC AXIS boundary miss to decide whether another
-   small pipeline cut is worth it.
-2. Integrate the generated AMD CMAC AXIS IP, clocking, resets, and board constraints.
-3. Run the routed implementation flow again with the real CMAC boundary.
+1. Integrate the generated AMD CMAC AXIS IP, clocking, resets, and board constraints.
+2. Run the routed implementation flow again with the real CMAC IP boundary.
+3. Inspect the `2.500 ns` CMAC AXIS OOC stress miss only if extra timing headroom is needed.
 4. Use the 1.950 ns parser near miss as an optional timing cleanup target.
 5. Keep the ZedBoard wrapper and software demo as a separate optional functional hardware track.

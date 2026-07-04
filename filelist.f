@@ -20,6 +20,7 @@ rtl/market_parser_100g_strategy_top.sv
 rtl/market_parser_cmac_axis_rx_bridge.sv
 rtl/market_parser_100g_cmac_axis_strategy_top.sv
 rtl/market_parser_100g_strategy_impl_harness.sv
+rtl/market_parser_100g_cmac_axis_impl_harness.sv
 verification/market_parser_tb.sv
 verification/market_parser_64_tb.sv
 verification/market_parser_axis_adapter_tb.sv

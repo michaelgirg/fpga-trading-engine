@@ -51,7 +51,8 @@ for that full strategy path also closes the 3.102 ns target post-route after
 adding a CMAC RX register slice before payload stripping. The school
 `cmac_usplus` probe confirmed an AXIS RX template with no `tready`, so I added
 a source-only CMAC AXIS RX bridge and wrapper; that boundary now closes OOC at
-3.102 ns with WNS `0.449 ns` and stress-closes 2.750 ns / 364 MHz.
+3.102 ns with WNS `0.449 ns`, stress-closes 2.750 ns / 364 MHz, and closes a
+post-route CMAC AXIS implementation harness at the 3.102 ns target.
 
 That does not pretend to be a finished 100G trading NIC; it shows the right
 interface boundary, buffering, observability, and parallel parsing stages needed
