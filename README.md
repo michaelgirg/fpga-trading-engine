@@ -82,6 +82,8 @@ market_parser/
     market_parser_100g_cmac_axis_strategy_top.sv
     market_parser_100g_strategy_impl_harness.sv
     market_parser_100g_cmac_axis_impl_harness.sv
+    market_parser_100g_cmac_ip_strategy_top.sv
+    market_parser_100g_cmac_ip_impl_harness.sv
   verification/
     market_parser_tb.sv
     market_parser_64_tb.sv
@@ -105,6 +107,9 @@ market_parser/
     generate_vectors.py
     probe_cmac_ip.tcl
     probe_cmac_usplus_config.tcl
+    build_cmac_usplus_axis_ip.tcl
+    run_vivado_cmac_ip_impl.tcl
+    run_vivado_cmac_ip_ooc.tcl
     run_hft_impl_matrix.sh
     run_vivado_ooc.ps1
     run_vivado_ooc.tcl
@@ -262,6 +267,54 @@ available for the U50-class part. The generated RX stream has no `tready`, so
 `market_parser_100g_cmac_axis_strategy_top` adds a packet-preserving CMAC RX
 buffer before the packet-to-book strategy path.
 
+Generate the real AXIS-mode CMAC UltraScale+ IP artifacts on the school Vivado
+install with:
+
+```bash
+vivado -mode batch -source tools/build_cmac_usplus_axis_ip.tcl \
+  -tclargs xcu50-fsvh2104-2-e cmac_usplus_0
+```
+
+The generated `.xci`, wrappers, templates, and project files are written under
+`build/cmac_usplus_axis_ip/<part>/` and intentionally stay out of git. The
+checked-in integration point is the repeatable Vivado generator plus the
+manifest it writes for each run.
+
+The July 4, 2026 school Vivado 2024.2 run generated the AXIS CMAC IP
+successfully on `xcu50-fsvh2104-2-e`: IP validation, instantiation template,
+synthesis target, simulation target, and user-file export all completed.
+The next integration wrapper, `market_parser_100g_cmac_ip_strategy_top`,
+instantiates the generated `cmac_usplus_0`, ties the unused transmit side idle,
+and feeds CMAC RX AXIS traffic into the parser/strategy path.
+
+Run the first generated-IP OOC synthesis check with:
+
+```bash
+vivado -mode batch -source tools/run_vivado_cmac_ip_ooc.tcl \
+  -tclargs market_parser_100g_cmac_ip_strategy_top xcu50-fsvh2104-2-e 3.102 RuntimeOptimized
+```
+
+That flow reads the generated CMAC declaration stub to verify the wrapper
+against the IP port list. Full CMAC internals, GT placement, and board pin
+constraints remain part of the board implementation pass.
+
+The July 4, 2026 generated-IP wrapper OOC run met the 3.102 ns target on
+`xcu50-fsvh2104-2-e`: `market_parser_100g_cmac_ip_strategy_top` reported WNS
+`0.449 ns`, TNS `0.000 ns`, 23966 LUTs, 23709 registers, and no BRAM/DSP usage.
+This validates the checked-in wrapper against the generated AXIS CMAC port list;
+the declaration-only OOC result is complemented by the full-IP routed result
+below.
+
+The July 13, 2026 full generated-CMAC implementation run also completed on
+`xcu50-fsvh2104-2-e`. `market_parser_100g_cmac_ip_impl_harness` linked the
+CMAC synthesis checkpoint with zero black boxes, placed and routed successfully,
+and met the 3.102 ns / 322 MHz target with WNS `0.044 ns`, TNS `0.000 ns`,
+21023 LUTs, 27391 registers, and no BRAM/DSP usage. The remaining
+`DRC AVAL-326` warning identifies the expected board-shell gap: the CMAC
+`IBUFDS_GTE4` reference-clock buffer still needs the selected card's physical
+`LOC` and corresponding GT/refclock constraints before this can be called a
+board-qualified implementation.
+
 After staging the UDP payload-strip predecode path, the CMAC AXIS strategy
 boundary also closes OOC at the 3.102 ns / 322 MHz target on
 `xcu50-fsvh2104-2-e`: `market_parser_100g_cmac_axis_strategy_top` reports WNS
@@ -290,8 +343,11 @@ python tools/generate_vectors.py
 
 ## Pre-Hardware Next Build Steps
 
-1. Integrate the generated AMD CMAC AXIS IP, clocking, resets, and board constraints.
-2. Run the routed implementation flow again with the real CMAC IP boundary.
-3. Inspect the `2.500 ns` CMAC AXIS OOC stress miss only if extra timing headroom is needed.
-4. Use the 1.950 ns parser near miss as an optional timing cleanup target.
-5. Keep the ZedBoard wrapper and software demo as a separate optional functional hardware track.
+1. Generate the AMD CMAC AXIS IP with `tools/build_cmac_usplus_axis_ip.tcl`.
+2. Run `tools/run_vivado_cmac_ip_ooc.tcl` to validate the generated CMAC IP
+   wrapper plus parser receive path.
+3. Add board clocking, resets, GT pins, and constraints around the same wrapper.
+4. Run routed implementation again with the real CMAC IP boundary.
+5. Inspect the `2.500 ns` CMAC AXIS OOC stress miss only if extra timing headroom is needed.
+6. Use the 1.950 ns parser near miss as an optional timing cleanup target.
+7. Keep the ZedBoard wrapper and software demo as a separate optional functional hardware track.

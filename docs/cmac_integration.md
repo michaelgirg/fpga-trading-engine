@@ -134,6 +134,110 @@ vivado -mode batch -source tools/probe_cmac_usplus_config.tcl \
   -tclargs xcu50-fsvh2104-2-e cmac_usplus_0 AXIS
 ```
 
+Use this command shape when moving from a probe to actual generated vendor IP
+artifacts:
+
+```bash
+vivado -mode batch -source tools/build_cmac_usplus_axis_ip.tcl \
+  -tclargs xcu50-fsvh2104-2-e cmac_usplus_0
+```
+
+The generator creates the AXIS-mode `cmac_usplus:3.1` IP under
+`build/cmac_usplus_axis_ip/<part>/`, applies the required AXIS configuration,
+generates synthesis/simulation/template targets, and writes
+`cmac_usplus_axis_manifest.txt`. The generated `.xci`, wrapper, template, and
+project files stay under `build/` and are intentionally not checked in; the
+checked-in artifact is the repeatable Vivado script plus this manifest-driven
+integration note.
+
+The July 4, 2026 school Vivado 2024.2 generator run on
+`xcu50-fsvh2104-2-e` completed successfully:
+
+- `validate_ip completed`
+- `instantiation_template: ok`
+- `synthesis: ok`
+- `simulation: ok`
+- `export_ip_user_files: ok`
+- generated `cmac_usplus_0.xci`, `cmac_usplus_0.v`,
+  `cmac_usplus_0.veo`, `cmac_usplus_0.vho`, and CMAC/GT XDC files
+
+Vivado emitted repeated `Design_Linking` license warnings for the CMAC IP, but
+the IP generation flow completed. Treat those warnings as expected unless a
+later synthesis or implementation command exits with a license error.
+
+`market_parser_100g_cmac_ip_strategy_top` is the first checked-in wrapper around
+that generated IP boundary. It instantiates `cmac_usplus_0`, exposes the GT
+pins, reference clock, user clocks, key RX status, DRP readback, quote output,
+and parser counters, then feeds `rx_axis_tvalid/tdata/tkeep/tlast/tuser` into
+`market_parser_100g_cmac_axis_strategy_top`. The transmit AXIS path is held
+idle in this receive-focused integration pass; board-level control, real TX
+policy, management-plane access to CMAC registers, and physical pin constraints
+remain board-shell work.
+
+Use this command shape for the first OOC synthesis check of the generated CMAC
+IP plus parser receive path:
+
+```bash
+vivado -mode batch -source tools/run_vivado_cmac_ip_ooc.tcl \
+  -tclargs market_parser_100g_cmac_ip_strategy_top xcu50-fsvh2104-2-e 3.102 RuntimeOptimized
+```
+
+This flow creates the AXIS-mode CMAC IP inside the Vivado project, reads the
+generated CMAC declaration stub, reads the parser RTL, synthesizes
+`market_parser_100g_cmac_ip_strategy_top`, and writes `ip_status.rpt`,
+`utilization.rpt`, `timing_summary.rpt`, and an integration manifest under
+`build/vivado_cmac_ip_ooc/`. It validates the checked-in wrapper against the
+generated IP port list; full CMAC internals, GT placement, and physical pin
+constraints remain part of the board implementation step.
+
+The July 4, 2026 school OOC run for
+`market_parser_100g_cmac_ip_strategy_top` completed synthesis successfully with
+the generated CMAC declaration stub visible:
+
+| Part | Top | Period | WNS | TNS | LUTs | Registers | Status |
+| :--- | :--- | ---: | ---: | ---: | :--- | :--- | :--- |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_ip_strategy_top` | `3.102 ns` | `0.449 ns` | `0.000 ns` | `23966 / 871680 (2.75%)` | `23709 / 1743360 (1.36%)` | Meets |
+
+This result proves the checked-in CMAC-IP wrapper matches the generated AXIS
+CMAC port list and preserves the parser-side 3.102 ns timing. Vivado reports
+`cmac_usplus_0` as a black box in this OOC flow, so this is not yet routed
+timing for the full CMAC/GT hard-IP implementation.
+
+The next implementation probe replaces that declaration-only check with the
+CMAC IP's generated synthesis checkpoint:
+
+```bash
+vivado -mode batch -source tools/run_vivado_cmac_ip_impl.tcl \
+  -tclargs market_parser_100g_cmac_ip_impl_harness \
+  xcu50-fsvh2104-2-e 3.102 RuntimeOptimized Explore Explore Explore 8
+```
+
+`run_vivado_cmac_ip_impl.tcl` creates and validates the AXIS CMAC, launches its
+dedicated synthesis run, launches integrated top-level synthesis, and refuses
+to continue if any black-box cell remains. A clean synthesis then proceeds
+through optimize, place, physical optimization, and route. Reports and
+checkpoints are written under `build/vivado_cmac_ip_impl/`. The implementation
+harness retains the CMAC GT/refclock pins but folds the wide quote, AXI-Lite,
+and counter interfaces into a 32-bit status signature, avoiding artificial
+package-I/O overutilization. This is a part-level integration probe; a
+board-qualified result still requires the selected card's CMAC location,
+GT/refclock pins, and board XDC.
+
+The July 13, 2026 school Vivado 2024.2 implementation run completed that
+part-level probe:
+
+| Part | Top | Period | WNS | TNS | LUTs | Registers | Black boxes | Status |
+| :--- | :--- | ---: | ---: | ---: | :--- | :--- | ---: | :--- |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_ip_impl_harness` | `3.102 ns` | `0.044 ns` | `0.000 ns` | `21023 / 871680 (2.41%)` | `27391 / 1743360 (1.57%)` | `0` | Routed, timing met |
+
+The run synthesized `cmac_usplus_0`, linked its generated checkpoint into the
+parser top, passed the explicit zero-black-box check, and completed placement
+and routing. Vivado reported `DRC AVAL-326` because the generated CMAC
+`IBUFDS_GTE4` reference-clock buffer has no board-specific `LOC`. That warning
+does not invalidate the part-level timing result, but it prevents a hardware
+claim: the next shell must supply the selected U50 card's CMAC location,
+GT/refclock pin assignments, and complete board constraints.
+
 The generated AXIS template is the preferred production wrapper boundary for
 the next integration pass. If a selected board shell later exposes only LBUS,
 add a thin LBUS-to-AXI-stream receive adapter ahead of
@@ -213,10 +317,17 @@ A first real hardware integration should include:
    vendor IP.
 7. Keep `tools/run_hft_impl_matrix.sh` as the routed RTL harness regression for
    the selected school-supported part.
-8. Replace the harness boundary with actual CMAC IP, board clocks, resets, and
-   constraints.
-9. Only after board-constrained timing closes, add board traffic tests using replayed UDP payloads
-   and verify counters/events through the management plane.
+8. Use `tools/build_cmac_usplus_axis_ip.tcl` to generate the real AXIS-mode
+   CMAC IP artifacts and archive the generated manifest with the school run.
+9. Use `tools/run_vivado_cmac_ip_ooc.tcl` to synthesize the generated CMAC IP
+   receive wrapper before moving to board constraints.
+10. Use `tools/run_vivado_cmac_ip_impl.tcl` to link and route the actual CMAC
+    synthesis checkpoint with the parser, checking that no black box remains.
+11. Add the selected board's CMAC location, GT/refclock pins, clocks, resets,
+    and complete board XDC.
+12. Only after board-constrained timing closes, add board traffic tests using
+    replayed UDP payloads and verify counters/events through the management
+    plane.
 
 The key claim should stay precise: the repo now has a 512-bit parser
 architecture that closes OOC on a realistic U50-class target, a routed RTL
