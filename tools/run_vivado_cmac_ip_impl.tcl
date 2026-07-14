@@ -190,6 +190,8 @@ set ip [get_ips $ip_name]
 emit $manifest "Requested configuration overrides:"
 require_config $manifest $ip CONFIG.USER_INTERFACE AXIS
 require_config $manifest $ip CONFIG.ENABLE_AXIS 1
+require_config $manifest $ip CONFIG.CMAC_CAUI4_MODE 1
+require_config $manifest $ip CONFIG.NUM_LANES 4x25
 emit $manifest ""
 
 if {[catch {validate_ip $ip} err]} {
@@ -204,6 +206,7 @@ emit $manifest "Resolved CMAC configuration:"
 foreach prop [list \
     CONFIG.USER_INTERFACE \
     CONFIG.ENABLE_AXIS \
+    CONFIG.CMAC_CAUI4_MODE \
     CONFIG.CLOCKING_MODE \
     CONFIG.GT_TYPE \
     CONFIG.GT_REF_CLK_FREQ \

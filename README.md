@@ -305,15 +305,33 @@ This validates the checked-in wrapper against the generated AXIS CMAC port list;
 the declaration-only OOC result is complemented by the full-IP routed result
 below.
 
-The July 13, 2026 full generated-CMAC implementation run also completed on
+The July 13, 2026 initial full generated-CMAC implementation run also completed on
 `xcu50-fsvh2104-2-e`. `market_parser_100g_cmac_ip_impl_harness` linked the
-CMAC synthesis checkpoint with zero black boxes, placed and routed successfully,
+default CAUI-10 CMAC synthesis checkpoint with zero black boxes, placed and routed successfully,
 and met the 3.102 ns / 322 MHz target with WNS `0.044 ns`, TNS `0.000 ns`,
 21023 LUTs, 27391 registers, and no BRAM/DSP usage. The remaining
 `DRC AVAL-326` warning identifies the expected board-shell gap: the CMAC
 `IBUFDS_GTE4` reference-clock buffer still needs the selected card's physical
 `LOC` and corresponding GT/refclock constraints before this can be called a
 board-qualified implementation.
+
+A subsequent school Vivado 2024.2 probe validated the production-shaped
+CAUI-4 profile: four GTY lanes at 25.78125 Gb/s, a 161.1328125 MHz GT reference
+clock, and the same 512-bit AXIS RX handoff. The generated-IP wrappers and
+Vivado CMAC build/OOC/implementation flows now request
+`CONFIG.CMAC_CAUI4_MODE=1` followed by `CONFIG.NUM_LANES=4x25`.
+
+The CAUI-4 generated-wrapper OOC check now passes at 3.102 ns with all four-lane
+port widths matched, WNS `0.449 ns`, TNS `0.000 ns`, 23966 LUTs, and 23709
+registers. Its CMAC remains declaration-only by design; the separate full-IP
+implementation flow is the routed proof.
+
+The full CAUI-4 implementation also completes with the generated CMAC linked
+and zero black boxes. It places, routes, and meets the 3.102 ns / 322 MHz target
+with WNS `0.007 ns`, TNS `0.000 ns`, 21128 LUTs, 25324 registers, and no
+BRAM/DSP usage. `DRC AVAL-326` remains the sole critical warning because the
+generic part-level flow still lacks a board-specific CMAC reference-clock
+`LOC`.
 
 After staging the UDP payload-strip predecode path, the CMAC AXIS strategy
 boundary also closes OOC at the 3.102 ns / 322 MHz target on

@@ -149,6 +149,8 @@ set ip_generated_dir [get_property IP_DIR $ip]
 emit $manifest "Requested configuration overrides:"
 try_set_config $manifest $ip CONFIG.USER_INTERFACE AXIS
 try_set_config $manifest $ip CONFIG.ENABLE_AXIS 1
+try_set_config $manifest $ip CONFIG.CMAC_CAUI4_MODE 1
+try_set_config $manifest $ip CONFIG.NUM_LANES 4x25
 emit $manifest ""
 
 if {[catch {validate_ip $ip} err]} {
@@ -162,6 +164,7 @@ emit $manifest "Resolved CMAC configuration:"
 foreach prop [list \
     CONFIG.USER_INTERFACE \
     CONFIG.ENABLE_AXIS \
+    CONFIG.CMAC_CAUI4_MODE \
     CONFIG.CLOCKING_MODE \
     CONFIG.GT_TYPE \
     CONFIG.GT_REF_CLK_FREQ \

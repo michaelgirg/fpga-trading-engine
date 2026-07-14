@@ -33,15 +33,26 @@ if {$requested_user_interface ne "" &&
     exit 1
 }
 
+set requested_num_lanes ""
+if {$argc >= 4} {
+    set requested_num_lanes [lindex $argv 3]
+} elseif {[info exists ::env(MARKET_PARSER_CMAC_NUM_LANES)]} {
+    set requested_num_lanes $::env(MARKET_PARSER_CMAC_NUM_LANES)
+}
+
 set out_dir [file normalize [file join $repo_root "build" "cmac_ip_probe" $part_name]]
 file mkdir $out_dir
 set ip_dir [file join $out_dir "ip"]
 file mkdir $ip_dir
-if {$requested_user_interface eq ""} {
-    set report_path [file join $out_dir "cmac_usplus_config.txt"]
-} else {
-    set report_path [file join $out_dir "cmac_usplus_config_[string tolower $requested_user_interface].txt"]
+set report_suffix ""
+if {$requested_user_interface ne ""} {
+    append report_suffix "_[string tolower $requested_user_interface]"
 }
+if {$requested_num_lanes ne ""} {
+    set lane_suffix [string map {"/" "_" " " "_"} [string tolower $requested_num_lanes]]
+    append report_suffix "_$lane_suffix"
+}
+set report_path [file join $out_dir "cmac_usplus_config${report_suffix}.txt"]
 set report [open $report_path "w"]
 
 proc emit {fh text} {
@@ -68,13 +79,30 @@ proc emit_property_if_present {fh obj prop prop_list} {
 proc try_set_config {fh obj prop value prop_list} {
     if {[lsearch -exact $prop_list $prop] < 0} {
         emit $fh "SKIP: $prop is not present on this IP instance."
-        return
+        return 0
     }
 
     if {[catch {set_property -dict [list $prop $value] $obj} err]} {
         emit $fh "WARNING: failed to set $prop=$value: $err"
+        return 0
     } else {
         emit $fh "Applied $prop=$value"
+        return 1
+    }
+}
+
+proc emit_legal_values {fh obj prop prop_list} {
+    if {[lsearch -exact $prop_list $prop] < 0} {
+        emit $fh "Legal values for $prop: <property not present>"
+        return
+    }
+
+    if {[catch {set values [list_property_value -quiet $prop $obj]} err]} {
+        emit $fh "Legal values for $prop: <unavailable: $err>"
+    } elseif {[llength $values] == 0} {
+        emit $fh "Legal values for $prop: <not enumerated>"
+    } else {
+        emit $fh "Legal values for $prop: $values"
     }
 }
 
@@ -86,6 +114,11 @@ if {$requested_user_interface eq ""} {
     emit $report "Requested user interface: default"
 } else {
     emit $report "Requested user interface: $requested_user_interface"
+}
+if {$requested_num_lanes eq ""} {
+    emit $report "Requested lane profile: default"
+} else {
+    emit $report "Requested lane profile: $requested_num_lanes"
 }
 emit $report ""
 
@@ -114,15 +147,63 @@ if {[catch {
 
 set ip [get_ips $ip_name]
 set all_props [lsort [list_property $ip]]
+set config_ok 1
 if {$requested_user_interface ne ""} {
     emit $report "Requested configuration overrides:"
-    try_set_config $report $ip CONFIG.USER_INTERFACE $requested_user_interface $all_props
-    if {$requested_user_interface eq "AXIS"} {
-        try_set_config $report $ip CONFIG.ENABLE_AXIS 1 $all_props
+    if {![try_set_config $report $ip CONFIG.USER_INTERFACE $requested_user_interface $all_props]} {
+        set config_ok 0
     }
-    emit $report ""
-
+    if {$requested_user_interface eq "AXIS"} {
+        if {![try_set_config $report $ip CONFIG.ENABLE_AXIS 1 $all_props]} {
+            set config_ok 0
+        }
+    }
     set all_props [lsort [list_property $ip]]
+}
+
+if {$requested_num_lanes ne ""} {
+    if {$requested_user_interface eq ""} {
+        emit $report "Requested configuration overrides:"
+    }
+
+    set normalized_num_lanes [string tolower $requested_num_lanes]
+    if {$normalized_num_lanes eq "4x25"} {
+        emit_legal_values $report $ip CONFIG.CMAC_CAUI4_MODE $all_props
+        if {![try_set_config $report $ip CONFIG.CMAC_CAUI4_MODE 1 $all_props]} {
+            set config_ok 0
+        }
+        set all_props [lsort [list_property $ip]]
+    } elseif {$normalized_num_lanes eq "10x10"} {
+        if {![try_set_config $report $ip CONFIG.CMAC_CAUI4_MODE 0 $all_props]} {
+            set config_ok 0
+        }
+        set all_props [lsort [list_property $ip]]
+    }
+
+    emit_legal_values $report $ip CONFIG.NUM_LANES $all_props
+    if {![try_set_config $report $ip CONFIG.NUM_LANES $requested_num_lanes $all_props]} {
+        set config_ok 0
+    }
+    set all_props [lsort [list_property $ip]]
+}
+
+if {$requested_user_interface ne "" || $requested_num_lanes ne ""} {
+    emit $report ""
+}
+
+if {!$config_ok} {
+    emit $report "ERROR: one or more requested CMAC properties were not applied."
+    close $report
+    exit 1
+}
+
+if {[catch {validate_ip $ip} err]} {
+    emit $report "ERROR: validate_ip failed: $err"
+    close $report
+    exit 1
+} else {
+    emit $report "validate_ip completed"
+    emit $report ""
 }
 
 emit $report "Core properties:"

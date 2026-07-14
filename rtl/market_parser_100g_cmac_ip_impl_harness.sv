@@ -14,17 +14,17 @@ module market_parser_100g_cmac_ip_impl_harness (
 
     input  wire logic        gt_ref_clk_p,
     input  wire logic        gt_ref_clk_n,
-    input  wire logic [9:0]  gt_rxp_in,
-    input  wire logic [9:0]  gt_rxn_in,
-    output logic [9:0]       gt_txp_out,
-    output logic [9:0]       gt_txn_out,
+    input  wire logic [3:0]  gt_rxp_in,
+    input  wire logic [3:0]  gt_rxn_in,
+    output logic [3:0]       gt_txp_out,
+    output logic [3:0]       gt_txn_out,
 
     output logic [31:0]      status
 );
     logic        gt_txusrclk2;
     logic        gt_ref_clk_out;
-    logic [9:0]  gt_rxrecclkout;
-    logic [9:0]  gt_powergoodout;
+    logic [3:0]  gt_rxrecclkout;
+    logic [3:0]  gt_powergoodout;
     logic        gt_rxusrclk2;
     logic        usr_rx_reset;
     logic        usr_tx_reset;
@@ -181,7 +181,7 @@ module market_parser_100g_cmac_ip_impl_harness (
                            ^ book_ignored_event_count
                            ^ book_table_overflow_count
                            ^ book_quote_update_count;
-            status_cmac_r <= {22'd0, gt_powergoodout}
+            status_cmac_r <= {28'd0, gt_powergoodout}
                            ^ {16'd0, drp_do}
                            ^ s_axi_rdata
                            ^ {28'd0, s_axi_bresp, s_axi_rresp}

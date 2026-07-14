@@ -134,6 +134,58 @@ vivado -mode batch -source tools/probe_cmac_usplus_config.tcl \
   -tclargs xcu50-fsvh2104-2-e cmac_usplus_0 AXIS
 ```
 
+Before changing the proven wrapper from Vivado's default `10x10` lane profile,
+probe the production-shaped `4x25` profile and inspect its generated GT port
+widths:
+
+```bash
+vivado -mode batch -source tools/probe_cmac_usplus_config.tcl \
+  -tclargs xcu50-fsvh2104-2-e cmac_usplus_0 AXIS 4x25
+```
+
+The probe exits nonzero if the requested interface or lane profile cannot be
+applied. For `4x25`, it first enables `CONFIG.CMAC_CAUI4_MODE=1` and then
+applies `CONFIG.NUM_LANES=4x25`, matching the CMAC property's dependency order.
+The production wrapper was kept at `10x10` until this probe confirmed the
+`4x25` GT interface and resolved CMAC properties.
+
+The July 13, 2026 school Vivado 2024.2 CAUI-4 probe completed successfully:
+
+- `CONFIG.CMAC_CAUI4_MODE = 1`
+- `CONFIG.NUM_LANES = 4x25`
+- `CONFIG.GT_TYPE = GTY`
+- `CONFIG.GT_REF_CLK_FREQ = 161.1328125`
+- `CONFIG.USER_INTERFACE = AXIS`
+- GT TX/RX ports are `[3:0]`
+- RX AXIS remains 512-bit data with 64-bit `tkeep`
+
+The generator, OOC flow, full implementation flow, and generated-IP wrappers
+therefore use CAUI-4 as the production profile. The earlier `10x10` routed run
+remains valid part-level integration evidence for the previous default profile;
+the CAUI-4 results below are the current production-profile evidence.
+
+The subsequent CAUI-4 declaration-wrapper OOC run also completed successfully
+at 3.102 ns. The generated CMAC stub confirmed four-bit GT TX/RX,
+`gt_rxrecclkout`, and `gt_powergoodout` ports plus a 12-bit loopback input. The
+512-bit AXIS parser path reported WNS `0.449 ns`, TNS `0.000 ns`, 23966 LUTs,
+23709 registers, and no BRAM/DSP usage. The black-box and scoped-XDC warnings
+in this OOC check are expected because it deliberately reads only the generated
+CMAC declaration; the full implementation flow must still report zero black
+boxes before placement.
+
+The full CAUI-4 implementation run then synthesized the actual CMAC checkpoint,
+linked it with zero black boxes, and completed placement and routing:
+
+| Part | Top | Profile | Period | WNS | TNS | LUTs | Registers | Black boxes | Status |
+| :--- | :--- | :--- | ---: | ---: | ---: | :--- | :--- | ---: | :--- |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_ip_impl_harness` | CAUI-4 `4x25` | `3.102 ns` | `0.007 ns` | `0.000 ns` | `21128 / 871680 (2.42%)` | `25324 / 1743360 (1.45%)` | `0` | Routed, timing met |
+
+The result has only 0.007 ns of setup margin, so the claim stays at the native
+322 MHz CMAC user-clock target. The sole critical warning is still
+`DRC AVAL-326`: the generic part-level flow needs the selected board's
+reference-clock-buffer `LOC` and matching CMAC/GT constraints before bitstream
+or hardware claims.
+
 Use this command shape when moving from a probe to actual generated vendor IP
 artifacts:
 
