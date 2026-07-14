@@ -124,6 +124,8 @@ try_set_config $manifest $ip CONFIG.USER_INTERFACE AXIS
 try_set_config $manifest $ip CONFIG.ENABLE_AXIS 1
 try_set_config $manifest $ip CONFIG.CMAC_CAUI4_MODE 1
 try_set_config $manifest $ip CONFIG.NUM_LANES 4x25
+try_set_config $manifest $ip CONFIG.INCLUDE_RS_FEC 1
+try_set_config $manifest $ip CONFIG.ENABLE_PIPELINE_REG 1
 emit $manifest ""
 
 if {[catch {validate_ip $ip} err]} {
@@ -143,6 +145,7 @@ foreach prop [list \
     CONFIG.GT_REF_CLK_FREQ \
     CONFIG.NUM_LANES \
     CONFIG.INCLUDE_RS_FEC \
+    CONFIG.ENABLE_PIPELINE_REG \
     CONFIG.RX_FRAME_CRC_CHECKING \
     CONFIG.RX_MAX_PACKET_LEN \
 ] {

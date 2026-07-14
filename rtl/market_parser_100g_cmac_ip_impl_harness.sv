@@ -2,15 +2,13 @@
 // =============================================================================
 // Module: market_parser_100g_cmac_ip_impl_harness
 // =============================================================================
-// Implementation-only shell for routing the generated CMAC IP with the full
-// packet-to-book path. Physical CMAC pins stay at the top level while the
-// wide quote, AXI-Lite, and counter interfaces are folded into a compact
-// status signature so they do not consume hundreds of package pins.
+// U50 implementation shell for routing the generated CMAC IP with the full
+// packet-to-book path. The parser uses the CMAC TX user clock, while the wide
+// quote, AXI-Lite, and counter interfaces fold into one board status LED.
 module market_parser_100g_cmac_ip_impl_harness (
-    input  wire logic        rx_clk,
-    input  wire logic        init_clk,
-    input  wire logic        drp_clk,
-    input  wire logic        sys_reset,
+    input  wire logic        cmc_clk_p,
+    input  wire logic        cmc_clk_n,
+    input  wire logic        pcie_perstn,
 
     input  wire logic        gt_ref_clk_p,
     input  wire logic        gt_ref_clk_n,
@@ -19,8 +17,11 @@ module market_parser_100g_cmac_ip_impl_harness (
     output logic [3:0]       gt_txp_out,
     output logic [3:0]       gt_txn_out,
 
-    output logic [31:0]      status
+    output logic             status_led,
+    output logic             hbm_cattrip
 );
+    logic        init_clk;
+    logic        sys_reset;
     logic        gt_txusrclk2;
     logic        gt_ref_clk_out;
     logic [3:0]  gt_rxrecclkout;
@@ -79,11 +80,25 @@ module market_parser_100g_cmac_ip_impl_harness (
     (* keep = "true" *) logic [31:0] status_ingress_r;
     (* keep = "true" *) logic [31:0] status_book_r;
     (* keep = "true" *) logic [31:0] status_cmac_r;
+    (* keep = "true" *) logic [31:0] status;
+
+    IBUFDS #(
+        .DIFF_TERM ("TRUE"),
+        .IOSTANDARD("LVDS")
+    ) cmc_clk_ibuf_i (
+        .I (cmc_clk_p),
+        .IB(cmc_clk_n),
+        .O (init_clk)
+    );
+
+    assign sys_reset   = ~pcie_perstn;
+    assign status_led  = status[0];
+    assign hbm_cattrip = 1'b0;
 
     market_parser_100g_cmac_ip_strategy_top cmac_ip_strategy_top_i (
-        .rx_clk                        (rx_clk),
+        .rx_clk                        (gt_txusrclk2),
         .init_clk                      (init_clk),
-        .drp_clk                       (drp_clk),
+        .drp_clk                       (1'b0),
         .sys_reset                     (sys_reset),
         .gt_ref_clk_p                  (gt_ref_clk_p),
         .gt_ref_clk_n                  (gt_ref_clk_n),
@@ -150,7 +165,7 @@ module market_parser_100g_cmac_ip_impl_harness (
         .book_quote_update_count       (book_quote_update_count)
     );
 
-    always_ff @(posedge rx_clk) begin
+    always_ff @(posedge gt_txusrclk2) begin
         if (sys_reset || usr_rx_reset) begin
             status_quote_r   <= 32'd0;
             status_axis_r    <= 32'd0;

@@ -186,6 +186,66 @@ The result has only 0.007 ns of setup margin, so the claim stays at the native
 reference-clock-buffer `LOC` and matching CMAC/GT constraints before bitstream
 or hardware claims.
 
+Before adding a manual `LOC`, run the CAUI-4 placement probe:
+
+```bash
+vivado -mode batch -source tools/probe_cmac_usplus_placement.tcl \
+  -tclargs xcu50-fsvh2104-2-e cmac_usplus_0
+
+cat build/cmac_placement_probe/xcu50-fsvh2104-2-e/cmac_usplus_placement.txt
+```
+
+The report records the current and Vivado-legal `CMAC_CORE_SELECT`,
+`GT_GROUP_SELECT`, `GT_LOCATION`, per-lane GT locations, candidate hard-block
+sites, and placement-related lines from the generated CMAC XDC files. These
+are part-valid choices only. The final core, GT group, and reference-clock
+buffer `LOC` must match the selected U50 shell and its physical QSFP wiring.
+
+The first probe showed that generic part-level generation selected
+`CMACE4_X0Y3`, GT group `X0Y28~X0Y31`, and lanes `X0Y28` through `X0Y31`.
+The official Xilinx OpenNIC U50 configuration uses the same GT group and lanes
+but selects `CMACE4_X0Y4`; its U50 constraints map the 161.1328125 MHz QSFP
+reference clock to package pins `N36` (P) and `N37` (N). The implementation
+script exposes this exact mapping as the opt-in `au50` board profile:
+
+```bash
+MARKET_PARSER_BOARD_PROFILE=au50 \
+MARKET_PARSER_WRITE_BITSTREAM=1 \
+vivado -mode batch -source tools/run_vivado_cmac_ip_impl.tcl \
+  -tclargs market_parser_100g_cmac_ip_impl_harness \
+  xcu50-fsvh2104-2-e 3.102 RuntimeOptimized Explore Explore Explore 8
+```
+
+The profile also matches OpenNIC's enabled RS-FEC and CMAC pipeline-register
+settings, verifies the resolved core and lane properties before synthesis, and
+writes `cmac_hard_block_placement.rpt` after routing. A board-qualified pass
+requires zero black boxes, timing met, and a clean final DRC report.
+
+The final `au50` implementation run resolved the hard-block placement exactly
+as intended: `CMACE4_X0Y4`, `GTYE4_CHANNEL_X0Y28` through `X0Y31`, and
+`GTYE4_COMMON_X0Y7` for the reference-clock buffer. The complete generated
+CMAC plus parser design linked zero black boxes, placed and routed fully, and
+met the 3.102 ns / 322 MHz target with WNS `0.026 ns`, TNS `0.000 ns`, WHS
+`0.012 ns`, and THS `0.000 ns`.
+
+The board shell uses the 100 MHz CMC differential clock on `G17/G16`, PCIe
+reset on `AW27`, a one-bit status LED on `E18`, grounded HBM `CATTRIP` on
+`J18`, and the 161.1328125 MHz QSFP reference clock on `N36/N37`. The CMAC TX
+user clock drives the parser at the native 322 MHz rate, DRP is tied off, and
+the RS-FEC controls select correction and IEEE error indication. This removed
+the earlier `AVAL-326`, `PPURQ-1`, `NSTD-1`, and `UCIO-1` findings. The final
+DRC report contains no errors or critical warnings; its only finding is one
+non-blocking `PDRC-146` slice-packing warning at `SLICE_X30Y396`.
+
+With `MARKET_PARSER_WRITE_BITSTREAM=1`, Vivado proceeded through that complete
+implementation and then stopped at the encrypted CMAC bitstream-license gate:
+`i_cmac_usplus_0_top (<encrypted cellview>)` was not permitted for bitstream
+generation. Vivado successfully acquired the U50 implementation/device
+license, so this is not a synthesis, placement, routing, timing, pin, or DRC
+failure. The school installation needs the CMAC bitstream license before the
+same run can emit `market_parser_100g_cmac_ip_impl_harness_au50.bit` and move
+to hardware programming.
+
 Use this command shape when moving from a probe to actual generated vendor IP
 artifacts:
 

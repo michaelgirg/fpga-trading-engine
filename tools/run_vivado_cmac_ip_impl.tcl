@@ -65,6 +65,32 @@ if {$argc >= 8} {
     set jobs 8
 }
 
+if {[info exists ::env(MARKET_PARSER_BOARD_PROFILE)]} {
+    set board_profile [string tolower $::env(MARKET_PARSER_BOARD_PROFILE)]
+} else {
+    set board_profile part
+}
+
+if {$board_profile ne "part" && $board_profile ne "au50"} {
+    error "MARKET_PARSER_BOARD_PROFILE must be 'part' or 'au50', got '$board_profile'"
+}
+
+if {$board_profile eq "au50" && $part_name ne "xcu50-fsvh2104-2-e"} {
+    error "The au50 board profile requires part xcu50-fsvh2104-2-e, got '$part_name'"
+}
+
+set write_bitstream 0
+if {[info exists ::env(MARKET_PARSER_WRITE_BITSTREAM)]} {
+    set value [string tolower $::env(MARKET_PARSER_WRITE_BITSTREAM)]
+    if {$value eq "1" || $value eq "true" || $value eq "yes"} {
+        set write_bitstream 1
+    }
+}
+
+if {$write_bitstream && $board_profile ne "au50"} {
+    error "Bitstream generation requires MARKET_PARSER_BOARD_PROFILE=au50"
+}
+
 if {[info exists ::env(MARKET_PARSER_CMAC_IP_IMPL_OUT_DIR)]} {
     set out_dir [file normalize $::env(MARKET_PARSER_CMAC_IP_IMPL_OUT_DIR)]
 } else {
@@ -113,6 +139,17 @@ proc require_config {fh obj prop value} {
     }
 
     emit $fh "Applied $prop=$value"
+}
+
+proc require_resolved_config {fh obj prop expected} {
+    set actual [get_property $prop $obj]
+    if {$actual ne $expected} {
+        emit $fh "ERROR: $prop resolved to '$actual', expected '$expected'."
+        close $fh
+        error "CMAC property $prop did not resolve to the required value"
+    }
+
+    emit $fh "Verified $prop=$actual"
 }
 
 proc require_completed_run {fh run_obj label} {
@@ -166,6 +203,8 @@ emit $manifest "Place directive: $place_directive"
 emit $manifest "Route directive: $route_directive"
 emit $manifest "Physical optimization directive: $phys_opt_directive"
 emit $manifest "Parallel jobs: $jobs"
+emit $manifest "Board profile: $board_profile"
+emit $manifest "Write bitstream: $write_bitstream"
 emit $manifest ""
 
 create_project -force cmac_ip_impl $project_dir -part $part_name
@@ -192,6 +231,19 @@ require_config $manifest $ip CONFIG.USER_INTERFACE AXIS
 require_config $manifest $ip CONFIG.ENABLE_AXIS 1
 require_config $manifest $ip CONFIG.CMAC_CAUI4_MODE 1
 require_config $manifest $ip CONFIG.NUM_LANES 4x25
+require_config $manifest $ip CONFIG.INCLUDE_RS_FEC 1
+require_config $manifest $ip CONFIG.ENABLE_PIPELINE_REG 1
+if {$board_profile eq "au50"} {
+    # Matches Xilinx OpenNIC's Alveo U50 CMAC/QSFP profile.
+    require_config $manifest $ip CONFIG.GT_REF_CLK_FREQ 161.1328125
+    require_config $manifest $ip CONFIG.CMAC_CORE_SELECT CMACE4_X0Y4
+    require_config $manifest $ip CONFIG.GT_GROUP_SELECT X0Y28~X0Y31
+    require_config $manifest $ip CONFIG.LANE1_GT_LOC X0Y28
+    require_config $manifest $ip CONFIG.LANE2_GT_LOC X0Y29
+    require_config $manifest $ip CONFIG.LANE3_GT_LOC X0Y30
+    require_config $manifest $ip CONFIG.LANE4_GT_LOC X0Y31
+    require_config $manifest $ip CONFIG.GT_DRP_CLK 125.00
+}
 emit $manifest ""
 
 if {[catch {validate_ip $ip} err]} {
@@ -202,6 +254,17 @@ if {[catch {validate_ip $ip} err]} {
 emit $manifest "validate_ip completed"
 emit $manifest ""
 
+if {$board_profile eq "au50"} {
+    emit $manifest "Verifying resolved Alveo U50 placement profile:"
+    require_resolved_config $manifest $ip CONFIG.CMAC_CORE_SELECT CMACE4_X0Y4
+    require_resolved_config $manifest $ip CONFIG.GT_GROUP_SELECT X0Y28~X0Y31
+    require_resolved_config $manifest $ip CONFIG.LANE1_GT_LOC X0Y28
+    require_resolved_config $manifest $ip CONFIG.LANE2_GT_LOC X0Y29
+    require_resolved_config $manifest $ip CONFIG.LANE3_GT_LOC X0Y30
+    require_resolved_config $manifest $ip CONFIG.LANE4_GT_LOC X0Y31
+    emit $manifest ""
+}
+
 emit $manifest "Resolved CMAC configuration:"
 foreach prop [list \
     CONFIG.USER_INTERFACE \
@@ -210,8 +273,16 @@ foreach prop [list \
     CONFIG.CLOCKING_MODE \
     CONFIG.GT_TYPE \
     CONFIG.GT_REF_CLK_FREQ \
+    CONFIG.GT_DRP_CLK \
     CONFIG.NUM_LANES \
+    CONFIG.CMAC_CORE_SELECT \
+    CONFIG.GT_GROUP_SELECT \
+    CONFIG.LANE1_GT_LOC \
+    CONFIG.LANE2_GT_LOC \
+    CONFIG.LANE3_GT_LOC \
+    CONFIG.LANE4_GT_LOC \
     CONFIG.INCLUDE_RS_FEC \
+    CONFIG.ENABLE_PIPELINE_REG \
     CONFIG.RX_FRAME_CRC_CHECKING \
     CONFIG.RX_MAX_PACKET_LEN \
 ] {
@@ -243,10 +314,16 @@ set_property top $top_name [get_filesets sources_1]
 
 set xdc_path [file join $report_dir "cmac_ip_impl_constraints.xdc"]
 set xdc_file [open $xdc_path "w"]
-puts $xdc_file "create_clock -name rx_clk -period $clock_period_ns \[get_ports rx_clk\]"
-puts $xdc_file "create_clock -name init_clk -period 10.000 \[get_ports init_clk\]"
-puts $xdc_file "create_clock -name drp_clk -period 10.000 \[get_ports drp_clk\]"
-puts $xdc_file "set_clock_groups -asynchronous -group \[get_clocks rx_clk\] -group \[get_clocks init_clk\] -group \[get_clocks drp_clk\]"
+puts $xdc_file "create_clock -name cmc_clk -period 10.000 \[get_ports cmc_clk_p\]"
+if {$board_profile eq "au50"} {
+    puts $xdc_file "set_property PACKAGE_PIN N36 \[get_ports gt_ref_clk_p\]"
+    puts $xdc_file "set_property PACKAGE_PIN N37 \[get_ports gt_ref_clk_n\]"
+    puts $xdc_file "set_property -dict {PACKAGE_PIN G17 IOSTANDARD LVDS} \[get_ports cmc_clk_p\]"
+    puts $xdc_file "set_property -dict {PACKAGE_PIN G16 IOSTANDARD LVDS} \[get_ports cmc_clk_n\]"
+    puts $xdc_file "set_property -dict {PACKAGE_PIN AW27 IOSTANDARD LVCMOS18} \[get_ports pcie_perstn\]"
+    puts $xdc_file "set_property -dict {PACKAGE_PIN E18 IOSTANDARD LVCMOS18 DRIVE 8} \[get_ports status_led\]"
+    puts $xdc_file "set_property -dict {PACKAGE_PIN J18 IOSTANDARD LVCMOS18 PULLDOWN TRUE} \[get_ports hbm_cattrip\]"
+}
 close $xdc_file
 add_files -fileset constrs_1 -norecurse $xdc_path
 
@@ -307,6 +384,43 @@ report_methodology -file [file join $report_dir "methodology.rpt"]
 report_utilization -file [file join $report_dir "utilization.rpt"]
 report_timing_summary -file [file join $report_dir "timing_summary.rpt"]
 report_clock_utilization -file [file join $report_dir "clock_utilization.rpt"]
+report_io -file [file join $report_dir "io_placement.rpt"]
+
+set placement_report [open [file join $report_dir "cmac_hard_block_placement.rpt"] "w"]
+puts $placement_report "Board profile: $board_profile"
+foreach ref_name [list CMACE4 GTYE4_CHANNEL IBUFDS_GTE4] {
+    puts $placement_report ""
+    puts $placement_report "$ref_name cells:"
+    set cells [lsort [get_cells -hierarchical -quiet -filter "REF_NAME == $ref_name"]]
+    if {[llength $cells] == 0} {
+        puts $placement_report "  <none>"
+        continue
+    }
+
+    foreach cell $cells {
+        if {[catch {set loc [get_property LOC $cell]}]} {
+            set loc <unavailable>
+        }
+        if {[catch {set bels [get_bels -quiet -of_objects $cell]}]} {
+            set bels <unavailable>
+        }
+        if {[catch {set sites [get_sites -quiet -of_objects $cell]}]} {
+            set sites <unavailable>
+        }
+        puts $placement_report "  $cell"
+        puts $placement_report "    LOC: $loc"
+        puts $placement_report "    SITE: $sites"
+        puts $placement_report "    BEL: $bels"
+    }
+}
+close $placement_report
+
+if {$write_bitstream} {
+    set bitstream_path [file join $report_dir "${top_name}_au50.bit"]
+    emit $manifest "Writing U50 bitstream: $bitstream_path"
+    write_bitstream -force $bitstream_path
+    emit $manifest "Bitstream completed: $bitstream_path"
+}
 
 emit $manifest "Implementation completed"
 emit $manifest "Reports: $report_dir"

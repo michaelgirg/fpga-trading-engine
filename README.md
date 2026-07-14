@@ -107,6 +107,7 @@ market_parser/
     generate_vectors.py
     probe_cmac_ip.tcl
     probe_cmac_usplus_config.tcl
+    probe_cmac_usplus_placement.tcl
     build_cmac_usplus_axis_ip.tcl
     run_vivado_cmac_ip_impl.tcl
     run_vivado_cmac_ip_ooc.tcl
@@ -332,6 +333,17 @@ with WNS `0.007 ns`, TNS `0.000 ns`, 21128 LUTs, 25324 registers, and no
 BRAM/DSP usage. `DRC AVAL-326` remains the sole critical warning because the
 generic part-level flow still lacks a board-specific CMAC reference-clock
 `LOC`.
+
+The final U50 board-profile implementation selects `CMACE4_X0Y4`, GT lanes
+`X0Y28` through `X0Y31`, and reference-clock site `GTYE4_COMMON_X0Y7`. It
+links zero black boxes, completes routing at 3.102 ns / 322 MHz with WNS
+`0.026 ns`, TNS `0.000 ns`, and WHS `0.012 ns`, and eliminates the earlier
+`AVAL-326`, `PPURQ-1`, `NSTD-1`, and `UCIO-1` findings. The only remaining DRC
+finding is one non-blocking `PDRC-146` slice-packing warning. Physical CMC
+clock, PCIe reset, status LED, HBM `CATTRIP`, QSFP reference-clock pins, CMAC
+hard-block placement, and RS-FEC controls are all resolved. Bitstream writing
+then reaches only the encrypted CMAC licensing gate; the school installation
+must add the CMAC bitstream license before this routed design can be programmed.
 
 After staging the UDP payload-strip predecode path, the CMAC AXIS strategy
 boundary also closes OOC at the 3.102 ns / 322 MHz target on
