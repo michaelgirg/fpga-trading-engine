@@ -158,7 +158,7 @@ On the school Linux host:
 
 ```bash
 cd ~/market-parser-runs/<run-dir>
-source /apps/xilinx/Vivado/2024.2/settings64.sh
+source <vivado-install>/settings64.sh
 bash tools/run_hft_ooc_matrix.sh
 ```
 

@@ -1,383 +1,134 @@
 # Market Parser
 
-SystemVerilog FPGA market-data parser project for a production-shaped Nasdaq
-ITCH/MoldUDP64 feed-handler core.
+SystemVerilog implementation of a low-latency NASDAQ TotalView-ITCH 5.0
+parser. The design accepts MoldUDP64 frames, tracks sequence gaps, decodes
+ITCH messages into normalized events, and maintains a single-symbol top of
+book. The main datapath is a 512-bit AXI4-Stream-style pipeline intended for
+100G-class FPGA Ethernet user clocks.
 
-The first version is intentionally simulation-first. It uses the same coding
-style as the class references in this workspace: parameterized modules,
-active-high synchronous reset, explicit FSMs, AXI-stream-style valid/ready
-interfaces, and self-checking SystemVerilog testbenches.
+## What Is Included
 
-## Current V1 Scope
+- MoldUDP64 header, sequence, message-length, heartbeat, and session handling.
+- ITCH add, execute, cancel, delete, replace, trade, system, and unknown-message handling.
+- Normalized 256-bit event records and a packet-to-top-of-book strategy path.
+- 64-, 256-, and 512-bit stream adapters with valid/ready backpressure.
+- 512-bit cut-through parsing with descriptor generation, parallel extraction,
+  event buffering, counters, sticky error flags, and AXI-Lite status registers.
+- CMAC-facing UDP payload stripping and AXI stream buffering for a generated
+  AMD/Xilinx UltraScale+ CMAC interface.
+- Self-checking Questa/SystemVerilog tests, deterministic packet vectors,
+  optional cocotb tests, and optional Verilator lint.
+- Vivado OOC and routed implementation scripts. Generated reports and vendor
+  IP output products remain outside version control.
 
-- One MoldUDP64 packet per input stream frame.
-- Byte-wide parser core plus 64-bit input wrapper.
-- MoldUDP64 header parsing.
-- Message count and sequence tracking.
-- Gap detection.
-- ITCH message splitting by MoldUDP64 length.
-- Normalized 256-bit event output.
-- Self-checking testbench using generated Add Order and System Event packet vectors.
-- Generated vectors for `A`, `F`, `E`, `C`, `X`, `D`, `U`, `P`, and unknown-message handling.
-- Gap, randomized output-backpressure, zero-length malformed-message, truncated-packet, heartbeat, and end-of-session smoke checks.
-- 64-bit wrapper simulation using packed `tdata` and `tkeep` beats.
-- Parameterized AXI-stream-style adapter tested at 64-, 256-, and 512-bit input widths.
-- 512-bit 100G-facing ingress shell with FIFO, ingress counters, and no-stall burst test.
-- First-beat 512-bit boundary scanner for MoldUDP64 header fields and early ITCH message-length candidates.
-- Multi-beat 512-bit descriptor frontend for packet-relative ITCH message descriptors.
-- Parallel 512-bit event extractor that turns descriptors plus a parameterized packet window into normalized events.
-- Cut-through 512-bit parallel pipeline that wires descriptor generation, four-beat/256-byte default window buffering, staged field alignment, and event extraction into one event stream.
-- Output event FIFO wrapper that decouples normalized parser events from downstream consumer backpressure.
-- Back-to-back no-idle, dense tiny-message, and FIFO-pressure regressions with randomized event readiness.
-- Extraction-window sweep regression at 128, 256, and 512 bytes.
-- Pre-hardware 512-bit system wrapper with AXI-Lite control/status registers, parser enable, sticky error flags, software-visible counter clear, and event FIFO status.
-- Optional cocotb randomized verification and Verilator lint hook for industry-style Python/open-source checks.
-- Optional Vivado out-of-context synthesis script for pre-hardware resource/timing reports.
-- School-side HFT OOC matrix wrapper for U50/U55/Virtex UltraScale+ style targets.
-- Lightweight counter and latency reports in the Questa transcript.
-- Strategy-facing packet-to-book top that turns raw 100G-style feed frames into
-  single-symbol quote updates.
-
-## Event Format
-
-| Bits | Field |
-| :--- | :--- |
-| `[7:0]` | Normalized event kind |
-| `[15:8]` | Original ITCH message type |
-| `[31:16]` | Stock locate |
-| `[47:32]` | Tracking number |
-| `[95:48]` | Timestamp |
-| `[159:96]` | Order reference |
-| `[191:160]` | Shares |
-| `[223:192]` | Price |
-| `[231:224]` | Side |
-| `[239:232]` | Flags |
-| `[255:240]` | Reserved |
-
-## Directory Layout
+## Repository Layout
 
 ```text
-market_parser/
-  rtl/
-    market_parser_pkg.sv
-    market_parser.sv
-    market_parser_axis_adapter.sv
-    market_parser_64.sv
-    market_parser_axis_register_slice.sv
-    market_parser_100g_ingress.sv
-    market_parser_udp_payload_strip.sv
-    market_parser_512_boundary_scan.sv
-    market_parser_512_frontend.sv
-    market_parser_512_event_extract.sv
-    market_parser_512_window_buffer.sv
-    market_parser_512_pipeline.sv
-    market_parser_event_fifo.sv
-    market_parser_512_pipeline_fifo.sv
-    market_parser_axi_lite_regs.sv
-    market_parser_512_system.sv
-    market_parser_100g_cmac_system.sv
-    market_parser_top_of_book.sv
-    market_parser_100g_strategy_top.sv
-    market_parser_cmac_axis_rx_bridge.sv
-    market_parser_100g_cmac_axis_strategy_top.sv
-    market_parser_100g_strategy_impl_harness.sv
-    market_parser_100g_cmac_axis_impl_harness.sv
-    market_parser_100g_cmac_ip_strategy_top.sv
-    market_parser_100g_cmac_ip_impl_harness.sv
-  verification/
-    market_parser_tb.sv
-    market_parser_64_tb.sv
-    market_parser_axis_adapter_tb.sv
-    market_parser_100g_ingress_tb.sv
-    market_parser_100g_cmac_system_tb.sv
-    market_parser_cmac_axis_rx_bridge_tb.sv
-    market_parser_512_boundary_scan_tb.sv
-    market_parser_512_frontend_tb.sv
-    market_parser_512_event_extract_tb.sv
-    market_parser_512_pipeline_tb.sv
-    market_parser_512_pipeline_fifo_tb.sv
-    market_parser_512_system_tb.sv
-    market_parser_top_of_book_tb.sv
-    market_parser_100g_strategy_top_tb.sv
-    run_verilator_lint.ps1
-    cocotb/
-    vectors/
-  tools/
-    itch_packets.py
-    generate_vectors.py
-    probe_cmac_ip.tcl
-    probe_cmac_usplus_config.tcl
-    probe_cmac_usplus_placement.tcl
-    build_cmac_usplus_axis_ip.tcl
-    run_vivado_cmac_ip_impl.tcl
-    run_vivado_cmac_ip_ooc.tcl
-    run_hft_impl_matrix.sh
-    run_vivado_ooc.ps1
-    run_vivado_ooc.tcl
-    run_hft_ooc_matrix.sh
-  docs/
-    100g_readiness.md
-    architecture.md
-    cmac_integration.md
-    high_speed_profiles.md
-    implementation_timing.md
-    project_pitch.md
-    register_map.md
-    references.md
-    strategy_top.md
-    timing_matrix.md
-    zedboard_architecture.md
+rtl/            Synthesizable parser, stream, strategy, and CMAC-shell RTL
+verification/   SystemVerilog testbenches, cocotb tests, and packet vectors
+tools/          Vector generation, Vivado flows, and report helpers
+docs/           Architecture, timing, register, and integration notes
+filelist.f      Common RTL file list
 ```
 
-## Simulation Commands
+The most useful entry points are:
 
-Questa/ModelSim:
+- `rtl/market_parser_512_pipeline.sv`: integrated 512-bit parser pipeline.
+- `rtl/market_parser_100g_strategy_top.sv`: packet-to-top-of-book strategy path.
+- `rtl/market_parser_100g_cmac_ip_strategy_top.sv`: generated CMAC AXIS boundary.
+- `rtl/market_parser_100g_cmac_ip_impl_harness.sv`: board-oriented U50 shell.
+- `verification/run_questa.do`: complete Questa regression.
+- `tools/run_vivado_ooc.tcl`: single-top OOC synthesis.
+- `tools/run_vivado_cmac_ip_impl.tcl`: generated-CMAC implementation flow.
+
+## Quick Start
+
+Run the complete local simulation regression from the repository root:
 
 ```tcl
 cd verification
 vsim -c -do run_questa.do
 ```
 
-Vivado xsim:
+The regression covers parser correctness, malformed and truncated frames,
+randomized backpressure, dense messages, FIFO pressure, AXI-Lite status, and
+golden-model top-of-book replay. The current checked-in baseline passes with
+zero compile errors, zero compile warnings, and zero failed tests.
 
-```tcl
-xvlog -sv rtl/market_parser_pkg.sv rtl/market_parser.sv verification/market_parser_tb.sv
-xelab market_parser_tb -debug typical
-xsim market_parser_tb -runall
-```
-
-Current Questa FSE smoke result:
-
-```text
-Core tests passed: 63
-Wrapper tests passed: 21
-AXI adapter profile tests passed: 66
-100G ingress tests passed: 26
-100G CMAC shell tests passed: 36
-512-bit boundary scan tests passed: 17
-512-bit frontend tests passed: 180
-512-bit event extract tests passed: 42
-512-bit pipeline sweep tests passed: 492
-512-bit pipeline FIFO/stress tests passed: 247
-512-bit system / AXI-Lite tests passed: 49
-Top-of-book tests passed: 70
-100G strategy top tests passed: 118
-Tests failed: 0
-Errors: 0, Warnings: 0
-```
-
-Optional cocotb setup:
-
-```powershell
-pip install -r verification/cocotb/requirements.txt
-cd verification/cocotb
-make SIM=questa
-```
-
-Without `make`, use:
-
-```powershell
-cd verification/cocotb
-python run_cocotb.py --sim questa
-```
-
-Current cocotb smoke covers the golden mixed packet, repeated mixed packets
-with randomized input/output timing, and bad/truncated packet flag checks:
-
-```text
-TESTS=3 PASS=3 FAIL=0
-Errors: 0, Warnings: 0
-```
-
-Optional Verilator lint, when Verilator is installed:
-
-```powershell
-cd verification
-powershell -ExecutionPolicy Bypass -File .\run_verilator_lint.ps1
-```
-
-If Verilator is installed in Ubuntu/WSL:
-
-```bash
-cd /mnt/d/Market_Parser
-bash verification/run_verilator_lint_wsl.sh
-```
-
-Optional Vivado out-of-context synthesis:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\tools\run_vivado_ooc.ps1
-```
-
-The default top is `market_parser_512_system` and the default part is the
-ZedBoard `xc7z020clg484-1`. For a different board or a narrower top:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\tools\run_vivado_ooc.ps1 -Top market_parser_512_pipeline -Part <xilinx-part> -ClockPeriodNs 3.102 -Directive RuntimeOptimized
-```
-
-Reports are written under `build/vivado_ooc/<top>/`.
-
-Summarize generated Vivado reports:
-
-```powershell
-python tools/summarize_vivado_reports.py build/vivado_ooc/market_parser_512_pipeline
-```
-
-Run the school Linux HFT matrix wrapper after sourcing Vivado:
-
-```bash
-source /apps/xilinx/Vivado/2024.2/settings64.sh
-bash tools/run_hft_ooc_matrix.sh
-```
-
-The matrix wrapper writes per-run reports and a `summary.tsv` under
-`build/hft_ooc_matrix/<timestamp>/`. Override the run with
-`MARKET_PARSER_PARTS`, `MARKET_PARSER_TOPS`, and `MARKET_PARSER_PERIODS` when
-you want a smaller sweep.
-
-Current Zynq-7020 OOC timing at a 3.102 ns target does not close for the
-512-bit path. The latest `market_parser_512_pipeline` run reports WNS
-`-3.290 ns`; the latest standalone `market_parser_512_frontend` run reports
-WNS `-3.341 ns`. Zynq-7020 is therefore treated as a future functional demo
-target, not the 100G timing target.
-
-On a school Vivado 2024.2 install targeting the U50-class
-`xcu50-fsvh2104-2-e` part, OOC synthesis at the same 3.102 ns target meets
-timing: `market_parser_512_frontend` reports WNS `0.872 ns`, and
-`market_parser_512_pipeline` reports WNS `1.091 ns`. This is an OOC synthesis
-result for a realistic reference FPGA target, not full placed-and-routed
-board-level timing closure. A follow-up OOC clock sweep for
-`market_parser_512_pipeline` on the same U50-class part closes through
-`2.000 ns` (500 MHz, WNS `0.030 ns`) and misses `1.950 ns` (~513 MHz) by
-`0.020 ns`. After a lane-offset retiming cleanup, the standalone
-`market_parser_512_frontend` also closes at `2.100 ns`; the integrated parser
-top is the 500 MHz timing headline.
-
-The full packet-to-book strategy top, `market_parser_100g_strategy_top`, also
-meets the 3.102 ns / 322 MHz 100G user-clock target on `xcu50-fsvh2104-2-e`
-with WNS `0.776 ns`, TNS `0.000 ns`, 23007 LUTs, 21869 registers, and no
-BRAM/DSP usage after adding a payload register slice and staging the frontend
-beat-offset update. A strategy-top clock sweep now closes `2.350 ns` / 426 MHz
-with WNS `0.024 ns` and near-misses `2.300 ns` / 435 MHz by `0.026 ns`, so
-500 MHz remains the parser-pipeline headline rather than the full packet-to-book
-shell target.
-
-The school Vivado `cmac_usplus:3.1` probe confirms an AXIS RX template is
-available for the U50-class part. The generated RX stream has no `tready`, so
-`market_parser_100g_cmac_axis_strategy_top` adds a packet-preserving CMAC RX
-buffer before the packet-to-book strategy path.
-
-Generate the real AXIS-mode CMAC UltraScale+ IP artifacts on the school Vivado
-install with:
-
-```bash
-vivado -mode batch -source tools/build_cmac_usplus_axis_ip.tcl \
-  -tclargs xcu50-fsvh2104-2-e cmac_usplus_0
-```
-
-The generated `.xci`, wrappers, templates, and project files are written under
-`build/cmac_usplus_axis_ip/<part>/` and intentionally stay out of git. The
-checked-in integration point is the repeatable Vivado generator plus the
-manifest it writes for each run.
-
-The July 4, 2026 school Vivado 2024.2 run generated the AXIS CMAC IP
-successfully on `xcu50-fsvh2104-2-e`: IP validation, instantiation template,
-synthesis target, simulation target, and user-file export all completed.
-The next integration wrapper, `market_parser_100g_cmac_ip_strategy_top`,
-instantiates the generated `cmac_usplus_0`, ties the unused transmit side idle,
-and feeds CMAC RX AXIS traffic into the parser/strategy path.
-
-Run the first generated-IP OOC synthesis check with:
-
-```bash
-vivado -mode batch -source tools/run_vivado_cmac_ip_ooc.tcl \
-  -tclargs market_parser_100g_cmac_ip_strategy_top xcu50-fsvh2104-2-e 3.102 RuntimeOptimized
-```
-
-That flow reads the generated CMAC declaration stub to verify the wrapper
-against the IP port list. Full CMAC internals, GT placement, and board pin
-constraints remain part of the board implementation pass.
-
-The July 4, 2026 generated-IP wrapper OOC run met the 3.102 ns target on
-`xcu50-fsvh2104-2-e`: `market_parser_100g_cmac_ip_strategy_top` reported WNS
-`0.449 ns`, TNS `0.000 ns`, 23966 LUTs, 23709 registers, and no BRAM/DSP usage.
-This validates the checked-in wrapper against the generated AXIS CMAC port list;
-the declaration-only OOC result is complemented by the full-IP routed result
-below.
-
-The July 13, 2026 initial full generated-CMAC implementation run also completed on
-`xcu50-fsvh2104-2-e`. `market_parser_100g_cmac_ip_impl_harness` linked the
-default CAUI-10 CMAC synthesis checkpoint with zero black boxes, placed and routed successfully,
-and met the 3.102 ns / 322 MHz target with WNS `0.044 ns`, TNS `0.000 ns`,
-21023 LUTs, 27391 registers, and no BRAM/DSP usage. The remaining
-`DRC AVAL-326` warning identifies the expected board-shell gap: the CMAC
-`IBUFDS_GTE4` reference-clock buffer still needs the selected card's physical
-`LOC` and corresponding GT/refclock constraints before this can be called a
-board-qualified implementation.
-
-A subsequent school Vivado 2024.2 probe validated the production-shaped
-CAUI-4 profile: four GTY lanes at 25.78125 Gb/s, a 161.1328125 MHz GT reference
-clock, and the same 512-bit AXIS RX handoff. The generated-IP wrappers and
-Vivado CMAC build/OOC/implementation flows now request
-`CONFIG.CMAC_CAUI4_MODE=1` followed by `CONFIG.NUM_LANES=4x25`.
-
-The CAUI-4 generated-wrapper OOC check now passes at 3.102 ns with all four-lane
-port widths matched, WNS `0.449 ns`, TNS `0.000 ns`, 23966 LUTs, and 23709
-registers. Its CMAC remains declaration-only by design; the separate full-IP
-implementation flow is the routed proof.
-
-The full CAUI-4 implementation also completes with the generated CMAC linked
-and zero black boxes. It places, routes, and meets the 3.102 ns / 322 MHz target
-with WNS `0.007 ns`, TNS `0.000 ns`, 21128 LUTs, 25324 registers, and no
-BRAM/DSP usage. `DRC AVAL-326` remains the sole critical warning because the
-generic part-level flow still lacks a board-specific CMAC reference-clock
-`LOC`.
-
-The final U50 board-profile implementation selects `CMACE4_X0Y4`, GT lanes
-`X0Y28` through `X0Y31`, and reference-clock site `GTYE4_COMMON_X0Y7`. It
-links zero black boxes, completes routing at 3.102 ns / 322 MHz with WNS
-`0.026 ns`, TNS `0.000 ns`, and WHS `0.012 ns`, and eliminates the earlier
-`AVAL-326`, `PPURQ-1`, `NSTD-1`, and `UCIO-1` findings. The only remaining DRC
-finding is one non-blocking `PDRC-146` slice-packing warning. Physical CMC
-clock, PCIe reset, status LED, HBM `CATTRIP`, QSFP reference-clock pins, CMAC
-hard-block placement, and RS-FEC controls are all resolved. Bitstream writing
-then reaches only the encrypted CMAC licensing gate; the school installation
-must add the CMAC bitstream license before this routed design can be programmed.
-
-After staging the UDP payload-strip predecode path, the CMAC AXIS strategy
-boundary also closes OOC at the 3.102 ns / 322 MHz target on
-`xcu50-fsvh2104-2-e`: `market_parser_100g_cmac_axis_strategy_top` reports WNS
-`0.449 ns`, TNS `0.000 ns`, 23965 LUTs, 23709 registers, and no BRAM/DSP usage.
-A stress sweep for the same boundary closes `2.750 ns` / 364 MHz with WNS
-`0.097 ns`, then misses `2.500 ns` / 400 MHz by `0.153 ns`. This is the
-source-level handoff point for a generated `cmac_usplus` AXIS RX instance.
-
-A routed implementation harness for the full strategy path now also closes the
-3.102 ns / 322 MHz target on the same U50-class part after registering the CMAC
-RX stream before UDP payload stripping. The post-route result reports WNS
-`0.000 ns`, TNS `0.000 ns`, 18492 LUTs, 21194 registers, and no BRAM/DSP usage.
-The source-only CMAC AXIS harness also closes post-route at the same target:
-`market_parser_100g_cmac_axis_impl_harness` reports WNS `0.022 ns`, TNS
-`0.000 ns`, 19418 LUTs, 22531 registers, and no BRAM/DSP usage.
-
-## Test Vector Generation
-
-The Python helper creates deterministic MoldUDP64/ITCH packets, expected
-normalized event words, and a golden-model top-of-book replay packet used by
-the 100G strategy-top regression:
+Generate or refresh deterministic packet vectors with Python 3:
 
 ```powershell
 python tools/generate_vectors.py
 ```
 
-## Pre-Hardware Next Build Steps
+Optional cocotb and Verilator checks are documented in
+`verification/cocotb/README.md` and `verification/run_verilator_lint.ps1`.
 
-1. Generate the AMD CMAC AXIS IP with `tools/build_cmac_usplus_axis_ip.tcl`.
-2. Run `tools/run_vivado_cmac_ip_ooc.tcl` to validate the generated CMAC IP
-   wrapper plus parser receive path.
-3. Add board clocking, resets, GT pins, and constraints around the same wrapper.
-4. Run routed implementation again with the real CMAC IP boundary.
-5. Inspect the `2.500 ns` CMAC AXIS OOC stress miss only if extra timing headroom is needed.
-6. Use the 1.950 ns parser near miss as an optional timing cleanup target.
-7. Keep the ZedBoard wrapper and software demo as a separate optional functional hardware track.
+## Vivado Flows
+
+The scripts use relative paths and environment variables. Supply the Vivado
+installation setup appropriate to the machine running them; no installation
+path is hard-coded in this repository.
+
+Single-top OOC synthesis on a local Vivado installation:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\run_vivado_ooc.ps1 `
+  -Top market_parser_512_pipeline `
+  -Part <xilinx-part> `
+  -ClockPeriodNs 2.000 `
+  -Directive RuntimeOptimized
+```
+
+Linux Vivado matrix flow:
+
+```bash
+source <vivado-install>/settings64.sh
+MARKET_PARSER_PARTS="<xilinx-part>" \
+MARKET_PARSER_TOPS="market_parser_512_pipeline" \
+MARKET_PARSER_PERIODS="3.102 2.100 2.000" \
+bash tools/run_hft_ooc_matrix.sh
+```
+
+Reports are written below `build/`, which is ignored by Git. Use
+`tools/summarize_vivado_reports.py` to turn a report directory into a compact
+timing and utilization summary.
+
+## Current Hardware Evidence
+
+The 512-bit parser pipeline closes a 2.000 ns target, equivalent to 500 MHz,
+in U50-class UltraScale+ OOC synthesis with positive slack. The full strategy
+path is a larger packet-to-book design and is intentionally evaluated at the
+native 100G CMAC user-clock class rather than presented as a 500 MHz claim.
+
+The CAUI-4 CMAC integration flow has also been routed on the U50-class target:
+
+- CMAC core: `CMACE4_X0Y4`.
+- GT lanes: `X0Y28` through `X0Y31`.
+- Reference-clock site: `GTYE4_COMMON_X0Y7`.
+- Board I/O and hard-block placement are constrained and reported.
+- Zero black boxes remain after integrated synthesis.
+- Post-route timing at 3.102 ns: WNS `+0.026 ns`, TNS `0.000 ns`.
+- Final DRC has no errors or critical warnings; one non-blocking `PDRC-146`
+  slice-packing warning remains.
+
+Bitstream generation is currently blocked by the encrypted CMAC IP license on
+the available Vivado installation. This is a tool-license limitation after
+successful synthesis, placement, routing, timing, and DRC; it is not evidence
+that the design has been programmed onto hardware.
+
+See `docs/cmac_integration.md` for the generated-IP flow and board-shell
+details, `docs/timing_matrix.md` for measured timing, and
+`docs/implementation_timing.md` for routed-report conventions.
+
+## License And Data Handling
+
+No credentials, hostnames, user directories, school paths, generated reports,
+vendor IP output products, or machine-specific simulator metadata belong in
+the repository. Keep those artifacts in ignored `build/` or local workspace
+directories. Before publishing a change, run:
+
+```bash
+git diff --check
+git status --short
+```
