@@ -55,8 +55,14 @@ closes through 2.500 ns / 400 MHz:
 | `market_parser_100g_multi_strategy_top` | `2.600 ns` | 385 MHz | `0.271 ns` | `0.000 ns` | `29702 / 871680 (3.41%)` | `33434 / 1743360 (1.92%)` | Meets |
 | `market_parser_100g_multi_strategy_top` | `2.550 ns` | 392 MHz | `0.221 ns` | `0.000 ns` | `29706 / 871680 (3.41%)` | `33434 / 1743360 (1.92%)` | Meets |
 | `market_parser_100g_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.171 ns` | `0.000 ns` | `29706 / 871680 (3.41%)` | `33434 / 1743360 (1.92%)` | Meets |
+| `market_parser_100g_multi_strategy_top` | `2.450 ns` | 408 MHz | `0.121 ns` | `0.000 ns` | `29707 / 871680 (3.41%)` | `33434 / 1743360 (1.92%)` | Meets |
+| `market_parser_100g_multi_strategy_top` | `2.400 ns` | 417 MHz | `0.071 ns` | `0.000 ns` | `29707 / 871680 (3.41%)` | `33434 / 1743360 (1.92%)` | Meets |
+| `market_parser_100g_multi_strategy_top` | `2.350 ns` | 426 MHz | `0.021 ns` | `0.000 ns` | `29714 / 871680 (3.41%)` | `33434 / 1743360 (1.92%)` | Meets |
+| `market_parser_100g_multi_strategy_top` | `2.325 ns` | 430 MHz | `-0.004 ns` | `-0.011 ns` | `29718 / 871680 (3.41%)` | `33434 / 1743360 (1.92%)` | Near miss |
+| `market_parser_100g_multi_strategy_top` | `2.300 ns` | 435 MHz | `-0.029 ns` | `-19.921 ns` | `29716 / 871680 (3.41%)` | `33434 / 1743360 (1.92%)` | Does not close |
 
 The 2.500 ns result has 171 ps of setup margin, so 400 MHz is now a measured
 high-frequency operating point rather than a boundary-only pass. All builds
 use zero BRAM tiles and zero DSPs. These are source-level OOC results and do
-not require or claim a generated CMAC IP license.
+not require or claim a generated CMAC IP license. The measured edge is between
+2.350 ns / 425.5 MHz and 2.325 ns / 430.1 MHz.

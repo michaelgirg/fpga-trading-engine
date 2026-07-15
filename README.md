@@ -109,7 +109,8 @@ with `+0.171 ns` WNS, using about 3.41% of LUTs and 1.92% of registers on the
 same U50-class part. This boundary includes Ethernet/IP/UDP stripping,
 MoldUDP64/ITCH parsing, event buffering, four independent order tables, and
 ordered quote arbitration. These source-level OOC results do not require CMAC
-IP.
+IP. A boundary sweep also closes 2.350 ns / 425.5 MHz by 21 ps and misses
+2.325 ns / 430.1 MHz by 4 ps.
 
 The CAUI-4 CMAC integration flow has also been routed on the U50-class target:
 
