@@ -27,6 +27,21 @@ for unconfigured locates are consumed and counted without changing a book.
 The current output is a single ordered quote stream. Backpressure on that
 stream blocks new book events, so no quote can be overtaken by a later symbol.
 
+### Feed Integrity
+
+The 512-bit frontend tracks the next expected MoldUDP64 sequence and marks
+every normalized event from a discontinuous packet with `FLAG_GAP`. The
+multi-symbol strategy top treats that flag as a feed-integrity fault: it drops
+the marked event, clears all bounded book state, consumes later events without
+updating a book, and suppresses quote output. `feed_healthy`,
+`feed_gap_count`, and `feed_suppressed_event_count` expose the guard state and
+history.
+
+The guard rearms only when `feed_recover` is asserted. That input is an
+explicit RTL control boundary for now; it is not yet connected to an AXI-Lite
+software register. Fault-history counters persist across recovery and clear on
+global reset.
+
 ## Verification
 
 The direct book-bank test interleaves three symbols and covers independent bid
@@ -36,8 +51,10 @@ aggregate counters, and output stability under backpressure.
 The end-to-end test replays three generated Ethernet frames and compares every
 quote to `MultiSymbolTopOfBookModel`. The replay contains 11 ITCH events, eight
 applied updates, three ignored events, one untracked symbol, and eight expected
-quote updates. No CMAC IP or CMAC license is required for this source-level
-simulation path.
+quote updates. It then replays a stale sequence, verifies fail-closed book
+invalidation and event suppression, explicitly recovers, and proves that a
+correctly resequenced packet produces the expected quotes. No CMAC IP or CMAC
+license is required for this source-level simulation path.
 
 ## U50 OOC Results
 

@@ -15,6 +15,7 @@ module market_parser_512_event_extract_tb #(
 
     localparam logic [7:0] DESC_FLAG_CROSSES_BEAT = 8'h01;
     localparam logic [7:0] DESC_FLAG_BAD_FRAME    = 8'h04;
+    localparam logic [7:0] DESC_FLAG_GAP          = 8'h10;
 
     typedef logic [7:0] byte_t;
     typedef logic [255:0] event_word_t;
@@ -172,6 +173,16 @@ module market_parser_512_event_extract_tb #(
         check(event_complete, "bad-frame event complete");
         check((event_data[239:232] & FLAG_MALFORMED) != 8'h00, "bad-frame descriptor maps to malformed event flag");
         check(extract_error_flags[2], "bad-frame descriptor sets extractor bad-frame error");
+
+        drive_desc(0, 1'b1, DESC_FLAG_GAP);
+        check(event_valid, "gap event valid");
+        check(event_complete, "gap event complete");
+        check((event_data[239:232] & FLAG_GAP) != 8'h00,
+              "descriptor gap maps to normalized event flag");
+        check((event_data[239:232] & FLAG_MALFORMED) == 8'h00,
+              "sequence gap does not mark a complete event malformed");
+        check(extract_error_flags == 32'd0,
+              "sequence gap is not counted as a field extraction error");
 
         desc_valid = 1'b0;
         #1;

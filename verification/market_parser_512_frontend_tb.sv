@@ -17,6 +17,7 @@ module market_parser_512_frontend_tb #(
 
     localparam logic [7:0] DESC_FLAG_CROSSES_BEAT = 8'h01;
     localparam logic [7:0] DESC_FLAG_BAD_FRAME    = 8'h04;
+    localparam logic [7:0] DESC_FLAG_GAP          = 8'h10;
 
     typedef logic [7:0] byte_t;
 
@@ -179,7 +180,7 @@ module market_parser_512_frontend_tb #(
         check(desc_valid, {msg, " descriptor valid"});
     endtask
 
-    task automatic check_mixed_desc(input int idx);
+    task automatic check_mixed_desc(input int idx, input logic [7:0] extra_flags);
         wait_desc($sformatf("mixed message %0d", idx));
         check(desc_packet_sequence == 64'd5, $sformatf("mixed message %0d sequence", idx));
         check(desc_message_index == idx[15:0], $sformatf("mixed message %0d index", idx));
@@ -190,7 +191,8 @@ module market_parser_512_frontend_tb #(
         if (expected_type_valid[idx]) begin
             check(desc_message_type == expected_type[idx][7:0], $sformatf("mixed message %0d type", idx));
         end
-        check(desc_flags == expected_flags[idx], $sformatf("mixed message %0d flags", idx));
+        check(desc_flags == (expected_flags[idx] | extra_flags),
+              $sformatf("mixed message %0d flags", idx));
         @(posedge clk);
     endtask
 
@@ -309,13 +311,25 @@ module market_parser_512_frontend_tb #(
             send_packet(MIXED_PACKET_BYTES, mixed_packet_mem, 1'b0);
             begin
                 for (int i = 0; i < EXPECTED_MIXED_DESCS; i++) begin
-                    check_mixed_desc(i);
+                    check_mixed_desc(i, 8'h00);
                 end
             end
         join
         check(packet_count == 32'd1, "mixed packet count");
         check(descriptor_count == 32'd8, "mixed descriptor count");
         check(error_count == 32'd0, "mixed error count");
+
+        fork
+            send_packet(MIXED_PACKET_BYTES, mixed_packet_mem, 1'b0);
+            begin
+                for (int i = 0; i < EXPECTED_MIXED_DESCS; i++) begin
+                    check_mixed_desc(i, DESC_FLAG_GAP);
+                end
+            end
+        join
+        check(packet_count == 32'd2, "gap packet count");
+        check(descriptor_count == 32'd16, "gap packet descriptor count");
+        check(error_count == 32'd1, "sequence gap increments error count once");
 
         reset_dut();
         build_split_length_packet();

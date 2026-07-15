@@ -1,4 +1,5 @@
 `default_nettype none
+import market_parser_pkg::*;
 // =============================================================================
 // Module: market_parser_100g_multi_strategy_top
 // =============================================================================
@@ -20,6 +21,7 @@ module market_parser_100g_multi_strategy_top #(
 ) (
     input  wire logic         clk,
     input  wire logic         rst,
+    input  wire logic         feed_recover,
 
     input  wire logic         s_axis_cmac_rx_tvalid,
     output logic              s_axis_cmac_rx_tready,
@@ -66,7 +68,11 @@ module market_parser_100g_multi_strategy_top #(
     output logic [31:0]       book_ignored_event_count,
     output logic [31:0]       book_untracked_event_count,
     output logic [31:0]       book_table_overflow_count,
-    output logic [31:0]       book_quote_update_count
+    output logic [31:0]       book_quote_update_count,
+
+    output logic              feed_healthy,
+    output logic [31:0]       feed_gap_count,
+    output logic [31:0]       feed_suppressed_event_count
 );
     logic         event_valid;
     logic         event_ready;
@@ -74,6 +80,49 @@ module market_parser_100g_multi_strategy_top #(
     logic [ 63:0] event_new_order_ref;
     logic [ 31:0] event_keep;
     logic         event_last;
+    logic         book_event_valid;
+    logic         book_event_ready;
+    logic         book_quote_valid;
+    logic         book_rst;
+    logic         gap_event_i;
+    logic         event_fire_i;
+    logic         feed_healthy_r;
+    logic [31:0]  feed_gap_count_r;
+    logic [31:0]  feed_suppressed_event_count_r;
+
+    assign gap_event_i = event_valid &&
+                         ((event_data[239:232] & FLAG_GAP) != 8'h00);
+    assign event_ready = feed_recover ? 1'b0 :
+                         ((!feed_healthy_r || gap_event_i) ? 1'b1 : book_event_ready);
+    assign event_fire_i = event_valid && event_ready;
+    assign book_event_valid = event_valid && feed_healthy_r &&
+                              !gap_event_i && !feed_recover;
+    assign book_rst = rst || feed_recover ||
+                      (event_fire_i && gap_event_i && feed_healthy_r);
+
+    assign quote_valid = feed_healthy_r && !gap_event_i &&
+                         !feed_recover && book_quote_valid;
+    assign feed_healthy = feed_healthy_r;
+    assign feed_gap_count = feed_gap_count_r;
+    assign feed_suppressed_event_count = feed_suppressed_event_count_r;
+
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            feed_healthy_r                <= 1'b1;
+            feed_gap_count_r              <= '0;
+            feed_suppressed_event_count_r <= '0;
+        end else if (feed_recover) begin
+            feed_healthy_r <= 1'b1;
+        end else if (event_fire_i) begin
+            if (gap_event_i && feed_healthy_r) begin
+                feed_healthy_r   <= 1'b0;
+                feed_gap_count_r <= feed_gap_count_r + 1'b1;
+            end
+            if (!feed_healthy_r || gap_event_i) begin
+                feed_suppressed_event_count_r <= feed_suppressed_event_count_r + 1'b1;
+            end
+        end
+    end
 
     market_parser_100g_cmac_system #(
         .FEED_UDP_PORT           (FEED_UDP_PORT),
@@ -128,14 +177,14 @@ module market_parser_100g_multi_strategy_top #(
         .SYMBOL_LOCATES   (SYMBOL_LOCATES)
     ) book_bank_i (
         .clk                  (clk),
-        .rst                  (rst),
-        .event_valid          (event_valid),
-        .event_ready          (event_ready),
+        .rst                  (book_rst),
+        .event_valid          (book_event_valid),
+        .event_ready          (book_event_ready),
         .event_data           (event_data),
         .event_new_order_ref  (event_new_order_ref),
         .event_keep           (event_keep),
         .event_last           (event_last),
-        .quote_valid          (quote_valid),
+        .quote_valid          (book_quote_valid),
         .quote_ready          (quote_ready),
         .quote_stock_locate   (quote_stock_locate),
         .quote_bid_price      (quote_bid_price),

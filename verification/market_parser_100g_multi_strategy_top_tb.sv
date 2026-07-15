@@ -19,6 +19,7 @@ module market_parser_100g_multi_strategy_top_tb #(
 
     logic clk = 1'b0;
     logic rst;
+    logic feed_recover;
     logic s_axis_cmac_rx_tvalid;
     logic s_axis_cmac_rx_tready;
     logic [511:0] s_axis_cmac_rx_tdata;
@@ -61,10 +62,14 @@ module market_parser_100g_multi_strategy_top_tb #(
     logic [31:0] book_untracked_event_count;
     logic [31:0] book_table_overflow_count;
     logic [31:0] book_quote_update_count;
+    logic feed_healthy;
+    logic [31:0] feed_gap_count;
+    logic [31:0] feed_suppressed_event_count;
 
     byte_t raw_0_mem[MULTI_SYMBOL_RAW_0_BYTES];
     byte_t raw_1_mem[MULTI_SYMBOL_RAW_1_BYTES];
     byte_t raw_2_mem[MULTI_SYMBOL_RAW_2_BYTES];
+    byte_t recovery_raw_mem[MULTI_SYMBOL_RAW_0_BYTES];
     logic [191:0] expected_quote_mem[MULTI_SYMBOL_EXPECTED_QUOTES];
 
     int passed;
@@ -80,6 +85,7 @@ module market_parser_100g_multi_strategy_top_tb #(
     ) DUT (
         .clk                            (clk),
         .rst                            (rst),
+        .feed_recover                   (feed_recover),
         .s_axis_cmac_rx_tvalid          (s_axis_cmac_rx_tvalid),
         .s_axis_cmac_rx_tready          (s_axis_cmac_rx_tready),
         .s_axis_cmac_rx_tdata           (s_axis_cmac_rx_tdata),
@@ -121,7 +127,10 @@ module market_parser_100g_multi_strategy_top_tb #(
         .book_ignored_event_count       (book_ignored_event_count),
         .book_untracked_event_count     (book_untracked_event_count),
         .book_table_overflow_count      (book_table_overflow_count),
-        .book_quote_update_count        (book_quote_update_count)
+        .book_quote_update_count        (book_quote_update_count),
+        .feed_healthy                   (feed_healthy),
+        .feed_gap_count                 (feed_gap_count),
+        .feed_suppressed_event_count    (feed_suppressed_event_count)
     );
 
     initial begin : generate_clock
@@ -140,6 +149,7 @@ module market_parser_100g_multi_strategy_top_tb #(
 
     task automatic reset_dut();
         rst                            = 1'b1;
+        feed_recover                   = 1'b0;
         s_axis_cmac_rx_tvalid          = 1'b0;
         s_axis_cmac_rx_tdata           = '0;
         s_axis_cmac_rx_tkeep           = '0;
@@ -165,6 +175,38 @@ module market_parser_100g_multi_strategy_top_tb #(
         $readmemh({VECTOR_DIR, "/multi_symbol_raw_1.hex"}, raw_1_mem);
         $readmemh({VECTOR_DIR, "/multi_symbol_raw_2.hex"}, raw_2_mem);
         $readmemh({VECTOR_DIR, "/multi_symbol_expected_quotes.hex"}, expected_quote_mem);
+        for (int idx = 0; idx < MULTI_SYMBOL_RAW_0_BYTES; idx++) begin
+            recovery_raw_mem[idx] = raw_0_mem[idx];
+        end
+        recovery_raw_mem[52] = 8'h00;
+        recovery_raw_mem[53] = 8'h00;
+        recovery_raw_mem[54] = 8'h00;
+        recovery_raw_mem[55] = 8'h00;
+        recovery_raw_mem[56] = 8'h00;
+        recovery_raw_mem[57] = 8'h00;
+        recovery_raw_mem[58] = 8'h07;
+        recovery_raw_mem[59] = 8'hd3;
+    endtask
+
+    task automatic expect_no_quote(input int cycles, input string msg);
+        bit saw_quote;
+
+        saw_quote = 1'b0;
+        quote_ready = 1'b1;
+        repeat (cycles) begin
+            @(posedge clk);
+            if (quote_valid) saw_quote = 1'b1;
+        end
+        quote_ready = 1'b0;
+        check(!saw_quote, msg);
+    endtask
+
+    task automatic recover_feed();
+        @(negedge clk);
+        feed_recover = 1'b1;
+        @(negedge clk);
+        feed_recover = 1'b0;
+        @(posedge clk);
     endtask
 
     task automatic send_packet(input int packet_bytes, input byte_t packet_mem[]);
@@ -289,6 +331,29 @@ module market_parser_100g_multi_strategy_top_tb #(
               "aggregate overflow counter");
         check(book_quote_update_count == 32'(MULTI_SYMBOL_EXPECTED_QUOTES),
               "aggregate quote update counter");
+
+        send_packet(MULTI_SYMBOL_RAW_0_BYTES, raw_0_mem);
+        expect_no_quote(500, "sequence-gap packet emits no quote");
+        check(!feed_healthy, "sequence gap marks feed unhealthy");
+        check(feed_gap_count == 32'd1, "sequence gap counted once per packet");
+        check(feed_suppressed_event_count == 32'd3,
+              "all events from the gap packet are suppressed");
+        check(book_accepted_event_count == 32'd0,
+              "sequence gap clears aggregate book state and counters");
+        check(book_quote_update_count == 32'd0,
+              "sequence gap clears pending quote state");
+
+        recover_feed();
+        check(feed_healthy, "explicit recovery rearms the feed guard");
+        send_packet(MULTI_SYMBOL_RAW_0_BYTES, recovery_raw_mem);
+        for (int idx = 0; idx < MULTI_SYMBOL_PACKET_0_QUOTES; idx++) begin
+            expect_quote_word(expected_quote_mem[idx],
+                              $sformatf("recovery quote %0d", idx));
+        end
+        check(feed_healthy, "contiguous recovery packet keeps feed healthy");
+        check(feed_gap_count == 32'd1, "recovery does not erase fault history");
+        check(feed_suppressed_event_count == 32'd3,
+              "recovery does not erase suppression history");
 
         $display("========================================================");
         $display("Tests passed: %0d", passed);

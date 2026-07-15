@@ -42,6 +42,7 @@ module market_parser_512_frontend #(
     localparam logic [7:0] DESC_FLAG_MALFORMED    = 8'h02;
     localparam logic [7:0] DESC_FLAG_BAD_FRAME    = 8'h04;
     localparam logic [7:0] DESC_FLAG_TRUNCATED    = 8'h08;
+    localparam logic [7:0] DESC_FLAG_GAP          = 8'h10;
 
     initial begin
         if (DESC_QUEUE_DEPTH < 4) begin
@@ -67,6 +68,9 @@ module market_parser_512_frontend #(
     logic [15:0] beat_base_offset_r;
     logic [63:0] packet_sequence_r;
     logic [15:0] packet_message_count_r;
+    logic [63:0] expected_sequence_r;
+    logic        expected_sequence_valid_r;
+    logic        packet_gap_r;
     logic [15:0] message_index_r;
     logic [15:0] next_length_offset_r;
     logic        pending_len_hi_valid_r;
@@ -183,6 +187,9 @@ module market_parser_512_frontend #(
             beat_base_offset_r     <= '0;
             packet_sequence_r      <= '0;
             packet_message_count_r <= '0;
+            expected_sequence_r    <= '0;
+            expected_sequence_valid_r <= 1'b0;
+            packet_gap_r           <= 1'b0;
             message_index_r        <= '0;
             next_length_offset_r   <= '0;
             pending_len_hi_valid_r <= 1'b0;
@@ -297,6 +304,18 @@ module market_parser_512_frontend #(
                         packet_sequence_r      <= local_packet_sequence;
                         packet_message_count_r <= local_message_count;
                         packet_count_pending_r <= 1'b1;
+                        packet_gap_r           <= 1'b0;
+                        if (local_message_count == 16'd0) begin
+                            expected_sequence_r <= local_packet_sequence;
+                        end else if (local_message_count != 16'hffff) begin
+                            if (expected_sequence_valid_r &&
+                                local_packet_sequence != expected_sequence_r) begin
+                                packet_gap_r          <= 1'b1;
+                                error_count_pending_r <= 1'b1;
+                            end
+                            expected_sequence_r       <= local_packet_sequence + 64'(local_message_count);
+                            expected_sequence_valid_r <= 1'b1;
+                        end
                         scan_msg_index         = 0;
                         scan_len_offset        = 20;
                         local_pending_len_hi_valid = 1'b0;
@@ -397,6 +416,7 @@ module market_parser_512_frontend #(
                     if (beat_last_r && msg_end >= int'(beat_scan_base_offset_r) + int'(beat_valid_lanes_r)) begin
                         local_flags = local_flags | DESC_FLAG_TRUNCATED;
                     end
+                    if (packet_gap_r) local_flags = local_flags | DESC_FLAG_GAP;
 
                     cand_valid_r           <= 1'b1;
                     cand_packet_sequence_r <= packet_sequence_r;

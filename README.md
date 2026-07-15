@@ -15,6 +15,8 @@ pipeline intended for 100G-class FPGA Ethernet user clocks.
 - 64-, 256-, and 512-bit stream adapters with valid/ready backpressure.
 - 512-bit cut-through parsing with descriptor generation, parallel extraction,
   event buffering, counters, sticky error flags, and AXI-Lite status registers.
+- Wide-path MoldUDP64 sequence-gap detection with fail-closed multi-symbol book
+  invalidation, event suppression, fault counters, and explicit recovery.
 - CMAC-facing UDP payload stripping and AXI stream buffering for a generated
   AMD/Xilinx UltraScale+ CMAC interface.
 - Self-checking Questa/SystemVerilog tests, deterministic packet vectors,
@@ -54,9 +56,10 @@ vsim -c -do run_questa.do
 
 The regression covers parser correctness, malformed and truncated frames,
 randomized backpressure, dense messages, FIFO pressure, AXI-Lite status, and
-single- and multi-symbol golden-model top-of-book replay. The current
-checked-in baseline passes with zero compile errors, zero compile warnings,
-and zero failed tests.
+single- and multi-symbol golden-model top-of-book replay. It also verifies that
+a sequence gap suppresses stale book updates until explicit recovery. The
+current checked-in baseline passes with zero compile errors, zero compile
+warnings, and zero failed tests.
 
 Generate or refresh deterministic packet vectors with Python 3:
 

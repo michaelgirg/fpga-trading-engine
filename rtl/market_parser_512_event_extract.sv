@@ -30,6 +30,7 @@ module market_parser_512_event_extract #(
     localparam logic [7:0] DESC_FLAG_MALFORMED = 8'h02;
     localparam logic [7:0] DESC_FLAG_BAD_FRAME = 8'h04;
     localparam logic [7:0] DESC_FLAG_TRUNCATED = 8'h08;
+    localparam logic [7:0] DESC_FLAG_GAP       = 8'h10;
 
     localparam logic [31:0] EXTRACT_ERR_INCOMPLETE = 32'h0000_0001;
     localparam logic [31:0] EXTRACT_ERR_MALFORMED  = 32'h0000_0002;
@@ -99,6 +100,9 @@ module market_parser_512_event_extract #(
         if ((desc_flags & (DESC_FLAG_MALFORMED | DESC_FLAG_TRUNCATED)) != 8'h00) begin
             event_flags = event_flags | FLAG_MALFORMED;
             extract_error_flags = extract_error_flags | EXTRACT_ERR_MALFORMED;
+        end
+        if ((desc_flags & DESC_FLAG_GAP) != 8'h00) begin
+            event_flags = event_flags | FLAG_GAP;
         end
         if ((desc_flags & DESC_FLAG_BAD_FRAME) != 8'h00) begin
             event_flags = event_flags | FLAG_MALFORMED;

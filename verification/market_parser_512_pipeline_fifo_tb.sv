@@ -46,6 +46,7 @@ module market_parser_512_pipeline_fifo_tb #(
 
     int passed;
     int failed;
+    logic [63:0] next_packet_sequence;
 
     byte_t       mixed_packet_mem  [MIXED_PACKET_BYTES];
     event_word_t expected_event_mem[EXPECTED_EVENTS];
@@ -90,6 +91,7 @@ module market_parser_512_pipeline_fifo_tb #(
         s_axis_rx_tlast           = 1'b0;
         s_axis_rx_tuser_bad_frame = 1'b0;
         event_ready               = 1'b0;
+        next_packet_sequence      = 64'd5;
         repeat (6) @(posedge clk);
         rst = 1'b0;
         repeat (3) @(posedge clk);
@@ -145,15 +147,22 @@ module market_parser_512_pipeline_fifo_tb #(
             beat_data = '0;
             beat_keep = '0;
             for (int lane = 0; lane < beat_bytes; lane++) begin
-                beat_data[lane*8 +: 8] = packet_mem[offset + lane];
+                if (offset + lane >= 10 && offset + lane < 18) begin
+                    beat_data[lane*8 +: 8] =
+                        next_packet_sequence[63 - ((offset + lane - 10) * 8) -: 8];
+                end else begin
+                    beat_data[lane*8 +: 8] = packet_mem[offset + lane];
+                end
                 beat_keep[lane] = 1'b1;
             end
             send_beat(beat_data, beat_keep, offset + beat_bytes >= packet_bytes);
             offset += beat_bytes;
         end
+        next_packet_sequence = next_packet_sequence + 64'd8;
     endtask
 
-    function automatic logic [511:0] make_mixed_beat_data(input int offset);
+    function automatic logic [511:0] make_mixed_beat_data(input int offset,
+                                                           input logic [63:0] packet_sequence);
         logic [511:0] beat_data;
         int bytes_left;
         int beat_bytes;
@@ -162,7 +171,12 @@ module market_parser_512_pipeline_fifo_tb #(
         beat_bytes = (bytes_left >= 64) ? 64 : bytes_left;
         beat_data = '0;
         for (int lane = 0; lane < beat_bytes; lane++) begin
-            beat_data[lane*8 +: 8] = mixed_packet_mem[offset + lane];
+            if (offset + lane >= 10 && offset + lane < 18) begin
+                beat_data[lane*8 +: 8] =
+                    packet_sequence[63 - ((offset + lane - 10) * 8) -: 8];
+            end else begin
+                beat_data[lane*8 +: 8] = mixed_packet_mem[offset + lane];
+            end
         end
         make_mixed_beat_data = beat_data;
     endfunction
@@ -186,15 +200,17 @@ module market_parser_512_pipeline_fifo_tb #(
         int offset;
         int beat_bytes;
         int stall_cycles;
+        logic [63:0] packet_sequence;
 
         packet_idx = 0;
         offset = 0;
         stall_cycles = 0;
+        packet_sequence = next_packet_sequence;
         @(negedge clk);
         while (packet_idx < packets) begin
             beat_bytes = ((MIXED_PACKET_BYTES - offset) >= 64) ? 64 : (MIXED_PACKET_BYTES - offset);
             s_axis_rx_tvalid          = 1'b1;
-            s_axis_rx_tdata           = make_mixed_beat_data(offset);
+            s_axis_rx_tdata           = make_mixed_beat_data(offset, packet_sequence);
             s_axis_rx_tkeep           = make_mixed_beat_keep(offset);
             s_axis_rx_tlast           = (offset + beat_bytes >= MIXED_PACKET_BYTES);
             s_axis_rx_tuser_bad_frame = 1'b0;
@@ -206,6 +222,7 @@ module market_parser_512_pipeline_fifo_tb #(
                 if (offset >= MIXED_PACKET_BYTES) begin
                     offset = 0;
                     packet_idx++;
+                    packet_sequence = packet_sequence + 64'd8;
                 end
             end else begin
                 stall_cycles++;
@@ -222,6 +239,7 @@ module market_parser_512_pipeline_fifo_tb #(
         s_axis_rx_tkeep           = '0;
         s_axis_rx_tlast           = 1'b0;
         s_axis_rx_tuser_bad_frame = 1'b0;
+        next_packet_sequence      = packet_sequence;
     endtask
 
     task automatic collect_events_with_random_ready(input int packets,
