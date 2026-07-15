@@ -42,20 +42,21 @@ simulation path.
 ## U50 OOC Results
 
 Vivado 2024.2 out-of-context synthesis on `xcu50-fsvh2104-2-e` closes the
-3.102 ns / 322 MHz 100G user-clock target for both synthesis boundaries. The
-complete packet-to-quote top also closes through 2.650 ns / 377.4 MHz:
+3.102 ns / 322 MHz 100G user-clock target for both synthesis boundaries. After
+registering balanced UDP `tkeep` counts, the complete packet-to-quote top also
+closes through 2.500 ns / 400 MHz:
 
 | Top | Period | Frequency | WNS | TNS | LUTs | Registers | Status |
 | :--- | ---: | ---: | ---: | ---: | :--- | :--- | :--- |
 | `market_parser_multi_symbol_top_of_book` | `3.102 ns` | 322 MHz | `0.605 ns` | `0.000 ns` | `1719 / 871680 (0.20%)` | `3242 / 1743360 (0.19%)` | Meets |
 | `market_parser_100g_multi_strategy_top` | `3.102 ns` | 322 MHz | `0.456 ns` | `0.000 ns` | `29797 / 871680 (3.42%)` | `33444 / 1743360 (1.92%)` | Meets |
-| `market_parser_100g_multi_strategy_top` | `2.750 ns` | 364 MHz | `0.104 ns` | `0.000 ns` | `29999 / 871680 (3.44%)` | `33444 / 1743360 (1.92%)` | Meets |
-| `market_parser_100g_multi_strategy_top` | `2.650 ns` | 377 MHz | `0.004 ns` | `0.000 ns` | `30001 / 871680 (3.44%)` | `33444 / 1743360 (1.92%)` | Meets |
-| `market_parser_100g_multi_strategy_top` | `2.600 ns` | 385 MHz | `-0.046 ns` | `-0.139 ns` | `30001 / 871680 (3.44%)` | `33444 / 1743360 (1.92%)` | Near miss |
-| `market_parser_100g_multi_strategy_top` | `2.550 ns` | 392 MHz | `-0.096 ns` | `-92.369 ns` | `30001 / 871680 (3.44%)` | `33444 / 1743360 (1.92%)` | Does not close |
-| `market_parser_100g_multi_strategy_top` | `2.500 ns` | 400 MHz | `-0.146 ns` | `-293.451 ns` | `30001 / 871680 (3.44%)` | `33444 / 1743360 (1.92%)` | Does not close |
+| `market_parser_100g_multi_strategy_top` | `2.750 ns` | 364 MHz | `0.421 ns` | `0.000 ns` | `29694 / 871680 (3.41%)` | `33448 / 1743360 (1.92%)` | Meets |
+| `market_parser_100g_multi_strategy_top` | `2.650 ns` | 377 MHz | `0.321 ns` | `0.000 ns` | `29703 / 871680 (3.41%)` | `33435 / 1743360 (1.92%)` | Meets |
+| `market_parser_100g_multi_strategy_top` | `2.600 ns` | 385 MHz | `0.271 ns` | `0.000 ns` | `29702 / 871680 (3.41%)` | `33434 / 1743360 (1.92%)` | Meets |
+| `market_parser_100g_multi_strategy_top` | `2.550 ns` | 392 MHz | `0.221 ns` | `0.000 ns` | `29706 / 871680 (3.41%)` | `33434 / 1743360 (1.92%)` | Meets |
+| `market_parser_100g_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.171 ns` | `0.000 ns` | `29706 / 871680 (3.41%)` | `33434 / 1743360 (1.92%)` | Meets |
 
-The 2.650 ns result is a measured pass but has only 4 ps of setup margin;
-2.750 ns / 363.6 MHz is the stronger high-frequency operating point. All
-builds use zero BRAM tiles and zero DSPs. These are source-level OOC results
-and do not require or claim a generated CMAC IP license.
+The 2.500 ns result has 171 ps of setup margin, so 400 MHz is now a measured
+high-frequency operating point rather than a boundary-only pass. All builds
+use zero BRAM tiles and zero DSPs. These are source-level OOC results and do
+not require or claim a generated CMAC IP license.
