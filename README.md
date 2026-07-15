@@ -105,8 +105,10 @@ path is a larger packet-to-book design and is intentionally evaluated at the
 native 100G CMAC user-clock class rather than presented as a 500 MHz claim.
 
 The bounded four-symbol packet-to-quote top closes the 3.102 ns / 322 MHz
-target with `+0.456 ns` WNS, using 3.42% of LUTs and 1.92% of registers on the
-same U50-class part. This source-level OOC result does not require CMAC IP.
+target with `+0.456 ns` WNS and 2.750 ns / 364 MHz with `+0.104 ns` WNS, using
+about 3.44% of LUTs and 1.92% of registers on the same U50-class part. A
+2.650 ns / 377 MHz target also passes by 4 ps. These source-level OOC results
+do not require CMAC IP.
 
 The CAUI-4 CMAC integration flow has also been routed on the U50-class target:
 

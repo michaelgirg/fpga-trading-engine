@@ -119,11 +119,18 @@ both close the native 3.102 ns / 322 MHz U50-class target.
 | :--- | :--- | ---: | ---: | ---: | ---: | :--- | :--- | :--- |
 | `xcu50-fsvh2104-2-e` | `market_parser_multi_symbol_top_of_book` | `3.102 ns` | 322 MHz | `0.605 ns` | `0.000 ns` | `1719 / 871680 (0.20%)` | `3242 / 1743360 (0.19%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_multi_strategy_top` | `3.102 ns` | 322 MHz | `0.456 ns` | `0.000 ns` | `29797 / 871680 (3.42%)` | `33444 / 1743360 (1.92%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_multi_strategy_top` | `2.750 ns` | 364 MHz | `0.104 ns` | `0.000 ns` | `29999 / 871680 (3.44%)` | `33444 / 1743360 (1.92%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_multi_strategy_top` | `2.650 ns` | 377 MHz | `0.004 ns` | `0.000 ns` | `30001 / 871680 (3.44%)` | `33444 / 1743360 (1.92%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_multi_strategy_top` | `2.600 ns` | 385 MHz | `-0.046 ns` | `-0.139 ns` | `30001 / 871680 (3.44%)` | `33444 / 1743360 (1.92%)` | Near miss |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_multi_strategy_top` | `2.550 ns` | 392 MHz | `-0.096 ns` | `-92.369 ns` | `30001 / 871680 (3.44%)` | `33444 / 1743360 (1.92%)` | Does not close |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_multi_strategy_top` | `2.500 ns` | 400 MHz | `-0.146 ns` | `-293.451 ns` | `30001 / 871680 (3.44%)` | `33444 / 1743360 (1.92%)` | Does not close |
 
 The result includes Ethernet/IP/UDP stripping, MoldUDP64/ITCH parsing, event
 buffering, exact Replace reference handling, four independent order tables,
-and ordered quote arbitration. Both OOC builds use zero BRAM tiles and DSPs.
-They are source-level timing results and do not depend on a CMAC IP license.
+and ordered quote arbitration. The full top closes 2.650 ns / 377.4 MHz by
+4 ps and misses 2.600 ns / 384.6 MHz by 46 ps. The 2.750 ns / 363.6 MHz result
+has a more useful 104 ps margin. All builds use zero BRAM tiles and DSPs and do
+not depend on a CMAC IP license.
 
 ## CMAC AXIS Strategy Boundary
 
