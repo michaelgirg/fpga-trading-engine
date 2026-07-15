@@ -74,10 +74,8 @@ module market_parser_udp_payload_strip #(
     logic         stage_last_r;
     logic         stage_bad_frame_r;
     logic         stage_header_match_r;
-    logic [20:0]  stage_lower_chunk_counts_r;
-    logic [11:0]  stage_tail_chunk_counts_r;
-    logic [ 5:0]  stage_lower_count_i;
-    logic [ 5:0]  stage_tail_count_i;
+    logic [ 5:0]  stage_lower_count_r;
+    logic [ 5:0]  stage_tail_count_r;
 
     logic [31:0] accepted_frame_count_r;
     logic [31:0] dropped_frame_count_r;
@@ -134,32 +132,51 @@ module market_parser_udp_payload_strip #(
         count_keep_chunk = pair01 + 3'(pair2);
     endfunction
 
-    function automatic logic [5:0] sum_lower_chunks(input logic [20:0] counts);
+    function automatic logic [5:0] count_lower_keep(input logic [41:0] keep);
+        logic [2:0] chunk0;
+        logic [2:0] chunk1;
+        logic [2:0] chunk2;
+        logic [2:0] chunk3;
+        logic [2:0] chunk4;
+        logic [2:0] chunk5;
+        logic [2:0] chunk6;
         logic [3:0] pair0;
         logic [3:0] pair1;
         logic [3:0] pair2;
         logic [4:0] quad0;
         logic [4:0] triple0;
 
-        pair0 = 4'(counts[ 0 +: 3]) + 4'(counts[ 3 +: 3]);
-        pair1 = 4'(counts[ 6 +: 3]) + 4'(counts[ 9 +: 3]);
-        pair2 = 4'(counts[12 +: 3]) + 4'(counts[15 +: 3]);
+        chunk0 = count_keep_chunk(keep[ 0 +: 6]);
+        chunk1 = count_keep_chunk(keep[ 6 +: 6]);
+        chunk2 = count_keep_chunk(keep[12 +: 6]);
+        chunk3 = count_keep_chunk(keep[18 +: 6]);
+        chunk4 = count_keep_chunk(keep[24 +: 6]);
+        chunk5 = count_keep_chunk(keep[30 +: 6]);
+        chunk6 = count_keep_chunk(keep[36 +: 6]);
+        pair0 = 4'(chunk0) + 4'(chunk1);
+        pair1 = 4'(chunk2) + 4'(chunk3);
+        pair2 = 4'(chunk4) + 4'(chunk5);
         quad0 = 5'(pair0) + 5'(pair1);
-        triple0 = 5'(pair2) + 5'(counts[18 +: 3]);
-        sum_lower_chunks = 6'(quad0) + 6'(triple0);
+        triple0 = 5'(pair2) + 5'(chunk6);
+        count_lower_keep = 6'(quad0) + 6'(triple0);
     endfunction
 
-    function automatic logic [5:0] sum_tail_chunks(input logic [11:0] counts);
+    function automatic logic [5:0] count_tail_keep(input logic [21:0] keep);
+        logic [2:0] chunk0;
+        logic [2:0] chunk1;
+        logic [2:0] chunk2;
+        logic [2:0] chunk3;
         logic [3:0] pair0;
         logic [3:0] pair1;
 
-        pair0 = 4'(counts[0 +: 3]) + 4'(counts[3 +: 3]);
-        pair1 = 4'(counts[6 +: 3]) + 4'(counts[9 +: 3]);
-        sum_tail_chunks = 6'(pair0) + 6'(pair1);
+        chunk0 = count_keep_chunk(keep[ 0 +: 6]);
+        chunk1 = count_keep_chunk(keep[ 6 +: 6]);
+        chunk2 = count_keep_chunk(keep[12 +: 6]);
+        chunk3 = count_keep_chunk({2'b00, keep[18 +: 4]});
+        pair0 = 4'(chunk0) + 4'(chunk1);
+        pair1 = 4'(chunk2) + 4'(chunk3);
+        count_tail_keep = 6'(pair0) + 6'(pair1);
     endfunction
-
-    assign stage_lower_count_i = sum_lower_chunks(stage_lower_chunk_counts_r);
-    assign stage_tail_count_i  = sum_tail_chunks(stage_tail_chunk_counts_r);
 
     function automatic logic [63:0] keep_for_count(input int unsigned byte_count);
         keep_for_count = '0;
@@ -214,9 +231,9 @@ module market_parser_udp_payload_strip #(
         logic [511:0] first_tail_data;
         logic [511:0] tail_data;
 
-        first_tail_count = stage_tail_count_i;
-        lower_count      = stage_lower_count_i;
-        tail_count       = stage_tail_count_i;
+        first_tail_count = stage_tail_count_r;
+        lower_count      = stage_lower_count_r;
+        tail_count       = stage_tail_count_r;
         combined_count   = carry_count_r + lower_count;
         first_tail_data  = header_tail_payload(stage_data_r);
         tail_data        = header_tail_payload(stage_data_r);
@@ -287,8 +304,8 @@ module market_parser_udp_payload_strip #(
             stage_last_r             <= 1'b0;
             stage_bad_frame_r        <= 1'b0;
             stage_header_match_r     <= 1'b0;
-            stage_lower_chunk_counts_r <= '0;
-            stage_tail_chunk_counts_r  <= '0;
+            stage_lower_count_r        <= '0;
+            stage_tail_count_r         <= '0;
             accepted_frame_count_r   <= '0;
             dropped_frame_count_r    <= '0;
             header_error_count_r     <= '0;
@@ -326,8 +343,8 @@ module market_parser_udp_payload_strip #(
                 int unsigned first_tail_count;
                 int unsigned tail_count;
 
-                first_tail_count = stage_tail_count_i;
-                tail_count       = stage_tail_count_i;
+                first_tail_count = stage_tail_count_r;
+                tail_count       = stage_tail_count_r;
 
                 unique case (state_r)
                     STATE_FIRST: begin
@@ -390,19 +407,10 @@ module market_parser_udp_payload_strip #(
                 stage_bad_frame_r    <= pre_bad_frame_r;
                 stage_header_match_r <= header_matches(pre_data_r, pre_keep_r, pre_bad_frame_r);
 
-                // CMAC tkeep is contiguous from lane zero. Register small
-                // partial counts here and finish the balanced sum next cycle.
-                stage_lower_chunk_counts_r[ 0 +: 3] <= count_keep_chunk(pre_keep_r[ 0 +: 6]);
-                stage_lower_chunk_counts_r[ 3 +: 3] <= count_keep_chunk(pre_keep_r[ 6 +: 6]);
-                stage_lower_chunk_counts_r[ 6 +: 3] <= count_keep_chunk(pre_keep_r[12 +: 6]);
-                stage_lower_chunk_counts_r[ 9 +: 3] <= count_keep_chunk(pre_keep_r[18 +: 6]);
-                stage_lower_chunk_counts_r[12 +: 3] <= count_keep_chunk(pre_keep_r[24 +: 6]);
-                stage_lower_chunk_counts_r[15 +: 3] <= count_keep_chunk(pre_keep_r[30 +: 6]);
-                stage_lower_chunk_counts_r[18 +: 3] <= count_keep_chunk(pre_keep_r[36 +: 6]);
-                stage_tail_chunk_counts_r[ 0 +: 3] <= count_keep_chunk(pre_keep_r[42 +: 6]);
-                stage_tail_chunk_counts_r[ 3 +: 3] <= count_keep_chunk(pre_keep_r[48 +: 6]);
-                stage_tail_chunk_counts_r[ 6 +: 3] <= count_keep_chunk(pre_keep_r[54 +: 6]);
-                stage_tail_chunk_counts_r[ 9 +: 3] <= count_keep_chunk({2'b00, pre_keep_r[60 +: 4]});
+                // CMAC tkeep is contiguous from lane zero. Balanced trees
+                // keep the count path shallow before the final registers.
+                stage_lower_count_r <= count_lower_keep(pre_keep_r[ 0 +: 42]);
+                stage_tail_count_r  <= count_tail_keep(pre_keep_r[42 +: 22]);
             end
 
             if (pre_fire_i) begin
