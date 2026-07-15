@@ -125,7 +125,13 @@ class TopOfBookModel:
             else:
                 ignored = True
         elif event.event_kind == EVENT_REPLACE:
-            if existing is not None and event.shares != 0 and event.price != 0:
+            if (
+                existing is not None
+                and event.new_order_ref != 0
+                and event.shares != 0
+                and event.price != 0
+            ):
+                existing.order_ref = event.new_order_ref
                 existing.shares = event.shares
                 existing.price = event.price
                 applied = True

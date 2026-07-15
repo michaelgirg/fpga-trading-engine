@@ -24,11 +24,12 @@ The current block is intentionally bounded:
 - Aggregates displayed shares at the best bid and ask price.
 - Ignores malformed, unknown, wrong-symbol, and unsupported event types.
 
-ITCH replace messages contain both old and new order references, but the
-current normalized event format only carries one order reference. This block
-therefore treats replace as an in-place update of the existing table entry.
-A future parser event-format revision can expose the new order reference if a
-full book-builder path needs exact ITCH replace semantics.
+The normalized 256-bit event ABI remains stable. The production 512-bit parser
+also carries `event_new_order_ref` as a 64-bit sideband for Replace messages.
+The book uses the event record's order reference to find the original order,
+then atomically installs the sideband reference with the replacement size and
+price. Later execute, cancel, and delete messages therefore resolve the new
+ITCH order reference exactly.
 
 ## Interface
 
@@ -44,6 +45,8 @@ Input is the parser's normalized event stream:
 | Price | `event_data[223:192]` |
 | Side | `event_data[231:224]` |
 | Flags | `event_data[239:232]` |
+
+`event_new_order_ref` is zero for every event except Replace.
 
 Output is an explicit quote update:
 
@@ -78,12 +81,12 @@ On `xcu50-fsvh2104-2-e`, out-of-context Vivado synthesis closes the 3.102 ns /
 
 `market_parser_top_of_book_tb` drives synthetic normalized events through add,
 cancel, execute, delete, replace, wrong-symbol, and malformed-event cases. It
-checks best bid/ask price, aggregated size, timestamp propagation, and counters.
+also proves that Replace retires the old order reference and that later events
+resolve only the new reference.
 
-`market_parser_100g_strategy_top` now wires this block behind
+`market_parser_100g_strategy_top` wires this block behind
 `market_parser_100g_cmac_system`, giving the project a packet-to-quote
-integration path. Next useful work is a Python golden-model book builder for
-larger replay tests and a school Vivado OOC check of the combined strategy top.
+integration path.
 
 The end-to-end strategy regression also replays three independent
 Ethernet/IPv4/UDP/MoldUDP64 frames generated from the Python golden model.

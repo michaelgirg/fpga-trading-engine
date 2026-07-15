@@ -19,6 +19,7 @@ module market_parser_top_of_book #(
     input  wire logic         event_valid,
     output logic              event_ready,
     input  wire logic [255:0] event_data,
+    input  wire logic [ 63:0] event_new_order_ref,
     input  wire logic [ 31:0] event_keep,
     input  wire logic         event_last,
 
@@ -78,6 +79,7 @@ module market_parser_top_of_book #(
     logic [15:0]            pending_stock_r;
     logic [47:0]            pending_timestamp_r;
     logic [63:0]            pending_order_ref_r;
+    logic [63:0]            pending_new_order_ref_r;
     logic [31:0]            pending_shares_r;
     logic [31:0]            pending_price_r;
     logic [ 7:0]            pending_side_r;
@@ -162,6 +164,7 @@ module market_parser_top_of_book #(
             pending_stock_r        <= '0;
             pending_timestamp_r    <= '0;
             pending_order_ref_r    <= '0;
+            pending_new_order_ref_r <= '0;
             pending_shares_r       <= '0;
             pending_price_r        <= '0;
             pending_side_r         <= '0;
@@ -193,6 +196,7 @@ module market_parser_top_of_book #(
                             pending_stock_r     <= event_stock_i;
                             pending_timestamp_r <= event_timestamp_i;
                             pending_order_ref_r <= event_order_ref_i;
+                            pending_new_order_ref_r <= event_new_order_ref;
                             pending_shares_r    <= event_shares_i;
                             pending_price_r     <= event_price_i;
                             pending_side_r      <= event_side_i;
@@ -289,7 +293,8 @@ module market_parser_top_of_book #(
 
                         EVENT_REPLACE: begin
                             if (found_valid_r && pending_shares_r != 32'd0 &&
-                                pending_price_r != 32'd0) begin
+                                pending_price_r != 32'd0 && pending_new_order_ref_r != 64'd0) begin
+                                order_ref_q[found_idx_r] <= pending_new_order_ref_r;
                                 shares_q[found_idx_r] <= pending_shares_r;
                                 price_q[found_idx_r]  <= pending_price_r;
                                 applied = 1'b1;

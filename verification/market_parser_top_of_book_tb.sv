@@ -17,6 +17,7 @@ module market_parser_top_of_book_tb #(
     logic         event_valid;
     logic         event_ready;
     logic [255:0] event_data;
+    logic [ 63:0] event_new_order_ref;
     logic [ 31:0] event_keep;
     logic         event_last;
 
@@ -47,6 +48,7 @@ module market_parser_top_of_book_tb #(
         .event_valid         (event_valid),
         .event_ready         (event_ready),
         .event_data          (event_data),
+        .event_new_order_ref (event_new_order_ref),
         .event_keep          (event_keep),
         .event_last          (event_last),
         .quote_valid         (quote_valid),
@@ -82,6 +84,7 @@ module market_parser_top_of_book_tb #(
         rst         = 1'b1;
         event_valid = 1'b0;
         event_data  = '0;
+        event_new_order_ref = '0;
         event_keep  = '0;
         event_last  = 1'b0;
         quote_ready = 1'b0;
@@ -113,18 +116,25 @@ module market_parser_top_of_book_tb #(
         );
     endfunction
 
-    task automatic send_event(input logic [255:0] data);
+    task automatic send_event_with_new_ref(input logic [255:0] data,
+                                           input logic [63:0] new_order_ref);
         @(negedge clk);
         event_valid = 1'b1;
         event_data  = data;
+        event_new_order_ref = new_order_ref;
         event_keep  = 32'hffff_ffff;
         event_last  = 1'b1;
         while (!event_ready) @(negedge clk);
         @(negedge clk);
         event_valid = 1'b0;
         event_data  = '0;
+        event_new_order_ref = '0;
         event_keep  = '0;
         event_last  = 1'b0;
+    endtask
+
+    task automatic send_event(input logic [255:0] data);
+        send_event_with_new_ref(data, 64'd0);
     endtask
 
     task automatic expect_quote(input logic [31:0] exp_bid_price,
@@ -202,31 +212,45 @@ module market_parser_top_of_book_tb #(
                               32'd0, 32'd0, 8'h00, 8'h00));
         expect_quote(32'd1000, 32'd10, 32'd1050, 32'd7, 48'd7, "delete best ask");
 
-        send_event(make_event(EVENT_REPLACE, ITCH_REPLACE, TARGET_STOCK_LOCATE,
-                              48'd8, 64'h0000_0000_0000_0001,
-                              32'd8, 32'd1020, 8'h00, 8'h00));
+        send_event_with_new_ref(
+            make_event(EVENT_REPLACE, ITCH_REPLACE, TARGET_STOCK_LOCATE,
+                       48'd8, 64'h0000_0000_0000_0001,
+                       32'd8, 32'd1020, 8'h00, 8'h00),
+            64'h0000_0000_0000_0040
+        );
         expect_quote(32'd1020, 32'd8, 32'd1050, 32'd7, 48'd8, "replace bid price");
 
+        send_event(make_event(EVENT_CANCEL, ITCH_CANCEL, TARGET_STOCK_LOCATE,
+                              48'd9, 64'h0000_0000_0000_0001,
+                              32'd3, 32'd0, 8'h00, 8'h00));
+        expect_no_quote("retired order reference is no longer found");
+
+        send_event(make_event(EVENT_CANCEL, ITCH_CANCEL, TARGET_STOCK_LOCATE,
+                              48'd10, 64'h0000_0000_0000_0040,
+                              32'd3, 32'd0, 8'h00, 8'h00));
+        expect_quote(32'd1020, 32'd5, 32'd1050, 32'd7, 48'd10,
+                     "new replacement reference resolves");
+
         send_event(make_event(EVENT_ADD, ITCH_ADD_ORDER, TARGET_STOCK_LOCATE,
-                              48'd9, 64'h0000_0000_0000_0005,
+                              48'd11, 64'h0000_0000_0000_0005,
                               32'd2, 32'd1020, "B", 8'h00));
-        expect_quote(32'd1020, 32'd10, 32'd1050, 32'd7, 48'd9, "aggregate best bid size");
+        expect_quote(32'd1020, 32'd7, 32'd1050, 32'd7, 48'd11, "aggregate best bid size");
 
         send_event(make_event(EVENT_ADD, ITCH_ADD_ORDER, 16'h9999,
-                              48'd10, 64'h0000_0000_0000_0100,
+                              48'd12, 64'h0000_0000_0000_0100,
                               32'd100, 32'd900, "B", 8'h00));
         expect_no_quote("wrong stock emits no quote");
 
         send_event(make_event(EVENT_ADD, ITCH_ADD_ORDER, TARGET_STOCK_LOCATE,
-                              48'd11, 64'h0000_0000_0000_0006,
+                              48'd13, 64'h0000_0000_0000_0006,
                               32'd1, 32'd2000, "B", FLAG_MALFORMED));
         expect_no_quote("malformed event emits no quote");
 
-        check(accepted_event_count == 32'd11, "accepted event counter");
-        check(applied_event_count == 32'd9, "applied event counter");
-        check(ignored_event_count == 32'd2, "ignored event counter");
+        check(accepted_event_count == 32'd13, "accepted event counter");
+        check(applied_event_count == 32'd10, "applied event counter");
+        check(ignored_event_count == 32'd3, "ignored event counter");
         check(table_overflow_count == 32'd0, "overflow counter");
-        check(quote_update_count == 32'd9, "quote update counter");
+        check(quote_update_count == 32'd10, "quote update counter");
 
         $display("========================================================");
         $display("Tests passed: %0d", passed);

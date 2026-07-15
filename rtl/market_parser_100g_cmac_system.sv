@@ -28,6 +28,7 @@ module market_parser_100g_cmac_system #(
     output logic              event_valid,
     input  wire logic         event_ready,
     output logic [255:0]      event_data,
+    output logic [ 63:0]      event_new_order_ref,
     output logic [ 31:0]      event_keep,
     output logic              event_last,
 
@@ -157,6 +158,7 @@ module market_parser_100g_cmac_system #(
         .event_valid               (event_valid),
         .event_ready               (event_ready),
         .event_data                (event_data),
+        .event_new_order_ref       (event_new_order_ref),
         .event_keep                (event_keep),
         .event_last                (event_last),
         .s_axi_awaddr              (s_axi_awaddr),

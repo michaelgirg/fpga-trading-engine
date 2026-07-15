@@ -24,6 +24,7 @@ module market_parser_512_event_extract #(
     output logic                              event_complete,
     output logic                              event_supported,
     output logic [                 255:0]     event_data,
+    output logic [                  63:0]     event_new_order_ref,
     output logic [                  31:0]     extract_error_flags
 );
     localparam logic [7:0] DESC_FLAG_MALFORMED = 8'h02;
@@ -70,6 +71,7 @@ module market_parser_512_event_extract #(
         logic [15:0] tracking_number;
         logic [47:0] timestamp;
         logic [63:0] order_ref;
+        logic [63:0] new_order_ref;
         logic [31:0] shares;
         logic [31:0] price;
         logic [ 7:0] side;
@@ -83,6 +85,7 @@ module market_parser_512_event_extract #(
         tracking_number = '0;
         timestamp       = '0;
         order_ref       = '0;
+        new_order_ref   = '0;
         shares          = '0;
         price           = '0;
         side            = '0;
@@ -159,6 +162,12 @@ module market_parser_512_event_extract #(
                 };
             end
         end else if (msg_type == ITCH_REPLACE) begin
+            new_order_ref = {
+                field_byte_at_lane(msg_start + 19), field_byte_at_lane(msg_start + 20),
+                field_byte_at_lane(msg_start + 21), field_byte_at_lane(msg_start + 22),
+                field_byte_at_lane(msg_start + 23), field_byte_at_lane(msg_start + 24),
+                field_byte_at_lane(msg_start + 25), field_byte_at_lane(msg_start + 26)
+            };
             shares = {
                 field_byte_at_lane(msg_start + 27), field_byte_at_lane(msg_start + 28),
                 field_byte_at_lane(msg_start + 29), field_byte_at_lane(msg_start + 30)
@@ -186,6 +195,7 @@ module market_parser_512_event_extract #(
             side,
             event_flags
         );
+        event_new_order_ref = new_order_ref;
     end
 
 endmodule

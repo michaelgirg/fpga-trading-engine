@@ -132,9 +132,9 @@ module market_parser_cmac_axis_rx_bridge #(
                 end else if (count_next >= (PTR_WIDTH+1)'(FIFO_DEPTH)) begin
                     wr_next                 = packet_start_next;
                     count_next              = count_next - partial_next;
+                    dropped_beat_count_r    <= dropped_beat_count_r + 32'(partial_next) + 1'b1;
                     partial_next            = '0;
                     overflow_packet_count_r <= overflow_packet_count_r + 1'b1;
-                    dropped_beat_count_r    <= dropped_beat_count_r + 32'(partial_next) + 1'b1;
                     dropping_next           = !rx_axis_tlast;
                 end else begin
                     if (partial_next == '0) begin

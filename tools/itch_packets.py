@@ -32,6 +32,7 @@ class ParsedEvent:
         "tracking_number",
         "timestamp",
         "order_ref",
+        "new_order_ref",
         "shares",
         "price",
         "side",
@@ -46,6 +47,7 @@ class ParsedEvent:
         tracking_number: int = 0,
         timestamp: int = 0,
         order_ref: int = 0,
+        new_order_ref: int = 0,
         shares: int = 0,
         price: int = 0,
         side: int = 0,
@@ -57,6 +59,7 @@ class ParsedEvent:
         self.tracking_number = tracking_number
         self.timestamp = timestamp
         self.order_ref = order_ref
+        self.new_order_ref = new_order_ref
         self.shares = shares
         self.price = price
         self.side = side
@@ -299,6 +302,7 @@ def parse_itch_message(msg: bytes, flags: int = 0) -> ParsedEvent:
     tracking_number = int.from_bytes(msg[3:5], "big") if len(msg) >= 5 else 0
     timestamp = int.from_bytes(msg[5:11], "big") if len(msg) >= 11 else 0
     order_ref = int.from_bytes(msg[11:19], "big") if len(msg) >= 19 else 0
+    new_order_ref = 0
     side = 0
     shares = 0
     price = 0
@@ -312,6 +316,7 @@ def parse_itch_message(msg: bytes, flags: int = 0) -> ParsedEvent:
         if msg_type == ord("C") and len(msg) >= 36:
             price = int.from_bytes(msg[32:36], "big")
     elif msg_type == ord("U") and len(msg) >= 35:
+        new_order_ref = int.from_bytes(msg[19:27], "big")
         shares = int.from_bytes(msg[27:31], "big")
         price = int.from_bytes(msg[31:35], "big")
     elif msg_type == ord("Q") and len(msg) >= 36:
@@ -324,6 +329,7 @@ def parse_itch_message(msg: bytes, flags: int = 0) -> ParsedEvent:
         tracking_number=tracking_number,
         timestamp=timestamp,
         order_ref=order_ref,
+        new_order_ref=new_order_ref,
         shares=shares,
         price=price,
         side=side,

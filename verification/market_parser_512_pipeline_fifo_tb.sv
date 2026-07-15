@@ -30,6 +30,7 @@ module market_parser_512_pipeline_fifo_tb #(
     logic         event_valid;
     logic         event_ready;
     logic [255:0] event_data;
+    logic [ 63:0] event_new_order_ref;
     logic [ 31:0] event_keep;
     logic         event_last;
 
@@ -63,6 +64,7 @@ module market_parser_512_pipeline_fifo_tb #(
         .event_valid                    (event_valid),
         .event_ready                    (event_ready),
         .event_data                     (event_data),
+        .event_new_order_ref            (event_new_order_ref),
         .event_keep                     (event_keep),
         .event_last                     (event_last),
         .packet_count                   (packet_count),
@@ -247,6 +249,8 @@ module market_parser_512_pipeline_fifo_tb #(
                       $sformatf("random packet %0d event %0d keep", packet_idx, event_idx));
                 check(event_data == expected_event_mem[expected_idx],
                       $sformatf("random packet %0d event %0d data", packet_idx, event_idx));
+                check(event_new_order_ref == ((event_idx == 5) ? 64'h9999_AAAA_BBBB_CCCC : 64'd0),
+                      $sformatf("random packet %0d event %0d replacement reference", packet_idx, event_idx));
                 check(event_last == (event_idx == MIXED_EVENTS - 1),
                       $sformatf("random packet %0d event %0d last", packet_idx, event_idx));
                 received++;
@@ -335,6 +339,8 @@ module market_parser_512_pipeline_fifo_tb #(
               $sformatf("packet %0d event %0d keep", packet_idx, event_idx));
         check(event_data == expected_event_mem[expected_idx],
               $sformatf("packet %0d event %0d data", packet_idx, event_idx));
+        check(event_new_order_ref == ((event_idx == 5) ? 64'h9999_AAAA_BBBB_CCCC : 64'd0),
+              $sformatf("packet %0d event %0d replacement reference", packet_idx, event_idx));
         check(event_last == (event_idx == MIXED_EVENTS - 1),
               $sformatf("packet %0d event %0d last", packet_idx, event_idx));
         @(negedge clk);

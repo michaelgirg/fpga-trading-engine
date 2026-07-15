@@ -31,6 +31,7 @@ module market_parser_512_pipeline #(
     output logic              event_valid,
     input  wire logic         event_ready,
     output logic [255:0]      event_data,
+    output logic [ 63:0]      event_new_order_ref,
     output logic [ 31:0]      event_keep,
     output logic              event_last,
 
@@ -135,6 +136,7 @@ module market_parser_512_pipeline #(
     logic          extract_event_complete;
     logic          extract_event_supported;
     logic [255:0]  extract_event_data;
+    logic [ 63:0]  extract_event_new_order_ref;
     logic [31:0]   extract_error_flags;
 
     logic          extract_req_valid_r;
@@ -168,11 +170,13 @@ module market_parser_512_pipeline #(
 
     logic          extract_result_valid_r;
     logic [255:0]  extract_result_data_r;
+    logic [ 63:0]  extract_result_new_order_ref_r;
     logic [31:0]   extract_result_error_flags_r;
     logic          extract_result_last_r;
 
     logic          event_valid_r;
     logic [255:0]  event_data_r;
+    logic [ 63:0]  event_new_order_ref_r;
     logic          event_last_r;
     logic [31:0]   packet_count_r;
     logic [31:0]   descriptor_count_r;
@@ -212,6 +216,7 @@ module market_parser_512_pipeline #(
 
     assign event_valid = event_valid_r;
     assign event_data  = event_data_r;
+    assign event_new_order_ref = event_new_order_ref_r;
     assign event_keep  = 32'hffff_ffff;
     assign event_last  = event_last_r;
 
@@ -386,6 +391,7 @@ module market_parser_512_pipeline #(
         .event_complete         (extract_event_complete),
         .event_supported        (extract_event_supported),
         .event_data             (extract_event_data),
+        .event_new_order_ref    (extract_event_new_order_ref),
         .extract_error_flags    (extract_error_flags)
     );
 
@@ -447,10 +453,12 @@ module market_parser_512_pipeline #(
             extract_field_last_r     <= 1'b0;
             extract_result_valid_r   <= 1'b0;
             extract_result_data_r    <= '0;
+            extract_result_new_order_ref_r <= '0;
             extract_result_error_flags_r <= '0;
             extract_result_last_r    <= 1'b0;
             event_valid_r           <= 1'b0;
             event_data_r            <= '0;
+            event_new_order_ref_r   <= '0;
             event_last_r            <= 1'b0;
             packet_count_r          <= '0;
             descriptor_count_r      <= '0;
@@ -467,6 +475,7 @@ module market_parser_512_pipeline #(
             if (extract_result_to_output) begin
                 event_valid_r <= 1'b1;
                 event_data_r  <= extract_result_data_r;
+                event_new_order_ref_r <= extract_result_new_order_ref_r;
                 event_last_r  <= extract_result_last_r;
                 event_count_r <= event_count_r + 1'b1;
                 if (extract_result_error_flags_r != 32'h0000_0000) begin
@@ -474,12 +483,14 @@ module market_parser_512_pipeline #(
                 end
             end else if (event_valid_r && event_ready) begin
                 event_valid_r <= 1'b0;
+                event_new_order_ref_r <= '0;
                 event_last_r  <= 1'b0;
             end
 
             if (extract_field_to_result) begin
                 extract_result_valid_r       <= extract_event_valid;
                 extract_result_data_r        <= extract_event_data;
+                extract_result_new_order_ref_r <= extract_event_new_order_ref;
                 extract_result_error_flags_r <= extract_error_flags;
                 extract_result_last_r        <= extract_field_last_r;
             end else if (extract_result_to_output) begin

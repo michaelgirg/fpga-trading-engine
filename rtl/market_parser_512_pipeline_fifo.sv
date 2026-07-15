@@ -27,6 +27,7 @@ module market_parser_512_pipeline_fifo #(
     output logic              event_valid,
     input  wire logic         event_ready,
     output logic [255:0]      event_data,
+    output logic [ 63:0]      event_new_order_ref,
     output logic [ 31:0]      event_keep,
     output logic              event_last,
 
@@ -44,8 +45,13 @@ module market_parser_512_pipeline_fifo #(
     logic         pipe_event_valid;
     logic         pipe_event_ready;
     logic [255:0] pipe_event_data;
+    logic [ 63:0] pipe_event_new_order_ref;
     logic [ 31:0] pipe_event_keep;
     logic         pipe_event_last;
+    logic [319:0] fifo_event_data;
+
+    assign event_data          = fifo_event_data[255:0];
+    assign event_new_order_ref = fifo_event_data[319:256];
 
     market_parser_512_pipeline #(
         .PACKET_BEATS_MAX        (PACKET_BEATS_MAX),
@@ -63,6 +69,7 @@ module market_parser_512_pipeline_fifo #(
         .event_valid          (pipe_event_valid),
         .event_ready          (pipe_event_ready),
         .event_data           (pipe_event_data),
+        .event_new_order_ref  (pipe_event_new_order_ref),
         .event_keep           (pipe_event_keep),
         .event_last           (pipe_event_last),
         .packet_count         (packet_count),
@@ -73,7 +80,7 @@ module market_parser_512_pipeline_fifo #(
     );
 
     market_parser_event_fifo #(
-        .EVENT_WIDTH(256),
+        .EVENT_WIDTH(320),
         .KEEP_WIDTH (32),
         .FIFO_DEPTH (EVENT_FIFO_DEPTH)
     ) event_fifo_i (
@@ -81,12 +88,12 @@ module market_parser_512_pipeline_fifo #(
         .rst               (rst),
         .event_in_valid    (pipe_event_valid),
         .event_in_ready    (pipe_event_ready),
-        .event_in_data     (pipe_event_data),
+        .event_in_data     ({pipe_event_new_order_ref, pipe_event_data}),
         .event_in_keep     (pipe_event_keep),
         .event_in_last     (pipe_event_last),
         .event_out_valid   (event_valid),
         .event_out_ready   (event_ready),
-        .event_out_data    (event_data),
+        .event_out_data    (fifo_event_data),
         .event_out_keep    (event_keep),
         .event_out_last    (event_last),
         .fifo_level        (event_fifo_level),

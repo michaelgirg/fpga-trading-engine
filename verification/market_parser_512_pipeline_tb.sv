@@ -35,6 +35,7 @@ module market_parser_512_pipeline_tb #(
     logic         event_valid;
     logic         event_ready;
     logic [255:0] event_data;
+    logic [ 63:0] event_new_order_ref;
     logic [ 31:0] event_keep;
     logic         event_last;
 
@@ -65,6 +66,7 @@ module market_parser_512_pipeline_tb #(
         .event_valid               (event_valid),
         .event_ready               (event_ready),
         .event_data                (event_data),
+        .event_new_order_ref       (event_new_order_ref),
         .event_keep                (event_keep),
         .event_last                (event_last),
         .packet_count              (packet_count),
@@ -208,6 +210,8 @@ module market_parser_512_pipeline_tb #(
         check(event_keep == 32'hffff_ffff, $sformatf("event %0d keep all bytes", expected_idx));
         check(event_data == expected_event_mem[expected_idx],
               $sformatf("event %0d matches golden normalized vector", expected_idx));
+        check(event_new_order_ref == ((expected_idx == 7) ? 64'h9999_AAAA_BBBB_CCCC : 64'd0),
+              $sformatf("event %0d replacement reference", expected_idx));
         check(event_last == expected_last, $sformatf("event %0d last flag", expected_idx));
         accept_current_event();
     endtask

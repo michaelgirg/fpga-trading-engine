@@ -32,6 +32,7 @@ module market_parser_512_event_extract_tb #(
     logic              event_complete;
     logic              event_supported;
     logic [255:0]      event_data;
+    logic [63:0]       event_new_order_ref;
     logic [31:0]       extract_error_flags;
 
     int passed;
@@ -60,6 +61,7 @@ module market_parser_512_event_extract_tb #(
         .event_complete         (event_complete),
         .event_supported        (event_supported),
         .event_data             (event_data),
+        .event_new_order_ref    (event_new_order_ref),
         .extract_error_flags    (extract_error_flags)
     );
 
@@ -144,6 +146,13 @@ module market_parser_512_event_extract_tb #(
             check(event_complete, $sformatf("event %0d complete", i));
             check(event_data == expected_event_mem[i + 2],
                   $sformatf("event %0d matches golden normalized vector", i));
+            if (i == 5) begin
+                check(event_new_order_ref == 64'h9999_AAAA_BBBB_CCCC,
+                      "replace event extracts new order reference");
+            end else begin
+                check(event_new_order_ref == 64'd0,
+                      $sformatf("event %0d has no replacement reference", i));
+            end
             if (i == 7) begin
                 check(!event_supported, "unknown ITCH message marked unsupported");
                 check(extract_error_flags[3], "unknown ITCH message sets extractor unknown error");

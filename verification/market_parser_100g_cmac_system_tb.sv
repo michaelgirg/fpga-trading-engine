@@ -34,6 +34,7 @@ module market_parser_100g_cmac_system_tb #(
     logic         event_valid;
     logic         event_ready;
     logic [255:0] event_data;
+    logic [ 63:0] event_new_order_ref;
     logic [ 31:0] event_keep;
     logic         event_last;
 
@@ -85,6 +86,7 @@ module market_parser_100g_cmac_system_tb #(
         .event_valid                    (event_valid),
         .event_ready                    (event_ready),
         .event_data                     (event_data),
+        .event_new_order_ref            (event_new_order_ref),
         .event_keep                     (event_keep),
         .event_last                     (event_last),
         .s_axi_awaddr                   (s_axi_awaddr),
