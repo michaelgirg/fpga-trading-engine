@@ -118,25 +118,18 @@ both close the native 3.102 ns / 322 MHz U50-class target.
 | Part | Top | Period | Approx. frequency | WNS | TNS | LUTs | Registers | Status |
 | :--- | :--- | ---: | ---: | ---: | ---: | :--- | :--- | :--- |
 | `xcu50-fsvh2104-2-e` | `market_parser_multi_symbol_top_of_book` | `3.102 ns` | 322 MHz | `0.605 ns` | `0.000 ns` | `1719 / 871680 (0.20%)` | `3242 / 1743360 (0.19%)` | Meets |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_multi_strategy_top` | `3.102 ns` | 322 MHz | `0.456 ns` | `0.000 ns` | `29797 / 871680 (3.42%)` | `33444 / 1743360 (1.92%)` | Meets |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_multi_strategy_top` | `2.750 ns` | 364 MHz | `0.421 ns` | `0.000 ns` | `29694 / 871680 (3.41%)` | `33448 / 1743360 (1.92%)` | Meets |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_multi_strategy_top` | `2.650 ns` | 377 MHz | `0.321 ns` | `0.000 ns` | `29703 / 871680 (3.41%)` | `33435 / 1743360 (1.92%)` | Meets |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_multi_strategy_top` | `2.600 ns` | 385 MHz | `0.271 ns` | `0.000 ns` | `29702 / 871680 (3.41%)` | `33434 / 1743360 (1.92%)` | Meets |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_multi_strategy_top` | `2.550 ns` | 392 MHz | `0.221 ns` | `0.000 ns` | `29706 / 871680 (3.41%)` | `33434 / 1743360 (1.92%)` | Meets |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.171 ns` | `0.000 ns` | `29706 / 871680 (3.41%)` | `33434 / 1743360 (1.92%)` | Meets |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_multi_strategy_top` | `2.450 ns` | 408 MHz | `0.121 ns` | `0.000 ns` | `29707 / 871680 (3.41%)` | `33434 / 1743360 (1.92%)` | Meets |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_multi_strategy_top` | `2.400 ns` | 417 MHz | `0.071 ns` | `0.000 ns` | `29707 / 871680 (3.41%)` | `33434 / 1743360 (1.92%)` | Meets |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_multi_strategy_top` | `2.350 ns` | 426 MHz | `0.021 ns` | `0.000 ns` | `29714 / 871680 (3.41%)` | `33434 / 1743360 (1.92%)` | Meets |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_multi_strategy_top` | `2.325 ns` | 430 MHz | `-0.004 ns` | `-0.011 ns` | `29718 / 871680 (3.41%)` | `33434 / 1743360 (1.92%)` | Near miss |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_multi_strategy_top` | `2.300 ns` | 435 MHz | `-0.029 ns` | `-19.921 ns` | `29716 / 871680 (3.41%)` | `33434 / 1743360 (1.92%)` | Does not close |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_multi_strategy_top` | `3.102 ns` | 322 MHz | `0.700 ns` | `0.000 ns` | `29556 / 871680 (3.39%)` | `33585 / 1743360 (1.93%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.098 ns` | `0.000 ns` | `29760 / 871680 (3.41%)` | `33591 / 1743360 (1.93%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_multi_strategy_top` | `2.400 ns` | 417 MHz | `-0.002 ns` | `-0.012 ns` | `29773 / 871680 (3.42%)` | `33591 / 1743360 (1.93%)` | Near miss |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_multi_strategy_top` | `2.350 ns` | 426 MHz | `-0.052 ns` | `-0.262 ns` | `29764 / 871680 (3.41%)` | `33590 / 1743360 (1.93%)` | Does not close |
 
 The result includes Ethernet/IP/UDP stripping, MoldUDP64/ITCH parsing, event
 buffering, exact Replace reference handling, four independent order tables,
-and ordered quote arbitration. Registering balanced UDP `tkeep` counts removes
-the prior payload-strip timing wall; the full top now closes 2.500 ns / 400 MHz
-with 171 ps of setup margin. The measured edge is a 2.350 ns / 425.5 MHz pass
-with 21 ps of margin followed by a 2.325 ns / 430.1 MHz miss of 4 ps. All builds
-use zero BRAM tiles and DSPs and do not depend on a CMAC IP license.
+fail-closed sequence-gap protection, and ordered quote arbitration. Registering
+balanced UDP `tkeep` counts removes the prior payload-strip timing wall; the
+guarded full top closes 2.500 ns / 400 MHz with 98 ps of setup margin and misses
+2.400 ns / 416.7 MHz by 2 ps. All builds use zero BRAM tiles and DSPs and do
+not depend on a CMAC IP license.
 
 ## CMAC AXIS Strategy Boundary
 

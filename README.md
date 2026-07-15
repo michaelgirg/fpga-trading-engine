@@ -107,13 +107,13 @@ in U50-class UltraScale+ OOC synthesis with positive slack. The full strategy
 path is a larger packet-to-book design and is intentionally evaluated at the
 native 100G CMAC user-clock class rather than presented as a 500 MHz claim.
 
-The bounded four-symbol packet-to-quote top closes through 2.500 ns / 400 MHz
-with `+0.171 ns` WNS, using about 3.41% of LUTs and 1.92% of registers on the
-same U50-class part. This boundary includes Ethernet/IP/UDP stripping,
-MoldUDP64/ITCH parsing, event buffering, four independent order tables, and
-ordered quote arbitration. These source-level OOC results do not require CMAC
-IP. A boundary sweep also closes 2.350 ns / 425.5 MHz by 21 ps and misses
-2.325 ns / 430.1 MHz by 4 ps.
+The bounded four-symbol packet-to-quote top with fail-closed sequence-gap
+handling closes 2.500 ns / 400 MHz with `+0.098 ns` WNS, using about 3.41% of
+LUTs and 1.93% of registers on the same U50-class part. This boundary includes
+Ethernet/IP/UDP stripping, MoldUDP64/ITCH parsing, event buffering, four
+independent order tables, feed-integrity protection, and ordered quote
+arbitration. These source-level OOC results do not require CMAC IP. The guarded
+design misses 2.400 ns / 416.7 MHz by only 2 ps.
 
 The CAUI-4 CMAC integration flow has also been routed on the U50-class target:
 
