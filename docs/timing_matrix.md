@@ -110,6 +110,21 @@ top. After adding a payload register slice and staging the frontend beat-offset
 update, the same top also closes 2.350 ns / 426 MHz and misses 2.300 ns /
 435 MHz by only 26 ps.
 
+## Multi-Symbol Packet-To-Book Top
+
+The bounded four-symbol book bank and its complete packet-to-quote integration
+both close the native 3.102 ns / 322 MHz U50-class target.
+
+| Part | Top | Period | Approx. frequency | WNS | TNS | LUTs | Registers | Status |
+| :--- | :--- | ---: | ---: | ---: | ---: | :--- | :--- | :--- |
+| `xcu50-fsvh2104-2-e` | `market_parser_multi_symbol_top_of_book` | `3.102 ns` | 322 MHz | `0.605 ns` | `0.000 ns` | `1719 / 871680 (0.20%)` | `3242 / 1743360 (0.19%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_multi_strategy_top` | `3.102 ns` | 322 MHz | `0.456 ns` | `0.000 ns` | `29797 / 871680 (3.42%)` | `33444 / 1743360 (1.92%)` | Meets |
+
+The result includes Ethernet/IP/UDP stripping, MoldUDP64/ITCH parsing, event
+buffering, exact Replace reference handling, four independent order tables,
+and ordered quote arbitration. Both OOC builds use zero BRAM tiles and DSPs.
+They are source-level timing results and do not depend on a CMAC IP license.
+
 ## CMAC AXIS Strategy Boundary
 
 `market_parser_100g_cmac_axis_strategy_top` wraps the packet-to-book strategy

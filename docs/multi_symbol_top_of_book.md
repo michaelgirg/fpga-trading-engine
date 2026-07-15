@@ -38,3 +38,29 @@ quote to `MultiSymbolTopOfBookModel`. The replay contains 11 ITCH events, eight
 applied updates, three ignored events, one untracked symbol, and eight expected
 quote updates. No CMAC IP or CMAC license is required for this source-level
 simulation path.
+
+## U50 OOC Result
+
+Vivado 2024.2 out-of-context synthesis on `xcu50-fsvh2104-2-e` closes the
+3.102 ns / 322 MHz 100G user-clock target for both synthesis boundaries:
+
+| Top | WNS | TNS | LUTs | Registers | Status |
+| :--- | ---: | ---: | :--- | :--- | :--- |
+| `market_parser_multi_symbol_top_of_book` | `0.605 ns` | `0.000 ns` | `1719 / 871680 (0.20%)` | `3242 / 1743360 (0.19%)` | Meets |
+| `market_parser_100g_multi_strategy_top` | `0.456 ns` | `0.000 ns` | `29797 / 871680 (3.42%)` | `33444 / 1743360 (1.92%)` | Meets |
+
+Both builds use zero BRAM tiles and zero DSPs. These are source-level OOC
+results and do not require or claim a generated CMAC IP license.
+
+## U50 OOC Result
+
+Vivado 2024.2 out-of-context synthesis on `xcu50-fsvh2104-2-e` closes the
+3.102 ns / 322 MHz 100G user-clock target for both synthesis boundaries:
+
+| Top | WNS | TNS | LUTs | Registers | Status |
+| :--- | ---: | ---: | :--- | :--- | :--- |
+| `market_parser_multi_symbol_top_of_book` | `0.605 ns` | `0.000 ns` | `1719 / 871680 (0.20%)` | `3242 / 1743360 (0.19%)` | Meets |
+| `market_parser_100g_multi_strategy_top` | `0.456 ns` | `0.000 ns` | `29797 / 871680 (3.42%)` | `33444 / 1743360 (1.92%)` | Meets |
+
+Both builds use zero BRAM tiles and zero DSPs. These are source-level OOC
+results and do not require or claim a generated CMAC IP license.
