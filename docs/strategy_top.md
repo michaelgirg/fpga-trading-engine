@@ -83,6 +83,17 @@ This is the current packet-to-book timing milestone: a raw 100G-style feed
 frame can be stripped, parsed into normalized ITCH events, and applied to the
 single-symbol book with margin beyond the target CMAC user-clock class.
 
+## Multi-Symbol Path
+
+`market_parser_100g_multi_strategy_top` is the bounded multi-symbol sibling of
+this top. It routes normalized events by stock locate into independent
+iterative books and merges their quote updates into one ordered stream. The
+Python golden replay interleaves three symbols across three raw Ethernet
+frames and checks eight quotes, exact Replace reference behavior, one
+untracked symbol, one unknown event, and aggregate counters. Its Vivado timing
+and utilization are intentionally recorded only after a separate school OOC
+run.
+
 ## Next Timing Check
 
 The current full-top timing edge is between 2.350 ns and 2.300 ns. Since

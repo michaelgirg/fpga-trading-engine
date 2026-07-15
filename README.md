@@ -2,15 +2,16 @@
 
 SystemVerilog implementation of a low-latency NASDAQ TotalView-ITCH 5.0
 parser. The design accepts MoldUDP64 frames, tracks sequence gaps, decodes
-ITCH messages into normalized events, and maintains a single-symbol top of
-book. The main datapath is a 512-bit AXI4-Stream-style pipeline intended for
-100G-class FPGA Ethernet user clocks.
+ITCH messages into normalized events, and maintains bounded single- or
+multi-symbol top of book. The main datapath is a 512-bit AXI4-Stream-style
+pipeline intended for 100G-class FPGA Ethernet user clocks.
 
 ## What Is Included
 
 - MoldUDP64 header, sequence, message-length, heartbeat, and session handling.
 - ITCH add, execute, cancel, delete, replace, trade, system, and unknown-message handling.
-- Normalized 256-bit event records and a packet-to-top-of-book strategy path.
+- Normalized 256-bit event records, exact Replace reference tracking, and
+  packet-to-top-of-book strategy paths.
 - 64-, 256-, and 512-bit stream adapters with valid/ready backpressure.
 - 512-bit cut-through parsing with descriptor generation, parallel extraction,
   event buffering, counters, sticky error flags, and AXI-Lite status registers.
@@ -35,6 +36,7 @@ The most useful entry points are:
 
 - `rtl/market_parser_512_pipeline.sv`: integrated 512-bit parser pipeline.
 - `rtl/market_parser_100g_strategy_top.sv`: packet-to-top-of-book strategy path.
+- `rtl/market_parser_100g_multi_strategy_top.sv`: bounded multi-symbol strategy path.
 - `rtl/market_parser_100g_cmac_ip_strategy_top.sv`: generated CMAC AXIS boundary.
 - `rtl/market_parser_100g_cmac_ip_impl_harness.sv`: board-oriented U50 shell.
 - `verification/run_questa.do`: complete Questa regression.
@@ -52,8 +54,9 @@ vsim -c -do run_questa.do
 
 The regression covers parser correctness, malformed and truncated frames,
 randomized backpressure, dense messages, FIFO pressure, AXI-Lite status, and
-golden-model top-of-book replay. The current checked-in baseline passes with
-zero compile errors, zero compile warnings, and zero failed tests.
+single- and multi-symbol golden-model top-of-book replay. The current
+checked-in baseline passes with zero compile errors, zero compile warnings,
+and zero failed tests.
 
 Generate or refresh deterministic packet vectors with Python 3:
 

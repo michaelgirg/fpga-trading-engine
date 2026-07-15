@@ -214,3 +214,53 @@ class TopOfBookModel:
                     ask_shares += order.shares
 
         return bid_price, bid_shares, ask_price, ask_shares
+
+
+class MultiSymbolTopOfBookModel:
+    def __init__(self, stock_locates, table_depth: int = 16) -> None:
+        self.books = {
+            stock_locate: TopOfBookModel(stock_locate, table_depth)
+            for stock_locate in stock_locates
+        }
+        if not self.books:
+            raise ValueError("at least one stock locate is required")
+        self.untracked_event_count = 0
+
+    def apply(self, event: ParsedEvent) -> Optional[QuoteUpdate]:
+        book = self.books.get(event.stock_locate)
+        if book is None:
+            self.untracked_event_count += 1
+            return None
+        return book.apply(event)
+
+    def replay(self, events: Iterable[ParsedEvent]) -> List[QuoteUpdate]:
+        quotes = []
+        for event in events:
+            quote = self.apply(event)
+            if quote is not None:
+                quotes.append(quote)
+        return quotes
+
+    @property
+    def accepted_event_count(self) -> int:
+        return self.untracked_event_count + sum(
+            book.accepted_event_count for book in self.books.values()
+        )
+
+    @property
+    def applied_event_count(self) -> int:
+        return sum(book.applied_event_count for book in self.books.values())
+
+    @property
+    def ignored_event_count(self) -> int:
+        return self.untracked_event_count + sum(
+            book.ignored_event_count for book in self.books.values()
+        )
+
+    @property
+    def table_overflow_count(self) -> int:
+        return sum(book.table_overflow_count for book in self.books.values())
+
+    @property
+    def quote_update_count(self) -> int:
+        return sum(book.quote_update_count for book in self.books.values())

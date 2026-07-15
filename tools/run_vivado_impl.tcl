@@ -83,7 +83,9 @@ set rtl_files [list \
     rtl/market_parser_512_system.sv \
     rtl/market_parser_100g_cmac_system.sv \
     rtl/market_parser_top_of_book.sv \
+    rtl/market_parser_multi_symbol_top_of_book.sv \
     rtl/market_parser_100g_strategy_top.sv \
+    rtl/market_parser_100g_multi_strategy_top.sv \
     rtl/market_parser_cmac_axis_rx_bridge.sv \
     rtl/market_parser_100g_cmac_axis_strategy_top.sv \
     rtl/market_parser_100g_strategy_impl_harness.sv \
