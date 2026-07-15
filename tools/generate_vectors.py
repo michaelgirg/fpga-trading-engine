@@ -111,6 +111,54 @@ def build_top_book_replay_messages():
     ]
 
 
+def build_top_book_multipacket_messages():
+    target = TARGET_STOCK_LOCATE
+    wrong = 0x9999
+    stock = b"TEST    "
+    other_stock = b"OTHER   "
+    return [
+        [
+            itch_add_order(stock_locate=target, tracking_number=101, timestamp=101, order_ref=1001, side=b"B", shares=10, stock=stock, price=1000),
+            itch_add_order(stock_locate=target, tracking_number=102, timestamp=102, order_ref=1002, side=b"S", shares=7, stock=stock, price=1050),
+            itch_add_order(stock_locate=wrong, tracking_number=103, timestamp=103, order_ref=9001, side=b"B", shares=100, stock=other_stock, price=2000),
+        ],
+        [
+            itch_add_order(stock_locate=target, tracking_number=104, timestamp=104, order_ref=1003, side=b"B", shares=4, stock=stock, price=1000),
+            itch_order_executed(stock_locate=target, tracking_number=105, timestamp=105, order_ref=1001, shares=6),
+            itch_order_cancel(stock_locate=target, tracking_number=106, timestamp=106, order_ref=1002, canceled_shares=2),
+        ],
+        [
+            itch_add_order(stock_locate=target, tracking_number=107, timestamp=107, order_ref=1004, side=b"S", shares=8, stock=stock, price=1040),
+            itch_order_delete(stock_locate=target, tracking_number=108, timestamp=108, order_ref=1002),
+            itch_order_executed(stock_locate=target, tracking_number=109, timestamp=109, order_ref=1004, shares=3),
+        ],
+    ]
+
+
+def build_top_book_multipacket_messages():
+    target = TARGET_STOCK_LOCATE
+    wrong = 0x9999
+    stock = b"TEST    "
+    other_stock = b"OTHER   "
+    return [
+        [
+            itch_add_order(stock_locate=target, tracking_number=101, timestamp=101, order_ref=1001, side=b"B", shares=10, stock=stock, price=1000),
+            itch_add_order(stock_locate=target, tracking_number=102, timestamp=102, order_ref=1002, side=b"S", shares=7, stock=stock, price=1050),
+            itch_add_order(stock_locate=wrong, tracking_number=103, timestamp=103, order_ref=9001, side=b"B", shares=100, stock=other_stock, price=2000),
+        ],
+        [
+            itch_add_order(stock_locate=target, tracking_number=104, timestamp=104, order_ref=1003, side=b"B", shares=4, stock=stock, price=1000),
+            itch_order_executed(stock_locate=target, tracking_number=105, timestamp=105, order_ref=1001, shares=6),
+            itch_order_cancel(stock_locate=target, tracking_number=106, timestamp=106, order_ref=1002, canceled_shares=2),
+        ],
+        [
+            itch_add_order(stock_locate=target, tracking_number=107, timestamp=107, order_ref=1004, side=b"S", shares=8, stock=stock, price=1040),
+            itch_order_delete(stock_locate=target, tracking_number=108, timestamp=108, order_ref=1002),
+            itch_order_executed(stock_locate=target, tracking_number=109, timestamp=109, order_ref=1004, shares=3),
+        ],
+    ]
+
+
 def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -174,6 +222,126 @@ def main() -> None:
             ]
         )
         + "\n",
+        encoding="utf-8",
+    )
+
+    multipacket_model = TopOfBookModel(TARGET_STOCK_LOCATE, table_depth=8)
+    multipacket_quotes = []
+    multipacket_raw_frames = []
+    multipacket_event_counts = []
+    multipacket_quote_counts = []
+    next_multipacket_sequence = 1000
+
+    for packet_index, packet_messages in enumerate(build_top_book_multipacket_messages()):
+        packet_payload = mold_packet(next_multipacket_sequence, packet_messages)
+        packet_events, next_multipacket_sequence = parse_mold_packet(
+            packet_payload,
+            expected_sequence=next_multipacket_sequence,
+        )
+        quote_count_before = len(multipacket_quotes)
+        multipacket_quotes.extend(multipacket_model.replay(packet_events))
+        packet_raw = build_raw_udp_frame(packet_payload)
+        multipacket_raw_frames.append(packet_raw)
+        multipacket_event_counts.append(len(packet_events))
+        multipacket_quote_counts.append(len(multipacket_quotes) - quote_count_before)
+        write_hex_bytes(
+            OUT_DIR / ("top_book_multipacket_raw_%d.hex" % packet_index),
+            packet_raw,
+        )
+
+    write_hex_words(
+        OUT_DIR / "top_book_multipacket_expected_quotes.hex",
+        [quote.pack_u192() for quote in multipacket_quotes],
+        192,
+    )
+
+    multipacket_meta = [
+        "localparam int TOP_BOOK_MULTIPACKET_PACKETS = %d;" % len(multipacket_raw_frames),
+        "localparam int TOP_BOOK_MULTIPACKET_EXPECTED_RAW_BEATS = %d;"
+        % sum((len(frame) + 63) // 64 for frame in multipacket_raw_frames),
+        "localparam int TOP_BOOK_MULTIPACKET_EXPECTED_EVENTS = %d;"
+        % sum(multipacket_event_counts),
+        "localparam int TOP_BOOK_MULTIPACKET_EXPECTED_QUOTES = %d;"
+        % len(multipacket_quotes),
+        "localparam int TOP_BOOK_MULTIPACKET_EXPECTED_APPLIED = %d;"
+        % multipacket_model.applied_event_count,
+        "localparam int TOP_BOOK_MULTIPACKET_EXPECTED_IGNORED = %d;"
+        % multipacket_model.ignored_event_count,
+        "localparam int TOP_BOOK_MULTIPACKET_EXPECTED_OVERFLOW = %d;"
+        % multipacket_model.table_overflow_count,
+    ]
+    for packet_index, packet_raw in enumerate(multipacket_raw_frames):
+        multipacket_meta.extend(
+            [
+                "localparam int TOP_BOOK_MULTIPACKET_RAW_%d_BYTES = %d;"
+                % (packet_index, len(packet_raw)),
+                "localparam int TOP_BOOK_MULTIPACKET_PACKET_%d_QUOTES = %d;"
+                % (packet_index, multipacket_quote_counts[packet_index]),
+            ]
+        )
+
+    (OUT_DIR / "top_book_multipacket_meta.svh").write_text(
+        "\n".join(multipacket_meta) + "\n",
+        encoding="utf-8",
+    )
+
+    multipacket_model = TopOfBookModel(TARGET_STOCK_LOCATE, table_depth=8)
+    multipacket_quotes = []
+    multipacket_raw_frames = []
+    multipacket_event_counts = []
+    multipacket_quote_counts = []
+    next_multipacket_sequence = 1000
+
+    for packet_index, packet_messages in enumerate(build_top_book_multipacket_messages()):
+        packet_payload = mold_packet(next_multipacket_sequence, packet_messages)
+        packet_events, next_multipacket_sequence = parse_mold_packet(
+            packet_payload,
+            expected_sequence=next_multipacket_sequence,
+        )
+        quote_count_before = len(multipacket_quotes)
+        multipacket_quotes.extend(multipacket_model.replay(packet_events))
+        packet_raw = build_raw_udp_frame(packet_payload)
+        multipacket_raw_frames.append(packet_raw)
+        multipacket_event_counts.append(len(packet_events))
+        multipacket_quote_counts.append(len(multipacket_quotes) - quote_count_before)
+        write_hex_bytes(
+            OUT_DIR / ("top_book_multipacket_raw_%d.hex" % packet_index),
+            packet_raw,
+        )
+
+    write_hex_words(
+        OUT_DIR / "top_book_multipacket_expected_quotes.hex",
+        [quote.pack_u192() for quote in multipacket_quotes],
+        192,
+    )
+
+    multipacket_meta = [
+        "localparam int TOP_BOOK_MULTIPACKET_PACKETS = %d;" % len(multipacket_raw_frames),
+        "localparam int TOP_BOOK_MULTIPACKET_EXPECTED_RAW_BEATS = %d;"
+        % sum((len(frame) + 63) // 64 for frame in multipacket_raw_frames),
+        "localparam int TOP_BOOK_MULTIPACKET_EXPECTED_EVENTS = %d;"
+        % sum(multipacket_event_counts),
+        "localparam int TOP_BOOK_MULTIPACKET_EXPECTED_QUOTES = %d;"
+        % len(multipacket_quotes),
+        "localparam int TOP_BOOK_MULTIPACKET_EXPECTED_APPLIED = %d;"
+        % multipacket_model.applied_event_count,
+        "localparam int TOP_BOOK_MULTIPACKET_EXPECTED_IGNORED = %d;"
+        % multipacket_model.ignored_event_count,
+        "localparam int TOP_BOOK_MULTIPACKET_EXPECTED_OVERFLOW = %d;"
+        % multipacket_model.table_overflow_count,
+    ]
+    for packet_index, packet_raw in enumerate(multipacket_raw_frames):
+        multipacket_meta.extend(
+            [
+                "localparam int TOP_BOOK_MULTIPACKET_RAW_%d_BYTES = %d;"
+                % (packet_index, len(packet_raw)),
+                "localparam int TOP_BOOK_MULTIPACKET_PACKET_%d_QUOTES = %d;"
+                % (packet_index, multipacket_quote_counts[packet_index]),
+            ]
+        )
+
+    (OUT_DIR / "top_book_multipacket_meta.svh").write_text(
+        "\n".join(multipacket_meta) + "\n",
         encoding="utf-8",
     )
 

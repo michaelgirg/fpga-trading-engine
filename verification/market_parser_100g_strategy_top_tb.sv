@@ -23,6 +23,7 @@ module market_parser_100g_strategy_top_tb #(
     localparam int EXPECTED_RAW_BEATS = (RAW_PACKET_BYTES + RX_BYTES_PER_BEAT - 1) / RX_BYTES_PER_BEAT;
 
 `include "verification/vectors/top_book_replay_meta.svh"
+`include "verification/vectors/top_book_multipacket_meta.svh"
 
     typedef logic [7:0] byte_t;
 
@@ -84,6 +85,10 @@ module market_parser_100g_strategy_top_tb #(
     byte_t raw_packet_mem  [RAW_PACKET_BYTES];
     byte_t replay_raw_packet_mem[TOP_BOOK_REPLAY_RAW_PACKET_BYTES];
     logic [191:0] expected_quote_mem[TOP_BOOK_REPLAY_EXPECTED_QUOTES];
+    byte_t multipacket_raw_0_mem[TOP_BOOK_MULTIPACKET_RAW_0_BYTES];
+    byte_t multipacket_raw_1_mem[TOP_BOOK_MULTIPACKET_RAW_1_BYTES];
+    byte_t multipacket_raw_2_mem[TOP_BOOK_MULTIPACKET_RAW_2_BYTES];
+    logic [191:0] multipacket_expected_quote_mem[TOP_BOOK_MULTIPACKET_EXPECTED_QUOTES];
 
     market_parser_100g_strategy_top #(
         .FEED_UDP_PORT      (FEED_UDP_PORT),
@@ -179,6 +184,22 @@ module market_parser_100g_strategy_top_tb #(
         quote_path = {VECTOR_DIR, "/top_book_replay_expected_quotes.hex"};
         $readmemh(raw_path, replay_raw_packet_mem);
         $readmemh(quote_path, expected_quote_mem);
+    endtask
+
+    task automatic load_multipacket_vectors();
+        string raw_0_path;
+        string raw_1_path;
+        string raw_2_path;
+        string quote_path;
+
+        raw_0_path = {VECTOR_DIR, "/top_book_multipacket_raw_0.hex"};
+        raw_1_path = {VECTOR_DIR, "/top_book_multipacket_raw_1.hex"};
+        raw_2_path = {VECTOR_DIR, "/top_book_multipacket_raw_2.hex"};
+        quote_path = {VECTOR_DIR, "/top_book_multipacket_expected_quotes.hex"};
+        $readmemh(raw_0_path, multipacket_raw_0_mem);
+        $readmemh(raw_1_path, multipacket_raw_1_mem);
+        $readmemh(raw_2_path, multipacket_raw_2_mem);
+        $readmemh(quote_path, multipacket_expected_quote_mem);
     endtask
 
     task automatic put_byte(ref int offset, input byte_t value);
@@ -484,6 +505,55 @@ module market_parser_100g_strategy_top_tb #(
               "golden replay book overflow counter");
         check(book_quote_update_count == 32'(TOP_BOOK_REPLAY_EXPECTED_QUOTES),
               "golden replay book quote-update counter");
+
+        reset_dut();
+        ingress_stall_cycles_seen = 0;
+        raw_beat_count = 0;
+        load_multipacket_vectors();
+
+        send_packet_100g_burst(TOP_BOOK_MULTIPACKET_RAW_0_BYTES, multipacket_raw_0_mem);
+        for (int quote_idx = 0; quote_idx < TOP_BOOK_MULTIPACKET_PACKET_0_QUOTES; quote_idx++) begin
+            expect_quote_word(multipacket_expected_quote_mem[quote_idx],
+                              $sformatf("multipacket frame 0 quote %0d", quote_idx));
+        end
+
+        send_packet_100g_burst(TOP_BOOK_MULTIPACKET_RAW_1_BYTES, multipacket_raw_1_mem);
+        for (int quote_idx = TOP_BOOK_MULTIPACKET_PACKET_0_QUOTES;
+             quote_idx < TOP_BOOK_MULTIPACKET_PACKET_0_QUOTES + TOP_BOOK_MULTIPACKET_PACKET_1_QUOTES;
+             quote_idx++) begin
+            expect_quote_word(multipacket_expected_quote_mem[quote_idx],
+                              $sformatf("multipacket frame 1 quote %0d", quote_idx));
+        end
+
+        send_packet_100g_burst(TOP_BOOK_MULTIPACKET_RAW_2_BYTES, multipacket_raw_2_mem);
+        for (int quote_idx = TOP_BOOK_MULTIPACKET_PACKET_0_QUOTES + TOP_BOOK_MULTIPACKET_PACKET_1_QUOTES;
+             quote_idx < TOP_BOOK_MULTIPACKET_EXPECTED_QUOTES;
+             quote_idx++) begin
+            expect_quote_word(multipacket_expected_quote_mem[quote_idx],
+                              $sformatf("multipacket frame 2 quote %0d", quote_idx));
+        end
+
+        repeat (30) @(posedge clk);
+        check(ingress_stall_cycles_seen == 0, "multipacket replay accepts frames with no input stalls");
+        check(raw_beat_count == TOP_BOOK_MULTIPACKET_EXPECTED_RAW_BEATS,
+              "multipacket replay total raw beat count");
+        check(cmac_accepted_frame_count == 32'(TOP_BOOK_MULTIPACKET_PACKETS),
+              "multipacket replay accepted-frame counter");
+        check(cmac_payload_packet_count == 32'(TOP_BOOK_MULTIPACKET_PACKETS),
+              "multipacket replay payload-packet counter");
+        check(cmac_dropped_frame_count == 32'd0, "multipacket replay drop counter stays zero");
+        check(cmac_header_error_count == 32'd0, "multipacket replay header-error counter stays zero");
+        check(cmac_payload_fifo_level == 16'd0, "multipacket replay payload FIFO drains");
+        check(book_accepted_event_count == 32'(TOP_BOOK_MULTIPACKET_EXPECTED_EVENTS),
+              "multipacket replay book accepted-event counter");
+        check(book_applied_event_count == 32'(TOP_BOOK_MULTIPACKET_EXPECTED_APPLIED),
+              "multipacket replay book applied-event counter");
+        check(book_ignored_event_count == 32'(TOP_BOOK_MULTIPACKET_EXPECTED_IGNORED),
+              "multipacket replay ignores the non-target symbol");
+        check(book_table_overflow_count == 32'(TOP_BOOK_MULTIPACKET_EXPECTED_OVERFLOW),
+              "multipacket replay book overflow counter");
+        check(book_quote_update_count == 32'(TOP_BOOK_MULTIPACKET_EXPECTED_QUOTES),
+              "multipacket replay book quote-update counter");
 
         $display("========================================================");
         $display("Tests passed: %0d", passed);

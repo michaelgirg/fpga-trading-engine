@@ -84,3 +84,10 @@ checks best bid/ask price, aggregated size, timestamp propagation, and counters.
 `market_parser_100g_cmac_system`, giving the project a packet-to-quote
 integration path. Next useful work is a Python golden-model book builder for
 larger replay tests and a school Vivado OOC check of the combined strategy top.
+
+The end-to-end strategy regression also replays three independent
+Ethernet/IPv4/UDP/MoldUDP64 frames generated from the Python golden model.
+Orders persist across frame boundaries, sequence numbers remain contiguous,
+and an interleaved non-target symbol is accepted by the parser but ignored by
+the configured single-symbol book. Every emitted quote and the final
+accepted/applied/ignored/overflow counters are checked against the model.
