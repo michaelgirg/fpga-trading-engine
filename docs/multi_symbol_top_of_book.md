@@ -90,12 +90,10 @@ fail-closed sequence-gap handling also closes 2.500 ns / 400 MHz:
 | `market_parser_100g_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.098 ns` | `0.000 ns` | `29760 / 871680 (3.41%)` | `33591 / 1743360 (1.93%)` | Meets |
 | `market_parser_100g_multi_strategy_top` | `2.400 ns` | 417 MHz | `-0.002 ns` | `-0.012 ns` | `29773 / 871680 (3.42%)` | `33591 / 1743360 (1.93%)` | Near miss |
 | `market_parser_100g_multi_strategy_top` | `2.350 ns` | 426 MHz | `-0.052 ns` | `-0.262 ns` | `29764 / 871680 (3.41%)` | `33590 / 1743360 (1.93%)` | Does not close |
-| `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | 322 MHz | `0.668 ns` | `0.000 ns` | `30023 / 871680 (3.44%)` | `33891 / 1743360 (1.94%)` | Meets |
-| `market_parser_100g_cmac_axis_multi_strategy_top` | `2.750 ns` | 364 MHz | `0.348 ns` | `0.000 ns` | `30269 / 871680 (3.47%)` | `33787 / 1743360 (1.94%)` | Meets |
-| `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.066 ns` | `0.000 ns` | `30227 / 871680 (3.47%)` | `33887 / 1743360 (1.94%)` | Meets |
+| `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | 322 MHz | `0.700 ns` | `0.000 ns` | `30186 / 871680 (3.46%)` | `34111 / 1743360 (1.96%)` | Meets |
+| `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.098 ns` | `0.000 ns` | `30379 / 871680 (3.49%)` | `34099 / 1743360 (1.96%)` | Meets |
 
-The unbridged guarded top has 98 ps of setup margin at 2.500 ns, while the
-source-only CMAC packet bridge and telemetry boundary has 66 ps. Both are
-measured 400 MHz operating points with zero BRAM tiles and zero DSPs. These are
-source-level OOC results and do not depend on generated CMAC IP. The unbridged
-guarded design misses 2.400 ns / 416.7 MHz by only 2 ps.
+The watchdog-enabled source-only CMAC packet bridge and telemetry boundary has
+98 ps of setup margin at 400 MHz with zero BRAM tiles and zero DSPs. This is a
+source-level OOC result and does not depend on generated CMAC IP. The watchdog
+comparison is registered before the fail-closed book-control fanout.
