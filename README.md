@@ -120,7 +120,7 @@ design misses 2.400 ns / 416.7 MHz by only 2 ps.
 
 The source-only CMAC AXIS implementation harness, including packet buffering,
 UDP realignment, parser, feed guard, AXI-Lite recovery, and four bounded books,
-also closes post-route at the native 3.102 ns / 322 MHz target with `+0.040 ns`
+also closes post-route at the native 3.102 ns / 322 MHz target with `+0.088 ns`
 WNS and `+0.010 ns` WHS. This routed result excludes the generated encrypted
 CMAC IP and is not a bitstream or hardware-programming claim.
 

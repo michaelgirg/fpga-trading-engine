@@ -85,8 +85,8 @@ a compact board-like IO surface; it is implementation evidence for the RTL
 path, not a replacement for actual CMAC IP and board constraints.
 
 The expanded source-only CMAC AXIS routed harness closes the same target
-post-route with WNS `0.040 ns`, TNS `0.000 ns`, WHS `0.010 ns`, 22590 LUTs,
-29071 registers, and no BRAM/DSP usage. This result includes the guarded
+post-route with WNS `0.088 ns`, TNS `0.000 ns`, WHS `0.010 ns`, 23024 LUTs,
+29074 registers, and no BRAM/DSP usage. This result includes the guarded
 four-symbol boundary and is the current routed source-level evidence before
 inserting generated vendor IP.
 
@@ -409,9 +409,9 @@ wrapper closes OOC on the school U50-class target at the 3.102 ns / 322 MHz
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.750 ns` | `0.097 ns` | `0.000 ns` | `24146 / 871680 (2.77%)` | `23709 / 1743360 (1.36%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.500 ns` | `-0.153 ns` | `-399.967 ns` | `24150 / 871680 (2.77%)` | `23713 / 1743360 (1.36%)` | Stress miss |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.350 ns` | `-0.303 ns` | `-1015.845 ns` | `24150 / 871680 (2.77%)` | `23713 / 1743360 (1.36%)` | Stress miss |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | `0.668 ns` | `0.000 ns` | `30011 / 871680 (3.44%)` | `33877 / 1743360 (1.94%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | `0.668 ns` | `0.000 ns` | `30023 / 871680 (3.44%)` | `33891 / 1743360 (1.94%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `2.750 ns` | `0.348 ns` | `0.000 ns` | `30269 / 871680 (3.47%)` | `33787 / 1743360 (1.94%)` | Meets |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | `0.066 ns` | `0.000 ns` | `30226 / 871680 (3.47%)` | `33890 / 1743360 (1.94%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | `0.066 ns` | `0.000 ns` | `30227 / 871680 (3.47%)` | `33887 / 1743360 (1.94%)` | Meets |
 
 This pass covers the source-only CMAC AXIS RX bridge, UDP strip/realignment,
 MoldUDP64/ITCH parser pipeline, event buffering, and top-of-book strategy path.

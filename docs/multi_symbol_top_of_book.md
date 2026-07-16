@@ -84,9 +84,9 @@ fail-closed sequence-gap handling also closes 2.500 ns / 400 MHz:
 | `market_parser_100g_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.098 ns` | `0.000 ns` | `29760 / 871680 (3.41%)` | `33591 / 1743360 (1.93%)` | Meets |
 | `market_parser_100g_multi_strategy_top` | `2.400 ns` | 417 MHz | `-0.002 ns` | `-0.012 ns` | `29773 / 871680 (3.42%)` | `33591 / 1743360 (1.93%)` | Near miss |
 | `market_parser_100g_multi_strategy_top` | `2.350 ns` | 426 MHz | `-0.052 ns` | `-0.262 ns` | `29764 / 871680 (3.41%)` | `33590 / 1743360 (1.93%)` | Does not close |
-| `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | 322 MHz | `0.668 ns` | `0.000 ns` | `30011 / 871680 (3.44%)` | `33877 / 1743360 (1.94%)` | Meets |
+| `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | 322 MHz | `0.668 ns` | `0.000 ns` | `30023 / 871680 (3.44%)` | `33891 / 1743360 (1.94%)` | Meets |
 | `market_parser_100g_cmac_axis_multi_strategy_top` | `2.750 ns` | 364 MHz | `0.348 ns` | `0.000 ns` | `30269 / 871680 (3.47%)` | `33787 / 1743360 (1.94%)` | Meets |
-| `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.066 ns` | `0.000 ns` | `30226 / 871680 (3.47%)` | `33890 / 1743360 (1.94%)` | Meets |
+| `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.066 ns` | `0.000 ns` | `30227 / 871680 (3.47%)` | `33887 / 1743360 (1.94%)` | Meets |
 
 The unbridged guarded top has 98 ps of setup margin at 2.500 ns, while the
 source-only CMAC packet bridge and telemetry boundary has 66 ps. Both are
