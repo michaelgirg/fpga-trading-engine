@@ -23,6 +23,7 @@ module market_parser_100g_multi_strategy_top #(
     input  wire logic         clk,
     input  wire logic         rst,
     input  wire logic         feed_recover,
+    input  wire logic         feed_activate,
     input  wire logic         feed_fault,
 
     input  wire logic         s_axis_cmac_rx_tvalid,
@@ -79,6 +80,7 @@ module market_parser_100g_multi_strategy_top #(
     output logic [31:0]       book_quote_update_count,
 
     output logic              feed_healthy,
+    output logic              feed_rebuilding,
     output logic [31:0]       feed_gap_count,
     output logic [31:0]       feed_suppressed_event_count,
     output logic [31:0]       feed_idle_cycles,
@@ -93,14 +95,21 @@ module market_parser_100g_multi_strategy_top #(
     logic         book_event_valid;
     logic         book_event_ready;
     logic         book_quote_valid;
+    logic         book_quote_ready;
     logic         book_rst;
     logic         gap_event_i;
     logic         event_fire_i;
     logic         feed_healthy_r;
+    logic         feed_rebuilding_r;
     logic [31:0]  feed_gap_count_r;
     logic [31:0]  feed_suppressed_event_count_r;
     logic         feed_recover_sw;
+    logic         feed_activate_sw;
     logic         feed_recover_i;
+    logic         feed_activate_i;
+    logic         feed_activate_effective_i;
+    logic         feed_operational_i;
+    logic         feed_control_transition_i;
     logic         feed_fault_i;
     logic         watchdog_timeout_due_i;
     logic         watchdog_timeout_r;
@@ -111,8 +120,12 @@ module market_parser_100g_multi_strategy_top #(
     logic [31:0]  accepted_packet_count_seen_r;
 
     assign feed_recover_i = feed_recover || feed_recover_sw;
+    assign feed_activate_i = feed_activate || feed_activate_sw;
+    assign feed_operational_i = feed_healthy_r || feed_rebuilding_r;
+    assign feed_activate_effective_i = feed_activate_i && feed_rebuilding_r;
+    assign feed_control_transition_i = feed_recover_i || feed_activate_effective_i;
     assign watchdog_timeout_due_i =
-        feed_healthy_r && !feed_recover_i && !feed_fault_i &&
+        feed_operational_i && !feed_control_transition_i && !feed_fault_i &&
         (feed_timeout_cycles_config == feed_timeout_cycles_prev_r) &&
         (feed_timeout_cycles_config != 32'd0) &&
         (cmac_axis_accepted_packet_count_status == accepted_packet_count_seen_r) &&
@@ -121,19 +134,23 @@ module market_parser_100g_multi_strategy_top #(
 
     assign gap_event_i = event_valid &&
                          ((event_data[239:232] & FLAG_GAP) != 8'h00);
-    assign event_ready = feed_recover_i ? 1'b0 :
-                         ((!feed_healthy_r || gap_event_i || feed_fault_i) ?
+    assign event_ready = feed_control_transition_i ? 1'b0 :
+                         ((!feed_operational_i || gap_event_i || feed_fault_i) ?
                           1'b1 : book_event_ready);
     assign event_fire_i = event_valid && event_ready;
-    assign book_event_valid = event_valid && feed_healthy_r &&
-                              !gap_event_i && !feed_fault_i && !feed_recover_i;
+    assign book_event_valid = event_valid && feed_operational_i &&
+                              !gap_event_i && !feed_fault_i &&
+                              !feed_control_transition_i;
     assign book_rst = rst || feed_recover_i ||
                       feed_fault_i ||
-                      (event_fire_i && gap_event_i && feed_healthy_r);
+                      (event_fire_i && gap_event_i && feed_operational_i);
 
     assign quote_valid = feed_healthy_r && !gap_event_i &&
-                         !feed_fault_i && !feed_recover_i && book_quote_valid;
+                         !feed_fault_i && !feed_control_transition_i &&
+                         book_quote_valid;
+    assign book_quote_ready = feed_rebuilding_r ? 1'b1 : quote_ready;
     assign feed_healthy = feed_healthy_r;
+    assign feed_rebuilding = feed_rebuilding_r;
     assign feed_gap_count = feed_gap_count_r;
     assign feed_suppressed_event_count = feed_suppressed_event_count_r;
     assign feed_idle_cycles = feed_idle_cycles_r;
@@ -142,21 +159,28 @@ module market_parser_100g_multi_strategy_top #(
     always_ff @(posedge clk) begin
         if (rst) begin
             feed_healthy_r                <= 1'b1;
+            feed_rebuilding_r             <= 1'b0;
             feed_gap_count_r              <= '0;
             feed_suppressed_event_count_r <= '0;
         end else if (feed_fault_i) begin
-            feed_healthy_r <= 1'b0;
+            feed_healthy_r    <= 1'b0;
+            feed_rebuilding_r <= 1'b0;
             if (event_fire_i) begin
                 feed_suppressed_event_count_r <= feed_suppressed_event_count_r + 1'b1;
             end
         end else if (feed_recover_i) begin
-            feed_healthy_r <= 1'b1;
+            feed_healthy_r    <= 1'b0;
+            feed_rebuilding_r <= 1'b1;
+        end else if (feed_activate_effective_i) begin
+            feed_healthy_r    <= 1'b1;
+            feed_rebuilding_r <= 1'b0;
         end else if (event_fire_i) begin
-            if (gap_event_i && feed_healthy_r) begin
-                feed_healthy_r   <= 1'b0;
-                feed_gap_count_r <= feed_gap_count_r + 1'b1;
+            if (gap_event_i && feed_operational_i) begin
+                feed_healthy_r    <= 1'b0;
+                feed_rebuilding_r <= 1'b0;
+                feed_gap_count_r  <= feed_gap_count_r + 1'b1;
             end
-            if (!feed_healthy_r || gap_event_i) begin
+            if (!feed_operational_i || gap_event_i) begin
                 feed_suppressed_event_count_r <= feed_suppressed_event_count_r + 1'b1;
             end
         end
@@ -174,10 +198,10 @@ module market_parser_100g_multi_strategy_top #(
             feed_timeout_cycles_prev_r   <= feed_timeout_cycles_config;
             watchdog_timeout_r           <= watchdog_timeout_due_i;
 
-            if (feed_recover_i ||
+            if (feed_control_transition_i ||
                 (feed_timeout_cycles_config != feed_timeout_cycles_prev_r)) begin
                 feed_idle_cycles_r <= '0;
-            end else if (!feed_healthy_r || feed_fault_i) begin
+            end else if (!feed_operational_i || feed_fault_i) begin
                 feed_idle_cycles_r <= feed_idle_cycles_r;
             end else if (cmac_axis_accepted_packet_count_status !=
                          accepted_packet_count_seen_r) begin
@@ -217,11 +241,13 @@ module market_parser_100g_multi_strategy_top #(
         .event_keep                     (event_keep),
         .event_last                     (event_last),
         .feed_healthy_status            (feed_healthy_r),
+        .feed_rebuilding_status         (feed_rebuilding_r),
         .feed_gap_count_status          (feed_gap_count_r),
         .feed_suppressed_event_count_status(feed_suppressed_event_count_r),
         .feed_idle_cycles_status        (feed_idle_cycles_r),
         .feed_timeout_count_status      (feed_timeout_count_r),
         .feed_recover_pulse             (feed_recover_sw),
+        .feed_activate_pulse            (feed_activate_sw),
         .feed_timeout_cycles_config     (feed_timeout_cycles_config),
         .cmac_axis_accepted_packet_count_status(cmac_axis_accepted_packet_count_status),
         .cmac_axis_overflow_packet_count_status(cmac_axis_overflow_packet_count_status),
@@ -266,7 +292,7 @@ module market_parser_100g_multi_strategy_top #(
         .event_keep           (event_keep),
         .event_last           (event_last),
         .quote_valid          (book_quote_valid),
-        .quote_ready          (quote_ready),
+        .quote_ready          (book_quote_ready),
         .quote_stock_locate   (quote_stock_locate),
         .quote_bid_price      (quote_bid_price),
         .quote_bid_shares     (quote_bid_shares),

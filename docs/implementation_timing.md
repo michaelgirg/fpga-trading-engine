@@ -50,10 +50,10 @@ milestone is the `3.102 ns` / 322 MHz pass.
 The CMAC AXIS implementation harness is now the stronger routed boundary proof:
 it includes the no-backpressure CMAC AXIS packet buffer, UDP strip/realignment,
 MoldUDP64/ITCH parser pipeline, event buffering, fail-closed sequence, loss, and
-liveness protection, AXI-Lite feed recovery, and four-symbol top-of-book path,
-while still avoiding unrealistic package-pin pressure from debug buses. Its
-86 ps setup margin is a valid native-clock pass, but not evidence for a higher
-routed frequency.
+liveness protection, AXI-Lite feed rebuild/activation, and four-symbol
+top-of-book path, while still avoiding unrealistic package-pin pressure from
+debug buses. Its 86 ps setup margin is a valid native-clock pass, but not
+evidence for a higher routed frequency.
 
 This is still an RTL implementation flow, not a finished Alveo shell. The CMAC
 probe is intentionally separate because the actual IP wrapper depends on the

@@ -24,6 +24,7 @@ module market_parser_100g_cmac_axis_multi_strategy_top #(
     input  wire logic         clk,
     input  wire logic         rst,
     input  wire logic         feed_recover,
+    input  wire logic         feed_activate,
 
     input  wire logic         rx_axis_tvalid,
     input  wire logic [511:0] rx_axis_tdata,
@@ -79,6 +80,7 @@ module market_parser_100g_cmac_axis_multi_strategy_top #(
     output logic [31:0]       book_quote_update_count,
 
     output logic              feed_healthy,
+    output logic              feed_rebuilding,
     output logic [31:0]       feed_gap_count,
     output logic [31:0]       feed_suppressed_event_count,
     output logic [31:0]       feed_idle_cycles,
@@ -135,6 +137,7 @@ module market_parser_100g_cmac_axis_multi_strategy_top #(
         .clk                            (clk),
         .rst                            (rst),
         .feed_recover                   (feed_recover),
+        .feed_activate                  (feed_activate),
         .feed_fault                     (bridge_overflow_event),
         .s_axis_cmac_rx_tvalid          (parser_rx_tvalid),
         .s_axis_cmac_rx_tready          (parser_rx_tready),
@@ -184,6 +187,7 @@ module market_parser_100g_cmac_axis_multi_strategy_top #(
         .book_table_overflow_count      (book_table_overflow_count),
         .book_quote_update_count        (book_quote_update_count),
         .feed_healthy                   (feed_healthy),
+        .feed_rebuilding                (feed_rebuilding),
         .feed_gap_count                 (feed_gap_count),
         .feed_suppressed_event_count    (feed_suppressed_event_count),
         .feed_idle_cycles               (feed_idle_cycles),

@@ -97,6 +97,8 @@ checks that the ingress side accepts the burst without stalls.
   no-`tready` CMAC packet buffer loses a packet.
 - Configurable feed-liveness timeout with a saturating idle-cycle counter,
   distinct fault history, fail-closed book clearing, and software recovery.
+- Two-phase feed recovery that rebuilds book state with quotes suppressed and
+  requires explicit activation before the feed becomes tradable.
 - Same normalized parser output checked against generated reference vectors.
 - First-beat parallel boundary scanner for MoldUDP64 sequence/message count and
   early ITCH message-length candidates.

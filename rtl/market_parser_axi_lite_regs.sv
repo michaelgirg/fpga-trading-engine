@@ -46,6 +46,7 @@ module market_parser_axi_lite_regs #(
     input  wire logic                   event_out_valid,
     input  wire logic [ 7:0]            error_flags_in,
     input  wire logic                   feed_healthy,
+    input  wire logic                   feed_rebuilding,
     input  wire logic [31:0]            feed_gap_count,
     input  wire logic [31:0]            feed_suppressed_event_count,
     input  wire logic [31:0]            feed_idle_cycles,
@@ -59,6 +60,7 @@ module market_parser_axi_lite_regs #(
     output logic                        parser_enable,
     output logic                        clear_counters_pulse,
     output logic                        feed_recover_pulse,
+    output logic                        feed_activate_pulse,
     output logic [31:0]                 feed_timeout_cycles_config
 );
     localparam logic [11:0] REG_CONTROL          = 12'h000;
@@ -112,6 +114,7 @@ module market_parser_axi_lite_regs #(
     logic [31:0]           cmac_axis_dropped_beat_count_base_r;
     logic                  clear_counters_pulse_r;
     logic                  feed_recover_pulse_r;
+    logic                  feed_activate_pulse_r;
     logic [31:0]           feed_timeout_cycles_r;
 
     assign s_axi_awready = !aw_hold_r && !bvalid_r;
@@ -126,6 +129,7 @@ module market_parser_axi_lite_regs #(
     assign parser_enable       = parser_enable_r;
     assign clear_counters_pulse = clear_counters_pulse_r;
     assign feed_recover_pulse   = feed_recover_pulse_r;
+    assign feed_activate_pulse  = feed_activate_pulse_r;
     assign feed_timeout_cycles_config = feed_timeout_cycles_r;
 
     function automatic logic [31:0] apply_wstrb(
@@ -152,11 +156,12 @@ module market_parser_axi_lite_regs #(
 
         case (reg_addr)
             REG_CONTROL: begin
-                read_reg = {29'd0, 2'b00, parser_enable_r};
+                read_reg = {28'd0, 3'b000, parser_enable_r};
             end
             REG_STATUS: begin
                 read_reg = {
-                    24'd0,
+                    23'd0,
+                    feed_rebuilding,
                     feed_timeout_count != feed_timeout_count_base_r,
                     cmac_axis_overflow_packet_count != cmac_axis_overflow_packet_count_base_r,
                     feed_healthy,
@@ -202,7 +207,8 @@ module market_parser_axi_lite_regs #(
             end
             REG_FEED_STATUS: begin
                 read_reg = {
-                    30'd0,
+                    29'd0,
+                    feed_rebuilding,
                     feed_timeout_count != feed_timeout_count_base_r,
                     feed_healthy
                 };
@@ -247,6 +253,7 @@ module market_parser_axi_lite_regs #(
         logic        write_fire;
         logic        do_clear;
         logic        do_feed_recover;
+        logic        do_feed_activate;
 
         if (rst) begin
             awaddr_r                              <= '0;
@@ -275,14 +282,17 @@ module market_parser_axi_lite_regs #(
             cmac_axis_dropped_beat_count_base_r    <= '0;
             clear_counters_pulse_r                <= 1'b0;
             feed_recover_pulse_r                  <= 1'b0;
+            feed_activate_pulse_r                 <= 1'b0;
             feed_timeout_cycles_r                 <= FEED_TIMEOUT_CYCLES_DEFAULT;
         end else begin
             write_fire = aw_hold_r && w_hold_r && !bvalid_r;
             do_clear   = 1'b0;
             do_feed_recover = 1'b0;
+            do_feed_activate = 1'b0;
             sticky_next = sticky_error_flags_r | error_flags_in;
             clear_counters_pulse_r <= 1'b0;
             feed_recover_pulse_r   <= 1'b0;
+            feed_activate_pulse_r  <= 1'b0;
 
             if (s_axi_awvalid && s_axi_awready) begin
                 awaddr_r  <= s_axi_awaddr;
@@ -298,10 +308,11 @@ module market_parser_axi_lite_regs #(
             if (write_fire) begin
                 write_addr = 12'(awaddr_r) & 12'hffc;
                 if (write_addr == REG_CONTROL) begin
-                    control_next = apply_wstrb({29'd0, 2'b00, parser_enable_r}, wdata_r, wstrb_r);
+                    control_next = apply_wstrb({28'd0, 3'b000, parser_enable_r}, wdata_r, wstrb_r);
                     parser_enable_r <= control_next[0];
                     do_clear = control_next[1];
                     do_feed_recover = control_next[2];
+                    do_feed_activate = control_next[3];
                 end else if (write_addr == REG_ERROR_FLAGS) begin
                     sticky_next = sticky_next & ~wdata_r[7:0];
                 end else if (write_addr == REG_FEED_TIMEOUT_CFG) begin
@@ -351,6 +362,9 @@ module market_parser_axi_lite_regs #(
 
             if (do_feed_recover) begin
                 feed_recover_pulse_r <= 1'b1;
+            end
+            if (do_feed_activate) begin
+                feed_activate_pulse_r <= 1'b1;
             end
         end
     end

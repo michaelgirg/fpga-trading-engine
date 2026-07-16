@@ -32,6 +32,7 @@ module market_parser_100g_multi_strategy_top_tb #(
     logic clk = 1'b0;
     logic rst;
     logic feed_recover;
+    logic feed_activate;
     logic s_axis_cmac_rx_tvalid;
     logic [511:0] s_axis_cmac_rx_tdata;
     logic [63:0] s_axis_cmac_rx_tkeep;
@@ -74,6 +75,7 @@ module market_parser_100g_multi_strategy_top_tb #(
     logic [31:0] book_table_overflow_count;
     logic [31:0] book_quote_update_count;
     logic feed_healthy;
+    logic feed_rebuilding;
     logic [31:0] feed_gap_count;
     logic [31:0] feed_suppressed_event_count;
     logic [31:0] feed_idle_cycles;
@@ -106,6 +108,7 @@ module market_parser_100g_multi_strategy_top_tb #(
         .clk                            (clk),
         .rst                            (rst),
         .feed_recover                   (feed_recover),
+        .feed_activate                  (feed_activate),
         .rx_axis_tvalid                 (s_axis_cmac_rx_tvalid),
         .rx_axis_tdata                  (s_axis_cmac_rx_tdata),
         .rx_axis_tkeep                  (s_axis_cmac_rx_tkeep),
@@ -154,6 +157,7 @@ module market_parser_100g_multi_strategy_top_tb #(
         .book_table_overflow_count      (book_table_overflow_count),
         .book_quote_update_count        (book_quote_update_count),
         .feed_healthy                   (feed_healthy),
+        .feed_rebuilding                (feed_rebuilding),
         .feed_gap_count                 (feed_gap_count),
         .feed_suppressed_event_count    (feed_suppressed_event_count),
         .feed_idle_cycles               (feed_idle_cycles),
@@ -177,6 +181,7 @@ module market_parser_100g_multi_strategy_top_tb #(
     task automatic reset_dut();
         rst                            = 1'b1;
         feed_recover                   = 1'b0;
+        feed_activate                  = 1'b0;
         s_axis_cmac_rx_tvalid          = 1'b0;
         s_axis_cmac_rx_tdata           = '0;
         s_axis_cmac_rx_tkeep           = '0;
@@ -230,6 +235,11 @@ module market_parser_100g_multi_strategy_top_tb #(
 
     task automatic recover_feed();
         axi_write(REG_CONTROL, 32'h0000_0005);
+        @(posedge clk);
+    endtask
+
+    task automatic activate_feed();
+        axi_write(REG_CONTROL, 32'h0000_0009);
         @(posedge clk);
     endtask
 
@@ -420,6 +430,10 @@ module market_parser_100g_multi_strategy_top_tb #(
         check(book_quote_update_count == 32'(MULTI_SYMBOL_EXPECTED_QUOTES),
               "aggregate quote update counter");
 
+        activate_feed();
+        check(feed_healthy && !feed_rebuilding,
+              "activation outside rebuild leaves healthy feed unchanged");
+
         send_packet(MULTI_SYMBOL_RAW_0_BYTES, raw_0_mem);
         expect_no_quote(500, "sequence-gap packet emits no quote");
         check(!feed_healthy, "sequence gap marks feed unhealthy");
@@ -440,18 +454,28 @@ module market_parser_100g_multi_strategy_top_tb #(
               "sequence gap clears pending quote state");
 
         recover_feed();
-        check(feed_healthy, "software recovery rearms the feed guard");
+        check(!feed_healthy && feed_rebuilding,
+              "software recovery enters non-tradable rebuild state");
         axi_read(REG_STATUS, reg_value);
-        check(reg_value[5], "aggregate status reports recovered feed");
+        check(!reg_value[5] && reg_value[8],
+              "aggregate status reports feed rebuild state");
+        axi_read(REG_FEED_STATUS, reg_value);
+        check(reg_value == 32'd4, "feed status distinguishes rebuild from healthy");
         send_packet(MULTI_SYMBOL_RAW_0_BYTES, recovery_raw_mem);
-        for (int idx = 0; idx < MULTI_SYMBOL_PACKET_0_QUOTES; idx++) begin
-            expect_quote_word(expected_quote_mem[idx],
-                              $sformatf("recovery quote %0d", idx));
-        end
-        check(feed_healthy, "contiguous recovery packet keeps feed healthy");
+        expect_no_quote(800, "rebuild suppresses external quotes");
+        check(feed_rebuilding && !feed_healthy,
+              "contiguous rebuild packet remains non-tradable");
+        check(book_quote_update_count == 32'(MULTI_SYMBOL_PACKET_0_QUOTES),
+              "rebuild packet repopulates book state internally");
+        activate_feed();
+        check(feed_healthy && !feed_rebuilding,
+              "software activation makes rebuilt feed tradable");
+        axi_read(REG_STATUS, reg_value);
+        check(reg_value[5] && !reg_value[8],
+              "aggregate status reports activated feed");
         check(feed_gap_count == 32'd1, "recovery does not erase fault history");
         check(feed_suppressed_event_count == 32'd3,
-              "recovery does not erase suppression history");
+              "rebuild does not count applied events as suppressed");
 
         axi_write(REG_FEED_TIMEOUT_CFG, 32'd32);
         axi_read(REG_FEED_TIMEOUT_CFG, reg_value);
@@ -477,10 +501,14 @@ module market_parser_100g_multi_strategy_top_tb #(
         check(!reg_value[5] && !reg_value[6] && reg_value[7],
               "aggregate status distinguishes timeout from bridge overflow");
         recover_feed();
-        check(feed_healthy, "software recovery rearms feed after timeout");
+        check(!feed_healthy && feed_rebuilding,
+              "timeout recovery enters rebuild state");
         check(feed_idle_cycles <= 32'd2, "recovery restarts liveness timer");
+        activate_feed();
+        check(feed_healthy && !feed_rebuilding,
+              "activation rearms feed after timeout");
         axi_read(REG_STATUS, reg_value);
-        check(reg_value[5] && !reg_value[6] && reg_value[7],
+        check(reg_value[5] && !reg_value[6] && reg_value[7] && !reg_value[8],
               "timeout recovery preserves timeout history");
 
         send_oversize_packet(17);
@@ -500,9 +528,13 @@ module market_parser_100g_multi_strategy_top_tb #(
         check(!reg_value[5] && reg_value[6],
               "AXI-Lite identifies unhealthy feed and CMAC overflow");
         recover_feed();
-        check(feed_healthy, "software recovery rearms feed after CMAC overflow");
+        check(!feed_healthy && feed_rebuilding,
+              "overflow recovery enters rebuild state");
+        activate_feed();
+        check(feed_healthy && !feed_rebuilding,
+              "activation rearms feed after CMAC overflow");
         axi_read(REG_STATUS, reg_value);
-        check(reg_value[5] && reg_value[6],
+        check(reg_value[5] && reg_value[6] && !reg_value[8],
               "recovery preserves CMAC overflow history");
 
         $display("========================================================");

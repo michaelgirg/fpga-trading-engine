@@ -80,6 +80,7 @@ module market_parser_100g_strategy_top #(
     logic [ 31:0] event_keep;
     logic         event_last;
     logic         unused_feed_recover_pulse;
+    logic         unused_feed_activate_pulse;
 
     market_parser_100g_cmac_system #(
         .FEED_UDP_PORT          (FEED_UDP_PORT),
@@ -105,11 +106,13 @@ module market_parser_100g_strategy_top #(
         .event_keep                     (event_keep),
         .event_last                     (event_last),
         .feed_healthy_status            (1'b1),
+        .feed_rebuilding_status         (1'b0),
         .feed_gap_count_status          (32'd0),
         .feed_suppressed_event_count_status(32'd0),
         .feed_idle_cycles_status        (32'd0),
         .feed_timeout_count_status      (32'd0),
         .feed_recover_pulse             (unused_feed_recover_pulse),
+        .feed_activate_pulse            (unused_feed_activate_pulse),
         .feed_timeout_cycles_config     (),
         .cmac_axis_accepted_packet_count_status(cmac_axis_accepted_packet_count_status),
         .cmac_axis_overflow_packet_count_status(cmac_axis_overflow_packet_count_status),

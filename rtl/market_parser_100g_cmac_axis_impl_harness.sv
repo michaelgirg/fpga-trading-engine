@@ -57,6 +57,7 @@ module market_parser_100g_cmac_axis_impl_harness (
     (* keep = "true" *) logic [31:0] book_table_overflow_count;
     (* keep = "true" *) logic [31:0] book_quote_update_count;
     (* keep = "true" *) logic        feed_healthy;
+    (* keep = "true" *) logic        feed_rebuilding;
     (* keep = "true" *) logic [31:0] feed_gap_count;
     (* keep = "true" *) logic [31:0] feed_suppressed_event_count;
     (* keep = "true" *) logic [31:0] feed_idle_cycles;
@@ -134,6 +135,7 @@ module market_parser_100g_cmac_axis_impl_harness (
         .clk                            (clk),
         .rst                            (rst),
         .feed_recover                   (1'b0),
+        .feed_activate                  (1'b0),
         .rx_axis_tvalid                 (rx_axis_tvalid),
         .rx_axis_tdata                  (rx_axis_tdata),
         .rx_axis_tkeep                  (rx_axis_tkeep),
@@ -182,6 +184,7 @@ module market_parser_100g_cmac_axis_impl_harness (
         .book_table_overflow_count      (book_table_overflow_count),
         .book_quote_update_count        (book_quote_update_count),
         .feed_healthy                   (feed_healthy),
+        .feed_rebuilding                (feed_rebuilding),
         .feed_gap_count                 (feed_gap_count),
         .feed_suppressed_event_count    (feed_suppressed_event_count),
         .feed_idle_cycles               (feed_idle_cycles),
@@ -205,11 +208,12 @@ module market_parser_100g_cmac_axis_impl_harness (
             };
             status <= {status[30:0], status[31]}
                     ^ status_sample
-                    ^ {20'd0, s_axi_awready, s_axi_wready, s_axi_bvalid,
+                    ^ {19'd0, s_axi_awready, s_axi_wready, s_axi_bvalid,
                               s_axi_arready, s_axi_rvalid, quote_valid,
                               rx_axis_tvalid, rx_axis_tlast,
                               cmac_axis_overflow_packet_count[1:0],
-                              cmac_axis_dropped_beat_count[0], feed_healthy}
+                              cmac_axis_dropped_beat_count[0], feed_rebuilding,
+                              feed_healthy}
                     ^ 32'h85eb_ca6b;
         end
     end

@@ -30,11 +30,13 @@ module market_parser_512_system #(
     output logic              event_last,
 
     input  wire logic         feed_healthy_status,
+    input  wire logic         feed_rebuilding_status,
     input  wire logic [31:0]  feed_gap_count_status,
     input  wire logic [31:0]  feed_suppressed_event_count_status,
     input  wire logic [31:0]  feed_idle_cycles_status,
     input  wire logic [31:0]  feed_timeout_count_status,
     output logic              feed_recover_pulse,
+    output logic              feed_activate_pulse,
     output logic [31:0]       feed_timeout_cycles_config,
 
     input  wire logic [31:0]  cmac_axis_accepted_packet_count_status,
@@ -177,6 +179,7 @@ module market_parser_512_system #(
         .event_out_valid                (event_valid),
         .error_flags_in                 (error_flags_in),
         .feed_healthy                   (feed_healthy_status),
+        .feed_rebuilding                (feed_rebuilding_status),
         .feed_gap_count                 (feed_gap_count_status),
         .feed_suppressed_event_count    (feed_suppressed_event_count_status),
         .feed_idle_cycles               (feed_idle_cycles_status),
@@ -189,6 +192,7 @@ module market_parser_512_system #(
         .parser_enable                  (parser_enable),
         .clear_counters_pulse           (clear_counters_pulse),
         .feed_recover_pulse             (feed_recover_pulse),
+        .feed_activate_pulse            (feed_activate_pulse),
         .feed_timeout_cycles_config     (feed_timeout_cycles_config)
     );
 

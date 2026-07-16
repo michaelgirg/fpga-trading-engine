@@ -17,7 +17,8 @@ pipeline intended for 100G-class FPGA Ethernet user clocks.
   event buffering, counters, sticky error flags, and AXI-Lite status registers.
 - Fail-closed multi-symbol book invalidation for MoldUDP64 sequence gaps, CMAC
   packet-buffer loss, and packet inactivity, with event suppression,
-  configurable AXI-Lite liveness monitoring, fault counters, and recovery.
+  configurable AXI-Lite liveness monitoring, fault counters, two-phase book
+  rebuild, and explicit feed activation.
 - CMAC-facing UDP payload stripping and AXI stream buffering for a generated
   AMD/Xilinx UltraScale+ CMAC interface.
 - Self-checking Questa/SystemVerilog tests, deterministic packet vectors,
@@ -62,8 +63,8 @@ single- and multi-symbol golden-model top-of-book replay. It also verifies
 contiguous no-`tready` CMAC bursts, packet-atomic overflow rollback, immediate
 feed invalidation on bridge loss, bridge-health telemetry, sequence-gap
 handling, packet-inactivity timeout, distinct fault causes, and AXI-Lite
-recovery. The current checked-in baseline passes with zero compile errors,
-zero compile warnings, and zero failed tests.
+rebuild/activation. The current checked-in baseline passes with zero compile
+errors, zero compile warnings, and zero failed tests.
 
 Generate or refresh deterministic packet vectors with Python 3:
 
@@ -119,10 +120,11 @@ fail-closed sequence, packet-loss, and liveness protection, and ordered quote
 arbitration. These source-level OOC results do not require CMAC IP.
 
 The source-only CMAC AXIS implementation harness, including packet buffering,
-UDP realignment, parser, feed guard, AXI-Lite recovery, and four bounded books,
-also closes post-route at the native 3.102 ns / 322 MHz target with `+0.086 ns`
-WNS and `+0.011 ns` WHS. This routed result excludes the generated encrypted
-CMAC IP and is not a bitstream or hardware-programming claim.
+UDP realignment, parser, feed guard, AXI-Lite rebuild/activation, and four
+bounded books, also closes post-route at the native 3.102 ns / 322 MHz target
+with `+0.086 ns` WNS and `+0.011 ns` WHS. This routed result excludes the
+generated encrypted CMAC IP and is not a bitstream or hardware-programming
+claim.
 
 The CAUI-4 CMAC integration flow has also been routed on the U50-class target:
 

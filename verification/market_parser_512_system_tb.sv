@@ -70,13 +70,16 @@ module market_parser_512_system_tb #(
     logic        s_axi_rvalid;
     logic        s_axi_rready;
     logic        feed_healthy_status;
+    logic        feed_rebuilding_status;
     logic [31:0] feed_gap_count_status;
     logic [31:0] feed_suppressed_event_count_status;
     logic [31:0] feed_idle_cycles_status;
     logic [31:0] feed_timeout_count_status;
     logic        feed_recover_pulse;
+    logic        feed_activate_pulse;
     logic [31:0] feed_timeout_cycles_config;
     logic        feed_recover_seen_r;
+    logic        feed_activate_seen_r;
     logic [31:0] cmac_axis_accepted_packet_count_status;
     logic [31:0] cmac_axis_overflow_packet_count_status;
     logic [31:0] cmac_axis_dropped_beat_count_status;
@@ -106,11 +109,13 @@ module market_parser_512_system_tb #(
         .event_keep                (event_keep),
         .event_last                (event_last),
         .feed_healthy_status       (feed_healthy_status),
+        .feed_rebuilding_status    (feed_rebuilding_status),
         .feed_gap_count_status     (feed_gap_count_status),
         .feed_suppressed_event_count_status(feed_suppressed_event_count_status),
         .feed_idle_cycles_status   (feed_idle_cycles_status),
         .feed_timeout_count_status (feed_timeout_count_status),
         .feed_recover_pulse        (feed_recover_pulse),
+        .feed_activate_pulse       (feed_activate_pulse),
         .feed_timeout_cycles_config(feed_timeout_cycles_config),
         .cmac_axis_accepted_packet_count_status(cmac_axis_accepted_packet_count_status),
         .cmac_axis_overflow_packet_count_status(cmac_axis_overflow_packet_count_status),
@@ -141,8 +146,13 @@ module market_parser_512_system_tb #(
     end
 
     always_ff @(posedge clk) begin
-        if (rst) feed_recover_seen_r <= 1'b0;
-        else if (feed_recover_pulse) feed_recover_seen_r <= 1'b1;
+        if (rst) begin
+            feed_recover_seen_r  <= 1'b0;
+            feed_activate_seen_r <= 1'b0;
+        end else begin
+            if (feed_recover_pulse) feed_recover_seen_r <= 1'b1;
+            if (feed_activate_pulse) feed_activate_seen_r <= 1'b1;
+        end
     end
 
     task automatic check(input bit condition, input string msg);
@@ -164,6 +174,7 @@ module market_parser_512_system_tb #(
         s_axis_rx_tuser_bad_frame = 1'b0;
         event_ready               = 1'b0;
         feed_healthy_status       = 1'b1;
+        feed_rebuilding_status    = 1'b0;
         feed_gap_count_status     = 32'd0;
         feed_suppressed_event_count_status = 32'd0;
         feed_idle_cycles_status = 32'd0;
@@ -336,10 +347,13 @@ module market_parser_512_system_tb #(
 
         @(negedge clk);
         feed_healthy_status = 1'b0;
+        feed_rebuilding_status = 1'b1;
         feed_gap_count_status = 32'd2;
         feed_suppressed_event_count_status = 32'd7;
         axi_read(REG_FEED_STATUS, value);
-        check(value == 32'd2, "feed status reports unhealthy timeout history");
+        check(value == 32'd6, "feed status reports rebuild and timeout history");
+        axi_read(REG_STATUS, value);
+        check(value[8], "aggregate status reports feed rebuild state");
         axi_read(REG_FEED_GAP_COUNT, value);
         check(value == 32'd2, "feed gap counter readable");
         axi_read(REG_FEED_SUPPRESSED, value);
@@ -347,11 +361,16 @@ module market_parser_512_system_tb #(
         axi_write(REG_CONTROL, 32'h0000_0005);
         repeat (2) @(posedge clk);
         check(feed_recover_seen_r, "control bit 2 emits feed recovery pulse");
+        axi_write(REG_CONTROL, 32'h0000_0009);
+        repeat (2) @(posedge clk);
+        check(feed_activate_seen_r, "control bit 3 emits feed activation pulse");
         axi_read(REG_CONTROL, value);
-        check(value == 32'h0000_0001, "recovery control bit is self-clearing");
+        check(value == 32'h0000_0001,
+              "recovery and activation control bits are self-clearing");
 
         @(negedge clk);
         feed_healthy_status = 1'b1;
+        feed_rebuilding_status = 1'b0;
 
         axi_write(REG_CONTROL, 32'h0000_0000);
         @(negedge clk);

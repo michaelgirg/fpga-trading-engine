@@ -398,6 +398,12 @@ quotes, clears every bounded book, and leaves the overflow counters intact for
 diagnosis. Software must explicitly rearm the feed after correcting or
 accepting the loss condition.
 
+Rearming is a two-phase operation. Recovery first clears the books and permits
+contiguous replay traffic to rebuild them with quote output suppressed.
+Software activates the feed only after that rebuild is complete. Any bridge
+loss, sequence gap, or liveness timeout during rebuild returns the guard to the
+faulted state.
+
 The guarded path also monitors cycles since the last complete CMAC packet. A
 programmable AXI-Lite threshold converts prolonged packet inactivity into the
 same fail-closed response while retaining a separate timeout counter and cause
@@ -428,7 +434,7 @@ board design, but it is the right source-level boundary for the generated
 
 The guarded four-symbol boundary includes the same no-`tready` packet bridge,
 plus sequence-gap and packet-inactivity invalidation, AXI-Lite feed
-health/recovery, four independent bounded books, ordered quote arbitration,
+rebuild/activation, four independent bounded books, ordered quote arbitration,
 and AXI-Lite bridge-health telemetry.
 It closes through 2.500 ns / 400 MHz with 98 ps of setup margin and uses zero
 BRAM tiles and DSPs. This measured revision includes the programmable
