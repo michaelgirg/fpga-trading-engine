@@ -44,7 +44,7 @@ parser through `market_parser_512_system.sv`.
 
 | Offset | Name | Access | Description |
 | :--- | :--- | :--- | :--- |
-| `0x00B0` | `FEED_STATUS` | RO | Bit 0: feed healthy. A sequence discontinuity clears this bit until recovery. |
+| `0x00B0` | `FEED_STATUS` | RO | Bit 0: feed healthy. A sequence discontinuity or CMAC AXIS packet-buffer overflow clears this bit until recovery. |
 | `0x00B4` | `FEED_GAP_COUNT` | RO | Sequence-gap packets observed since the current counter baseline. |
 | `0x00B8` | `FEED_SUPPRESSED_EVENT_COUNT` | RO | Events suppressed while the feed guard is unhealthy or handling a gap packet. |
 | `0x00BC` | `CMAC_AXIS_FIFO` | RO | Bits 15:0: current packet-buffer beat occupancy. Bits 31:16: maximum occupancy observed since reset. |
@@ -53,7 +53,9 @@ parser through `market_parser_512_system.sv`.
 | `0x00C8` | `CMAC_AXIS_DROPPED_BEATS` | RO | Beats discarded while dropping an overflowing CMAC AXIS packet since the current counter baseline. |
 
 Writing `CONTROL[2]` rearms the feed guard and clears bounded book state through
-the strategy recovery path. It does not erase fault history. Writing
+the strategy recovery path. Bridge overflow invalidates the feed immediately;
+software can distinguish that cause with `STATUS[6]` and
+`CMAC_AXIS_OVERFLOW`. Recovery does not erase fault history. Writing
 `CONTROL[1]` updates the software-visible parser, feed, and CMAC AXIS counter
 baselines. The CMAC AXIS FIFO high-water mark is a since-reset value and is not
 changed by `CONTROL[1]`.

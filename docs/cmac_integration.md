@@ -391,6 +391,12 @@ physical high-water mark. Simulation covers contiguous full-depth packets and
 proves that overflow rollback drops only the current packet while preserving a
 previously completed buffered packet.
 
+On the guarded multi-symbol path, the bridge also emits a one-cycle loss event
+when rollback begins. That event immediately marks the feed unhealthy, blocks
+quotes, clears every bounded book, and leaves the overflow counters intact for
+diagnosis. Software must explicitly rearm the feed after correcting or
+accepting the loss condition.
+
 ## CMAC AXIS Boundary Timing
 
 After staging the UDP payload-strip predecode path, the CMAC AXIS strategy

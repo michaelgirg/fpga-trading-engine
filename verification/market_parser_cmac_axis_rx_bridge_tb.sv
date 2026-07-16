@@ -26,6 +26,8 @@ module market_parser_cmac_axis_rx_bridge_tb;
     logic [15:0]           fifo_level;
     logic [15:0]           fifo_high_watermark;
     logic [15:0]           buffered_packet_count;
+    logic                  overflow_event;
+    int                    overflow_event_count;
     int                    failed;
 
     market_parser_cmac_axis_rx_bridge #(
@@ -51,8 +53,17 @@ module market_parser_cmac_axis_rx_bridge_tb;
         .dropped_beat_count   (dropped_beat_count),
         .fifo_level           (fifo_level),
         .fifo_high_watermark  (fifo_high_watermark),
-        .buffered_packet_count(buffered_packet_count)
+        .buffered_packet_count(buffered_packet_count),
+        .overflow_event       (overflow_event)
     );
+
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            overflow_event_count <= 0;
+        end else if (overflow_event) begin
+            overflow_event_count <= overflow_event_count + 1;
+        end
+    end
 
     initial begin
         clk = 1'b0;
@@ -165,6 +176,7 @@ module market_parser_cmac_axis_rx_bridge_tb;
         check(accepted_packet_count == 32'd0, "overflowed packet is not accepted");
         check(overflow_packet_count == 32'd1, "overflow packet counted");
         check(dropped_beat_count == 32'd5, "overflow dropped beats counted");
+        check(overflow_event_count == 1, "overflow emits one loss event");
         check(buffered_packet_count == 16'd0, "no complete packet after overflow");
         check(fifo_level == 16'd0, "partial packet rolled back on overflow");
         check(fifo_high_watermark == 16'd4, "overflow run records full FIFO watermark");
@@ -190,6 +202,7 @@ module market_parser_cmac_axis_rx_bridge_tb;
         repeat (2) @(negedge clk);
         check(accepted_packet_count == 32'd1, "complete packet retained before later overflow");
         check(overflow_packet_count == 32'd1, "later contiguous overflow counted once");
+        check(overflow_event_count == 1, "later overflow emits one loss event");
         check(dropped_beat_count == 32'd3, "only overflowing packet beats are dropped");
         check(fifo_level == 16'd2, "overflow rollback preserves earlier complete packet");
         check(buffered_packet_count == 16'd1, "earlier complete packet remains available");

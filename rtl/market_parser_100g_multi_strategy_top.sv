@@ -22,6 +22,7 @@ module market_parser_100g_multi_strategy_top #(
     input  wire logic         clk,
     input  wire logic         rst,
     input  wire logic         feed_recover,
+    input  wire logic         feed_fault,
 
     input  wire logic         s_axis_cmac_rx_tvalid,
     output logic              s_axis_cmac_rx_tready,
@@ -103,15 +104,17 @@ module market_parser_100g_multi_strategy_top #(
     assign gap_event_i = event_valid &&
                          ((event_data[239:232] & FLAG_GAP) != 8'h00);
     assign event_ready = feed_recover_i ? 1'b0 :
-                         ((!feed_healthy_r || gap_event_i) ? 1'b1 : book_event_ready);
+                         ((!feed_healthy_r || gap_event_i || feed_fault) ?
+                          1'b1 : book_event_ready);
     assign event_fire_i = event_valid && event_ready;
     assign book_event_valid = event_valid && feed_healthy_r &&
-                              !gap_event_i && !feed_recover_i;
+                              !gap_event_i && !feed_fault && !feed_recover_i;
     assign book_rst = rst || feed_recover_i ||
+                      feed_fault ||
                       (event_fire_i && gap_event_i && feed_healthy_r);
 
     assign quote_valid = feed_healthy_r && !gap_event_i &&
-                         !feed_recover_i && book_quote_valid;
+                         !feed_fault && !feed_recover_i && book_quote_valid;
     assign feed_healthy = feed_healthy_r;
     assign feed_gap_count = feed_gap_count_r;
     assign feed_suppressed_event_count = feed_suppressed_event_count_r;
@@ -121,6 +124,11 @@ module market_parser_100g_multi_strategy_top #(
             feed_healthy_r                <= 1'b1;
             feed_gap_count_r              <= '0;
             feed_suppressed_event_count_r <= '0;
+        end else if (feed_fault) begin
+            feed_healthy_r <= 1'b0;
+            if (event_fire_i) begin
+                feed_suppressed_event_count_r <= feed_suppressed_event_count_r + 1'b1;
+            end
         end else if (feed_recover_i) begin
             feed_healthy_r <= 1'b1;
         end else if (event_fire_i) begin

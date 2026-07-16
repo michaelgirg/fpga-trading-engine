@@ -38,9 +38,11 @@ stream blocks new book events, so no quote can be overtaken by a later symbol.
 
 The 512-bit frontend tracks the next expected MoldUDP64 sequence and marks
 every normalized event from a discontinuous packet with `FLAG_GAP`. The
-multi-symbol strategy top treats that flag as a feed-integrity fault: it drops
-the marked event, clears all bounded book state, consumes later events without
-updating a book, and suppresses quote output. `feed_healthy`,
+multi-symbol strategy top treats that flag as a feed-integrity fault. The
+CMAC-facing wrapper also raises the same fail-closed guard immediately when its
+no-`tready` packet buffer overflows. Either cause clears all bounded book state,
+suppresses quote output, and consumes later events without updating a book.
+`feed_healthy`,
 `feed_gap_count`, and `feed_suppressed_event_count` expose the guard state and
 history.
 
@@ -63,7 +65,10 @@ applied updates, three ignored events, one untracked symbol, and eight expected
 quote updates. It verifies zero bridge overflow or dropped beats, then replays
 a stale sequence, checks the AXI-Lite health/counter registers, performs
 software recovery, and proves that a correctly resequenced packet produces the
-expected quotes. No CMAC IP license is required for this simulation path.
+expected quotes. It then forces a 17-beat packet into the 16-beat bridge and
+checks atomic rollback, immediate feed invalidation, book clearing, cause
+telemetry, and recovery with preserved history. No CMAC IP license is required
+for this simulation path.
 
 ## U50 OOC Results
 
@@ -83,10 +88,8 @@ fail-closed sequence-gap handling also closes 2.500 ns / 400 MHz:
 | `market_parser_100g_cmac_axis_multi_strategy_top` | `2.750 ns` | 364 MHz | `0.348 ns` | `0.000 ns` | `30269 / 871680 (3.47%)` | `33787 / 1743360 (1.94%)` | Meets |
 | `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.066 ns` | `0.000 ns` | `30226 / 871680 (3.47%)` | `33890 / 1743360 (1.94%)` | Meets |
 
-The 2.500 ns result has 98 ps of setup margin, so 400 MHz remains a measured
-high-frequency operating point after adding sequence-gap detection and
-fail-closed book protection. All builds use zero BRAM tiles and zero DSPs.
-These are source-level OOC results and do not depend on generated CMAC IP. The
-guarded design misses 2.400 ns / 416.7 MHz by only 2 ps. Adding the source-only
-CMAC packet bridge preserves the complete 2.500 ns / 400 MHz pass with the same
-98 ps of setup margin.
+The unbridged guarded top has 98 ps of setup margin at 2.500 ns, while the
+source-only CMAC packet bridge and telemetry boundary has 66 ps. Both are
+measured 400 MHz operating points with zero BRAM tiles and zero DSPs. These are
+source-level OOC results and do not depend on generated CMAC IP. The unbridged
+guarded design misses 2.400 ns / 416.7 MHz by only 2 ps.

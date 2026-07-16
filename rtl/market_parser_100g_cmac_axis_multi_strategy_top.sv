@@ -87,6 +87,7 @@ module market_parser_100g_cmac_axis_multi_strategy_top #(
     logic [ 63:0] parser_rx_tkeep;
     logic         parser_rx_tlast;
     logic         parser_rx_tuser_bad_frame;
+    logic         bridge_overflow_event;
 
     market_parser_cmac_axis_rx_bridge #(
         .DATA_WIDTH(512),
@@ -111,7 +112,8 @@ module market_parser_100g_cmac_axis_multi_strategy_top #(
         .dropped_beat_count   (cmac_axis_dropped_beat_count),
         .fifo_level           (cmac_axis_fifo_level),
         .fifo_high_watermark  (cmac_axis_fifo_high_watermark),
-        .buffered_packet_count(cmac_axis_buffered_packet_count)
+        .buffered_packet_count(cmac_axis_buffered_packet_count),
+        .overflow_event       (bridge_overflow_event)
     );
 
     market_parser_100g_multi_strategy_top #(
@@ -129,6 +131,7 @@ module market_parser_100g_cmac_axis_multi_strategy_top #(
         .clk                            (clk),
         .rst                            (rst),
         .feed_recover                   (feed_recover),
+        .feed_fault                     (bridge_overflow_event),
         .s_axis_cmac_rx_tvalid          (parser_rx_tvalid),
         .s_axis_cmac_rx_tready          (parser_rx_tready),
         .s_axis_cmac_rx_tdata           (parser_rx_tdata),

@@ -105,7 +105,8 @@ module market_parser_100g_cmac_axis_strategy_top #(
         .dropped_beat_count   (cmac_axis_dropped_beat_count),
         .fifo_level           (cmac_axis_fifo_level),
         .fifo_high_watermark  (cmac_axis_fifo_high_watermark),
-        .buffered_packet_count(cmac_axis_buffered_packet_count)
+        .buffered_packet_count(cmac_axis_buffered_packet_count),
+        .overflow_event       ()
     );
 
     market_parser_100g_strategy_top #(

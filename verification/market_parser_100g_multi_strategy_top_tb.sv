@@ -292,6 +292,22 @@ module market_parser_100g_multi_strategy_top_tb #(
         s_axis_cmac_rx_tlast  = 1'b0;
     endtask
 
+    task automatic send_oversize_packet(input int beats);
+        @(negedge clk);
+        for (int idx = 0; idx < beats; idx++) begin
+            s_axis_cmac_rx_tvalid          = 1'b1;
+            s_axis_cmac_rx_tdata           = 512'(idx);
+            s_axis_cmac_rx_tkeep           = '1;
+            s_axis_cmac_rx_tlast           = (idx == beats - 1);
+            s_axis_cmac_rx_tuser_bad_frame = 1'b0;
+            @(negedge clk);
+        end
+        s_axis_cmac_rx_tvalid = 1'b0;
+        s_axis_cmac_rx_tdata  = '0;
+        s_axis_cmac_rx_tkeep  = '0;
+        s_axis_cmac_rx_tlast  = 1'b0;
+    endtask
+
     task automatic expect_quote_word(input logic [191:0] exp_quote,
                                      input string msg);
         int cycles;
@@ -429,6 +445,28 @@ module market_parser_100g_multi_strategy_top_tb #(
         check(feed_gap_count == 32'd1, "recovery does not erase fault history");
         check(feed_suppressed_event_count == 32'd3,
               "recovery does not erase suppression history");
+
+        send_oversize_packet(17);
+        repeat (4) @(posedge clk);
+        check(!feed_healthy, "CMAC bridge overflow invalidates feed immediately");
+        check(cmac_axis_overflow_packet_count == 32'd1,
+              "CMAC bridge overflow reason is retained");
+        check(cmac_axis_dropped_beat_count == 32'd17,
+              "CMAC bridge reports every beat in the lost packet");
+        check(cmac_axis_fifo_level == 16'd0,
+              "overflow rollback removes the incomplete packet");
+        check(feed_gap_count == 32'd1,
+              "bridge loss does not masquerade as a decoded sequence gap");
+        check(book_accepted_event_count == 32'd0,
+              "bridge loss clears all book state immediately");
+        axi_read(REG_STATUS, reg_value);
+        check(!reg_value[5] && reg_value[6],
+              "AXI-Lite identifies unhealthy feed and CMAC overflow");
+        recover_feed();
+        check(feed_healthy, "software recovery rearms feed after CMAC overflow");
+        axi_read(REG_STATUS, reg_value);
+        check(reg_value[5] && reg_value[6],
+              "recovery preserves CMAC overflow history");
 
         $display("========================================================");
         $display("Tests passed: %0d", passed);

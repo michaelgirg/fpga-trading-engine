@@ -93,6 +93,8 @@ checks that the ingress side accepts the burst without stalls.
 - Regression coverage for a full packet delivered as a no-stall 512-bit burst.
 - No-`tready` CMAC bridge coverage for contiguous full-depth packets, FIFO
   occupancy high-water telemetry, and packet-atomic overflow rollback.
+- Immediate fail-closed feed invalidation and bounded-book clearing when the
+  no-`tready` CMAC packet buffer loses a packet.
 - Same normalized parser output checked against generated reference vectors.
 - First-beat parallel boundary scanner for MoldUDP64 sequence/message count and
   early ITCH message-length candidates.
