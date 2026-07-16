@@ -97,6 +97,7 @@ module market_parser_100g_multi_strategy_top #(
     logic         book_quote_valid;
     logic         book_quote_ready;
     logic         book_rst;
+    logic         book_gap_reset_r;
     logic         gap_event_i;
     logic         event_fire_i;
     logic         feed_healthy_r;
@@ -142,8 +143,7 @@ module market_parser_100g_multi_strategy_top #(
                               !gap_event_i && !feed_fault_i &&
                               !feed_control_transition_i;
     assign book_rst = rst || feed_recover_i ||
-                      feed_fault_i ||
-                      (event_fire_i && gap_event_i && feed_operational_i);
+                      feed_fault_i || book_gap_reset_r;
 
     assign quote_valid = feed_healthy_r && !gap_event_i &&
                          !feed_fault_i && !feed_control_transition_i &&
@@ -155,6 +155,16 @@ module market_parser_100g_multi_strategy_top #(
     assign feed_suppressed_event_count = feed_suppressed_event_count_r;
     assign feed_idle_cycles = feed_idle_cycles_r;
     assign feed_timeout_count = feed_timeout_count_r;
+
+    // Isolate decoded event data from the high-fanout book reset network.
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            book_gap_reset_r <= 1'b0;
+        end else begin
+            book_gap_reset_r <= event_fire_i && gap_event_i &&
+                                feed_operational_i;
+        end
+    end
 
     always_ff @(posedge clk) begin
         if (rst) begin
