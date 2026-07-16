@@ -22,6 +22,9 @@ module market_parser_512_system_tb #(
     localparam logic [11:0] REG_EVENT_FIFO_STAT  = 12'h080;
     localparam logic [11:0] REG_EVENT_FIFO_WR    = 12'h0a4;
     localparam logic [11:0] REG_EVENT_FIFO_RD    = 12'h0a8;
+    localparam logic [11:0] REG_FEED_STATUS      = 12'h0b0;
+    localparam logic [11:0] REG_FEED_GAP_COUNT   = 12'h0b4;
+    localparam logic [11:0] REG_FEED_SUPPRESSED  = 12'h0b8;
 
     typedef logic [7:0] byte_t;
 
@@ -59,6 +62,11 @@ module market_parser_512_system_tb #(
     logic [ 1:0] s_axi_rresp;
     logic        s_axi_rvalid;
     logic        s_axi_rready;
+    logic        feed_healthy_status;
+    logic [31:0] feed_gap_count_status;
+    logic [31:0] feed_suppressed_event_count_status;
+    logic        feed_recover_pulse;
+    logic        feed_recover_seen_r;
 
     int passed;
     int failed;
@@ -80,6 +88,10 @@ module market_parser_512_system_tb #(
         .event_new_order_ref       (event_new_order_ref),
         .event_keep                (event_keep),
         .event_last                (event_last),
+        .feed_healthy_status       (feed_healthy_status),
+        .feed_gap_count_status     (feed_gap_count_status),
+        .feed_suppressed_event_count_status(feed_suppressed_event_count_status),
+        .feed_recover_pulse        (feed_recover_pulse),
         .s_axi_awaddr              (s_axi_awaddr),
         .s_axi_awvalid             (s_axi_awvalid),
         .s_axi_awready             (s_axi_awready),
@@ -103,6 +115,11 @@ module market_parser_512_system_tb #(
         forever #HALF_CLK_PERIOD clk <= ~clk;
     end
 
+    always_ff @(posedge clk) begin
+        if (rst) feed_recover_seen_r <= 1'b0;
+        else if (feed_recover_pulse) feed_recover_seen_r <= 1'b1;
+    end
+
     task automatic check(input bit condition, input string msg);
         if (condition) begin
             passed++;
@@ -121,6 +138,9 @@ module market_parser_512_system_tb #(
         s_axis_rx_tlast           = 1'b0;
         s_axis_rx_tuser_bad_frame = 1'b0;
         event_ready               = 1'b0;
+        feed_healthy_status       = 1'b1;
+        feed_gap_count_status     = 32'd0;
+        feed_suppressed_event_count_status = 32'd0;
         s_axi_awaddr              = '0;
         s_axi_awvalid             = 1'b0;
         s_axi_wdata               = '0;
@@ -244,6 +264,28 @@ module market_parser_512_system_tb #(
 
         axi_read(REG_STATUS, value);
         check(value[0], "parser enabled after reset");
+        check(value[5], "feed health visible in aggregate status");
+        axi_read(REG_FEED_STATUS, value);
+        check(value == 32'd1, "feed health register");
+
+        @(negedge clk);
+        feed_healthy_status = 1'b0;
+        feed_gap_count_status = 32'd2;
+        feed_suppressed_event_count_status = 32'd7;
+        axi_read(REG_FEED_STATUS, value);
+        check(value == 32'd0, "unhealthy feed status readable");
+        axi_read(REG_FEED_GAP_COUNT, value);
+        check(value == 32'd2, "feed gap counter readable");
+        axi_read(REG_FEED_SUPPRESSED, value);
+        check(value == 32'd7, "suppressed-event counter readable");
+        axi_write(REG_CONTROL, 32'h0000_0005);
+        repeat (2) @(posedge clk);
+        check(feed_recover_seen_r, "control bit 2 emits feed recovery pulse");
+        axi_read(REG_CONTROL, value);
+        check(value == 32'h0000_0001, "recovery control bit is self-clearing");
+
+        @(negedge clk);
+        feed_healthy_status = 1'b1;
 
         axi_write(REG_CONTROL, 32'h0000_0000);
         @(negedge clk);
@@ -284,6 +326,10 @@ module market_parser_512_system_tb #(
         check(value == 32'd0, "error counter clears via baseline");
         axi_read(REG_EVENT_FIFO_WR, value);
         check(value == 32'd0, "FIFO write counter clears via baseline");
+        axi_read(REG_FEED_GAP_COUNT, value);
+        check(value == 32'd0, "feed gap counter clears via baseline");
+        axi_read(REG_FEED_SUPPRESSED, value);
+        check(value == 32'd0, "suppressed-event counter clears via baseline");
         axi_read(REG_ERROR_FLAGS, value);
         check(value == 32'd0, "sticky error flags clear with counter clear");
         axi_read(REG_STATUS, value);

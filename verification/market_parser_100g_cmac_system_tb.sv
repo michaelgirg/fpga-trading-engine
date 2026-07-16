@@ -61,6 +61,7 @@ module market_parser_100g_cmac_system_tb #(
     logic [31:0] cmac_header_error_count;
     logic [31:0] cmac_payload_packet_count;
     logic [15:0] cmac_payload_fifo_level;
+    logic        feed_recover_pulse;
 
     int passed;
     int failed;
@@ -89,6 +90,10 @@ module market_parser_100g_cmac_system_tb #(
         .event_new_order_ref            (event_new_order_ref),
         .event_keep                     (event_keep),
         .event_last                     (event_last),
+        .feed_healthy_status            (1'b1),
+        .feed_gap_count_status          (32'd0),
+        .feed_suppressed_event_count_status(32'd0),
+        .feed_recover_pulse             (feed_recover_pulse),
         .s_axi_awaddr                   (s_axi_awaddr),
         .s_axi_awvalid                  (s_axi_awvalid),
         .s_axi_awready                  (s_axi_awready),

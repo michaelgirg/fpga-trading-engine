@@ -24,6 +24,13 @@ Ethernet/IPv4/UDP/MoldUDP64/ITCH ingress path. Its default configuration tracks
 four symbols; both symbol count and packed locate list are parameters. Events
 for unconfigured locates are consumed and counted without changing a book.
 
+`market_parser_100g_cmac_axis_multi_strategy_top` adds the production-shaped
+source-only CMAC RX boundary. It packet-buffers the no-`tready` 512-bit AXIS
+stream before handing complete frames to the guarded multi-symbol path. This
+wrapper contains no generated vendor IP and is the source-level synthesis and
+routed-implementation boundary used while board/IP licensing is handled
+separately.
+
 The current output is a single ordered quote stream. Backpressure on that
 stream blocks new book events, so no quote can be overtaken by a later symbol.
 
@@ -37,10 +44,11 @@ updating a book, and suppresses quote output. `feed_healthy`,
 `feed_gap_count`, and `feed_suppressed_event_count` expose the guard state and
 history.
 
-The guard rearms only when `feed_recover` is asserted. That input is an
-explicit RTL control boundary for now; it is not yet connected to an AXI-Lite
-software register. Fault-history counters persist across recovery and clear on
-global reset.
+The guard rearms when the external `feed_recover` input is asserted or software
+writes one to `CONTROL[2]` through AXI-Lite. `FEED_STATUS`, `FEED_GAP_COUNT`,
+and `FEED_SUPPRESSED_EVENT_COUNT` expose the same guard state to software.
+Fault-history counters persist across recovery; the existing counter-clear
+control establishes new software-visible baselines.
 
 ## Verification
 
@@ -48,13 +56,14 @@ The direct book-bank test interleaves three symbols and covers independent bid
 and ask state, exact Replace semantics, untracked and malformed events,
 aggregate counters, and output stability under backpressure.
 
-The end-to-end test replays three generated Ethernet frames and compares every
-quote to `MultiSymbolTopOfBookModel`. The replay contains 11 ITCH events, eight
+The end-to-end test drives the source-only CMAC AXIS interface without
+backpressure, replays three generated Ethernet frames, and compares every quote
+to `MultiSymbolTopOfBookModel`. The replay contains 11 ITCH events, eight
 applied updates, three ignored events, one untracked symbol, and eight expected
-quote updates. It then replays a stale sequence, verifies fail-closed book
-invalidation and event suppression, explicitly recovers, and proves that a
-correctly resequenced packet produces the expected quotes. No CMAC IP or CMAC
-license is required for this source-level simulation path.
+quote updates. It verifies zero bridge overflow or dropped beats, then replays
+a stale sequence, checks the AXI-Lite health/counter registers, performs
+software recovery, and proves that a correctly resequenced packet produces the
+expected quotes. No CMAC IP license is required for this simulation path.
 
 ## U50 OOC Results
 

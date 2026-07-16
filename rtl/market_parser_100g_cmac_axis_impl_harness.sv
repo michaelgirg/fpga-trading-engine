@@ -3,9 +3,9 @@
 // Module: market_parser_100g_cmac_axis_impl_harness
 // =============================================================================
 // Implementation-only wrapper for routed timing checks of the CMAC AXIS
-// strategy boundary. It keeps the source-only CMAC AXIS receive interface,
-// packet bridge, parser, and top-of-book path internal, then exposes only clk,
-// rst, and a compact status hash.
+// multi-symbol strategy boundary. It keeps the source-only CMAC AXIS receive
+// interface, packet bridge, guarded parser, and book bank internal, then
+// exposes only clk, rst, and a compact status hash.
 module market_parser_100g_cmac_axis_impl_harness (
     input  wire logic   clk,
     input  wire logic   rst,
@@ -52,8 +52,12 @@ module market_parser_100g_cmac_axis_impl_harness (
     (* keep = "true" *) logic [31:0] book_accepted_event_count;
     (* keep = "true" *) logic [31:0] book_applied_event_count;
     (* keep = "true" *) logic [31:0] book_ignored_event_count;
+    (* keep = "true" *) logic [31:0] book_untracked_event_count;
     (* keep = "true" *) logic [31:0] book_table_overflow_count;
     (* keep = "true" *) logic [31:0] book_quote_update_count;
+    (* keep = "true" *) logic        feed_healthy;
+    (* keep = "true" *) logic [31:0] feed_gap_count;
+    (* keep = "true" *) logic [31:0] feed_suppressed_event_count;
 
     logic [3:0] beat_index;
     logic [5:0] gap_count;
@@ -117,14 +121,16 @@ module market_parser_100g_cmac_axis_impl_harness (
     end
 
     (* keep_hierarchy = "yes", dont_touch = "yes" *)
-    market_parser_100g_cmac_axis_strategy_top #(
-        .FEED_UDP_PORT      (16'd5000),
-        .TARGET_STOCK_LOCATE(16'h1234),
-        .CMAC_RX_FIFO_DEPTH (16),
-        .ORDER_TABLE_DEPTH  (8)
-    ) cmac_axis_strategy_top_i (
+    market_parser_100g_cmac_axis_multi_strategy_top #(
+        .FEED_UDP_PORT     (16'd5000),
+        .NUM_SYMBOLS       (4),
+        .SYMBOL_LOCATES    ({16'h4444, 16'h3333, 16'h2222, 16'h1234}),
+        .CMAC_RX_FIFO_DEPTH(16),
+        .ORDER_TABLE_DEPTH (8)
+    ) cmac_axis_multi_strategy_top_i (
         .clk                            (clk),
         .rst                            (rst),
+        .feed_recover                   (1'b0),
         .rx_axis_tvalid                 (rx_axis_tvalid),
         .rx_axis_tdata                  (rx_axis_tdata),
         .rx_axis_tkeep                  (rx_axis_tkeep),
@@ -168,8 +174,12 @@ module market_parser_100g_cmac_axis_impl_harness (
         .book_accepted_event_count      (book_accepted_event_count),
         .book_applied_event_count       (book_applied_event_count),
         .book_ignored_event_count       (book_ignored_event_count),
+        .book_untracked_event_count     (book_untracked_event_count),
         .book_table_overflow_count      (book_table_overflow_count),
-        .book_quote_update_count        (book_quote_update_count)
+        .book_quote_update_count        (book_quote_update_count),
+        .feed_healthy                   (feed_healthy),
+        .feed_gap_count                 (feed_gap_count),
+        .feed_suppressed_event_count    (feed_suppressed_event_count)
     );
 
     always_ff @(posedge clk) begin
@@ -182,8 +192,8 @@ module market_parser_100g_cmac_axis_impl_harness (
                 cmac_axis_fifo_level[3:0],
                 cmac_accepted_frame_count[3:0],
                 cmac_payload_packet_count[3:0],
-                book_accepted_event_count[3:0],
-                book_quote_update_count[3:0],
+                feed_gap_count[3:0],
+                feed_suppressed_event_count[3:0],
                 quote_bid_price[3:0],
                 quote_ask_price[3:0]
             };
@@ -193,7 +203,7 @@ module market_parser_100g_cmac_axis_impl_harness (
                               s_axi_arready, s_axi_rvalid, quote_valid,
                               rx_axis_tvalid, rx_axis_tlast,
                               cmac_axis_overflow_packet_count[1:0],
-                              cmac_axis_dropped_beat_count[1:0]}
+                              cmac_axis_dropped_beat_count[0], feed_healthy}
                     ^ 32'h85eb_ca6b;
         end
     end

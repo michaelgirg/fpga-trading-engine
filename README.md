@@ -16,7 +16,8 @@ pipeline intended for 100G-class FPGA Ethernet user clocks.
 - 512-bit cut-through parsing with descriptor generation, parallel extraction,
   event buffering, counters, sticky error flags, and AXI-Lite status registers.
 - Wide-path MoldUDP64 sequence-gap detection with fail-closed multi-symbol book
-  invalidation, event suppression, fault counters, and explicit recovery.
+  invalidation, event suppression, AXI-Lite fault counters, and software
+  recovery.
 - CMAC-facing UDP payload stripping and AXI stream buffering for a generated
   AMD/Xilinx UltraScale+ CMAC interface.
 - Self-checking Questa/SystemVerilog tests, deterministic packet vectors,
@@ -39,6 +40,7 @@ The most useful entry points are:
 - `rtl/market_parser_512_pipeline.sv`: integrated 512-bit parser pipeline.
 - `rtl/market_parser_100g_strategy_top.sv`: packet-to-top-of-book strategy path.
 - `rtl/market_parser_100g_multi_strategy_top.sv`: bounded multi-symbol strategy path.
+- `rtl/market_parser_100g_cmac_axis_multi_strategy_top.sv`: source-only CMAC AXIS to guarded multi-symbol strategy path.
 - `rtl/market_parser_100g_cmac_ip_strategy_top.sv`: generated CMAC AXIS boundary.
 - `rtl/market_parser_100g_cmac_ip_impl_harness.sv`: board-oriented U50 shell.
 - `verification/run_questa.do`: complete Questa regression.
@@ -56,10 +58,10 @@ vsim -c -do run_questa.do
 
 The regression covers parser correctness, malformed and truncated frames,
 randomized backpressure, dense messages, FIFO pressure, AXI-Lite status, and
-single- and multi-symbol golden-model top-of-book replay. It also verifies that
-a sequence gap suppresses stale book updates until explicit recovery. The
-current checked-in baseline passes with zero compile errors, zero compile
-warnings, and zero failed tests.
+single- and multi-symbol golden-model top-of-book replay. It also verifies a
+no-`tready` CMAC burst, fail-closed sequence-gap handling, software-visible
+feed health, and AXI-Lite recovery. The current checked-in baseline passes with
+zero compile errors, zero compile warnings, and zero failed tests.
 
 Generate or refresh deterministic packet vectors with Python 3:
 

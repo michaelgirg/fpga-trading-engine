@@ -28,6 +28,11 @@ module market_parser_512_system #(
     output logic [ 31:0]      event_keep,
     output logic              event_last,
 
+    input  wire logic         feed_healthy_status,
+    input  wire logic [31:0]  feed_gap_count_status,
+    input  wire logic [31:0]  feed_suppressed_event_count_status,
+    output logic              feed_recover_pulse,
+
     input  wire logic [11:0]  s_axi_awaddr,
     input  wire logic         s_axi_awvalid,
     output logic              s_axi_awready,
@@ -160,8 +165,12 @@ module market_parser_512_system #(
         .ingress_backpressure_active    (ingress_backpressure_active),
         .event_out_valid                (event_valid),
         .error_flags_in                 (error_flags_in),
+        .feed_healthy                   (feed_healthy_status),
+        .feed_gap_count                 (feed_gap_count_status),
+        .feed_suppressed_event_count    (feed_suppressed_event_count_status),
         .parser_enable                  (parser_enable),
-        .clear_counters_pulse           (clear_counters_pulse)
+        .clear_counters_pulse           (clear_counters_pulse),
+        .feed_recover_pulse             (feed_recover_pulse)
     );
 
 endmodule

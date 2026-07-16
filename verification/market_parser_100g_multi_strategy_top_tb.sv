@@ -3,7 +3,7 @@
 // =============================================================================
 // Module: market_parser_100g_multi_strategy_top_tb
 // =============================================================================
-// End-to-end golden replay for three interleaved symbols.
+// End-to-end source-only CMAC AXIS replay for three interleaved symbols.
 module market_parser_100g_multi_strategy_top_tb #(
     parameter realtime CLK_PERIOD = 3.102ns,
     parameter string   VECTOR_DIR = "verification/vectors"
@@ -12,6 +12,11 @@ module market_parser_100g_multi_strategy_top_tb #(
     localparam logic [15:0] FEED_UDP_PORT = 16'd5000;
     localparam logic [47:0] SYMBOL_LOCATES = {16'h3333, 16'h2222, 16'h1111};
     localparam int RX_BYTES_PER_BEAT = 64;
+    localparam logic [11:0] REG_CONTROL         = 12'h000;
+    localparam logic [11:0] REG_STATUS          = 12'h004;
+    localparam logic [11:0] REG_FEED_STATUS     = 12'h0b0;
+    localparam logic [11:0] REG_FEED_GAP_COUNT  = 12'h0b4;
+    localparam logic [11:0] REG_FEED_SUPPRESSED = 12'h0b8;
 
 `include "verification/vectors/multi_symbol_meta.svh"
 
@@ -21,7 +26,6 @@ module market_parser_100g_multi_strategy_top_tb #(
     logic rst;
     logic feed_recover;
     logic s_axis_cmac_rx_tvalid;
-    logic s_axis_cmac_rx_tready;
     logic [511:0] s_axis_cmac_rx_tdata;
     logic [63:0] s_axis_cmac_rx_tkeep;
     logic s_axis_cmac_rx_tlast;
@@ -65,6 +69,11 @@ module market_parser_100g_multi_strategy_top_tb #(
     logic feed_healthy;
     logic [31:0] feed_gap_count;
     logic [31:0] feed_suppressed_event_count;
+    logic [31:0] cmac_axis_accepted_packet_count;
+    logic [31:0] cmac_axis_overflow_packet_count;
+    logic [31:0] cmac_axis_dropped_beat_count;
+    logic [15:0] cmac_axis_fifo_level;
+    logic [15:0] cmac_axis_buffered_packet_count;
 
     byte_t raw_0_mem[MULTI_SYMBOL_RAW_0_BYTES];
     byte_t raw_1_mem[MULTI_SYMBOL_RAW_1_BYTES];
@@ -77,21 +86,21 @@ module market_parser_100g_multi_strategy_top_tb #(
     int ingress_stall_cycles_seen;
     int raw_beat_count;
 
-    market_parser_100g_multi_strategy_top #(
+    market_parser_100g_cmac_axis_multi_strategy_top #(
         .FEED_UDP_PORT      (FEED_UDP_PORT),
         .NUM_SYMBOLS        (3),
         .SYMBOL_LOCATES     (SYMBOL_LOCATES),
+        .CMAC_RX_FIFO_DEPTH (16),
         .ORDER_TABLE_DEPTH  (8)
     ) DUT (
         .clk                            (clk),
         .rst                            (rst),
         .feed_recover                   (feed_recover),
-        .s_axis_cmac_rx_tvalid          (s_axis_cmac_rx_tvalid),
-        .s_axis_cmac_rx_tready          (s_axis_cmac_rx_tready),
-        .s_axis_cmac_rx_tdata           (s_axis_cmac_rx_tdata),
-        .s_axis_cmac_rx_tkeep           (s_axis_cmac_rx_tkeep),
-        .s_axis_cmac_rx_tlast           (s_axis_cmac_rx_tlast),
-        .s_axis_cmac_rx_tuser_bad_frame (s_axis_cmac_rx_tuser_bad_frame),
+        .rx_axis_tvalid                 (s_axis_cmac_rx_tvalid),
+        .rx_axis_tdata                  (s_axis_cmac_rx_tdata),
+        .rx_axis_tkeep                  (s_axis_cmac_rx_tkeep),
+        .rx_axis_tlast                  (s_axis_cmac_rx_tlast),
+        .rx_axis_tuser                  (s_axis_cmac_rx_tuser_bad_frame),
         .quote_valid                    (quote_valid),
         .quote_ready                    (quote_ready),
         .quote_stock_locate             (quote_stock_locate),
@@ -117,6 +126,11 @@ module market_parser_100g_multi_strategy_top_tb #(
         .s_axi_rresp                    (s_axi_rresp),
         .s_axi_rvalid                   (s_axi_rvalid),
         .s_axi_rready                   (s_axi_rready),
+        .cmac_axis_accepted_packet_count(cmac_axis_accepted_packet_count),
+        .cmac_axis_overflow_packet_count(cmac_axis_overflow_packet_count),
+        .cmac_axis_dropped_beat_count   (cmac_axis_dropped_beat_count),
+        .cmac_axis_fifo_level           (cmac_axis_fifo_level),
+        .cmac_axis_buffered_packet_count(cmac_axis_buffered_packet_count),
         .cmac_accepted_frame_count      (cmac_accepted_frame_count),
         .cmac_dropped_frame_count       (cmac_dropped_frame_count),
         .cmac_header_error_count        (cmac_header_error_count),
@@ -202,11 +216,40 @@ module market_parser_100g_multi_strategy_top_tb #(
     endtask
 
     task automatic recover_feed();
-        @(negedge clk);
-        feed_recover = 1'b1;
-        @(negedge clk);
-        feed_recover = 1'b0;
+        axi_write(REG_CONTROL, 32'h0000_0005);
         @(posedge clk);
+    endtask
+
+    task automatic axi_write(input logic [11:0] addr, input logic [31:0] data);
+        @(negedge clk);
+        s_axi_awaddr  = addr;
+        s_axi_awvalid = 1'b1;
+        s_axi_wdata   = data;
+        s_axi_wstrb   = 4'hf;
+        s_axi_wvalid  = 1'b1;
+        while (!(s_axi_awready && s_axi_wready)) @(negedge clk);
+        @(negedge clk);
+        s_axi_awvalid = 1'b0;
+        s_axi_wvalid  = 1'b0;
+        s_axi_wstrb   = 4'h0;
+        while (!s_axi_bvalid) @(negedge clk);
+        check(s_axi_bresp == 2'b00, $sformatf("AXI write 0x%03h response OKAY", addr));
+        @(negedge clk);
+    endtask
+
+    task automatic axi_read(input logic [11:0] addr, output logic [31:0] data);
+        @(negedge clk);
+        s_axi_araddr  = addr;
+        s_axi_arvalid = 1'b1;
+        s_axi_rready  = 1'b1;
+        while (!s_axi_arready) @(negedge clk);
+        @(negedge clk);
+        s_axi_arvalid = 1'b0;
+        while (!s_axi_rvalid) @(negedge clk);
+        data = s_axi_rdata;
+        check(s_axi_rresp == 2'b00, $sformatf("AXI read 0x%03h response OKAY", addr));
+        @(negedge clk);
+        s_axi_rready = 1'b0;
     endtask
 
     task automatic send_packet(input int packet_bytes, input byte_t packet_mem[]);
@@ -232,10 +275,6 @@ module market_parser_100g_multi_strategy_top_tb #(
             s_axis_cmac_rx_tkeep           = beat_keep;
             s_axis_cmac_rx_tlast           = (offset + beat_bytes >= packet_bytes);
             s_axis_cmac_rx_tuser_bad_frame = 1'b0;
-            while (!s_axis_cmac_rx_tready) begin
-                ingress_stall_cycles_seen++;
-                @(negedge clk);
-            end
             @(negedge clk);
             offset += beat_bytes;
             raw_beat_count++;
@@ -276,6 +315,7 @@ module market_parser_100g_multi_strategy_top_tb #(
 
     initial begin : run_tests
         int quote_base;
+        logic [31:0] reg_value;
 
         passed = 0;
         failed = 0;
@@ -314,6 +354,13 @@ module market_parser_100g_multi_strategy_top_tb #(
         check(quote_base == MULTI_SYMBOL_EXPECTED_QUOTES, "all golden quotes consumed");
         check(ingress_stall_cycles_seen == 0, "all frames accepted without ingress stalls");
         check(raw_beat_count == MULTI_SYMBOL_EXPECTED_RAW_BEATS, "raw beat count");
+        check(cmac_axis_accepted_packet_count == 32'(MULTI_SYMBOL_PACKETS),
+              "source-only bridge accepted every packet");
+        check(cmac_axis_overflow_packet_count == 32'd0, "source-only bridge has no overflow");
+        check(cmac_axis_dropped_beat_count == 32'd0, "source-only bridge drops no beats");
+        check(cmac_axis_fifo_level == 16'd0, "source-only bridge FIFO drains");
+        check(cmac_axis_buffered_packet_count == 16'd0,
+              "source-only bridge has no buffered packet after replay");
         check(cmac_accepted_frame_count == 32'(MULTI_SYMBOL_PACKETS), "accepted frame counter");
         check(cmac_payload_packet_count == 32'(MULTI_SYMBOL_PACKETS), "payload packet counter");
         check(cmac_dropped_frame_count == 32'd0, "dropped frame counter");
@@ -338,13 +385,23 @@ module market_parser_100g_multi_strategy_top_tb #(
         check(feed_gap_count == 32'd1, "sequence gap counted once per packet");
         check(feed_suppressed_event_count == 32'd3,
               "all events from the gap packet are suppressed");
+        axi_read(REG_STATUS, reg_value);
+        check(!reg_value[5], "aggregate status reports feed unhealthy");
+        axi_read(REG_FEED_STATUS, reg_value);
+        check(reg_value == 32'd0, "AXI-Lite feed health register reports fault");
+        axi_read(REG_FEED_GAP_COUNT, reg_value);
+        check(reg_value == 32'd1, "AXI-Lite exposes sequence-gap count");
+        axi_read(REG_FEED_SUPPRESSED, reg_value);
+        check(reg_value == 32'd3, "AXI-Lite exposes suppressed-event count");
         check(book_accepted_event_count == 32'd0,
               "sequence gap clears aggregate book state and counters");
         check(book_quote_update_count == 32'd0,
               "sequence gap clears pending quote state");
 
         recover_feed();
-        check(feed_healthy, "explicit recovery rearms the feed guard");
+        check(feed_healthy, "software recovery rearms the feed guard");
+        axi_read(REG_STATUS, reg_value);
+        check(reg_value[5], "aggregate status reports recovered feed");
         send_packet(MULTI_SYMBOL_RAW_0_BYTES, recovery_raw_mem);
         for (int idx = 0; idx < MULTI_SYMBOL_PACKET_0_QUOTES; idx++) begin
             expect_quote_word(expected_quote_mem[idx],

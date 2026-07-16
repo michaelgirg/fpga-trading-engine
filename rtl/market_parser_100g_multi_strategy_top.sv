@@ -89,19 +89,23 @@ module market_parser_100g_multi_strategy_top #(
     logic         feed_healthy_r;
     logic [31:0]  feed_gap_count_r;
     logic [31:0]  feed_suppressed_event_count_r;
+    logic         feed_recover_sw;
+    logic         feed_recover_i;
+
+    assign feed_recover_i = feed_recover || feed_recover_sw;
 
     assign gap_event_i = event_valid &&
                          ((event_data[239:232] & FLAG_GAP) != 8'h00);
-    assign event_ready = feed_recover ? 1'b0 :
+    assign event_ready = feed_recover_i ? 1'b0 :
                          ((!feed_healthy_r || gap_event_i) ? 1'b1 : book_event_ready);
     assign event_fire_i = event_valid && event_ready;
     assign book_event_valid = event_valid && feed_healthy_r &&
-                              !gap_event_i && !feed_recover;
-    assign book_rst = rst || feed_recover ||
+                              !gap_event_i && !feed_recover_i;
+    assign book_rst = rst || feed_recover_i ||
                       (event_fire_i && gap_event_i && feed_healthy_r);
 
     assign quote_valid = feed_healthy_r && !gap_event_i &&
-                         !feed_recover && book_quote_valid;
+                         !feed_recover_i && book_quote_valid;
     assign feed_healthy = feed_healthy_r;
     assign feed_gap_count = feed_gap_count_r;
     assign feed_suppressed_event_count = feed_suppressed_event_count_r;
@@ -111,7 +115,7 @@ module market_parser_100g_multi_strategy_top #(
             feed_healthy_r                <= 1'b1;
             feed_gap_count_r              <= '0;
             feed_suppressed_event_count_r <= '0;
-        end else if (feed_recover) begin
+        end else if (feed_recover_i) begin
             feed_healthy_r <= 1'b1;
         end else if (event_fire_i) begin
             if (gap_event_i && feed_healthy_r) begin
@@ -147,6 +151,10 @@ module market_parser_100g_multi_strategy_top #(
         .event_new_order_ref            (event_new_order_ref),
         .event_keep                     (event_keep),
         .event_last                     (event_last),
+        .feed_healthy_status            (feed_healthy_r),
+        .feed_gap_count_status          (feed_gap_count_r),
+        .feed_suppressed_event_count_status(feed_suppressed_event_count_r),
+        .feed_recover_pulse             (feed_recover_sw),
         .s_axi_awaddr                   (s_axi_awaddr),
         .s_axi_awvalid                  (s_axi_awvalid),
         .s_axi_awready                  (s_axi_awready),

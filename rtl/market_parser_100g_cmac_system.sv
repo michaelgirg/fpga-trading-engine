@@ -32,6 +32,11 @@ module market_parser_100g_cmac_system #(
     output logic [ 31:0]      event_keep,
     output logic              event_last,
 
+    input  wire logic         feed_healthy_status,
+    input  wire logic [31:0]  feed_gap_count_status,
+    input  wire logic [31:0]  feed_suppressed_event_count_status,
+    output logic              feed_recover_pulse,
+
     input  wire logic [11:0]  s_axi_awaddr,
     input  wire logic         s_axi_awvalid,
     output logic              s_axi_awready,
@@ -161,6 +166,10 @@ module market_parser_100g_cmac_system #(
         .event_new_order_ref       (event_new_order_ref),
         .event_keep                (event_keep),
         .event_last                (event_last),
+        .feed_healthy_status       (feed_healthy_status),
+        .feed_gap_count_status     (feed_gap_count_status),
+        .feed_suppressed_event_count_status(feed_suppressed_event_count_status),
+        .feed_recover_pulse        (feed_recover_pulse),
         .s_axi_awaddr              (s_axi_awaddr),
         .s_axi_awvalid             (s_axi_awvalid),
         .s_axi_awready             (s_axi_awready),

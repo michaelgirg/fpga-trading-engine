@@ -107,6 +107,7 @@ set rtl_files [list \
     rtl/market_parser_100g_multi_strategy_top.sv \
     rtl/market_parser_cmac_axis_rx_bridge.sv \
     rtl/market_parser_100g_cmac_axis_strategy_top.sv \
+    rtl/market_parser_100g_cmac_axis_multi_strategy_top.sv \
     rtl/market_parser_100g_cmac_ip_strategy_top.sv \
 ]
 

@@ -11,8 +11,8 @@ parser through `market_parser_512_system.sv`.
 
 | Offset | Name | Access | Description |
 | :--- | :--- | :--- | :--- |
-| `0x0000` | `CONTROL` | RW | Bit 0: enable parser. Bit 1: clear sticky flags/counters through software-visible baselines. |
-| `0x0004` | `STATUS` | RO | Bit 0: parser enabled. Bit 1: ingress backpressured. Bit 2: event FIFO non-empty. Bit 3: event FIFO full. Bit 4: event output valid. |
+| `0x0000` | `CONTROL` | RW | Bit 0: enable parser. Bit 1: clear sticky flags/counters through software-visible baselines. Bit 2: write one to pulse feed recovery; reads as zero. |
+| `0x0004` | `STATUS` | RO | Bit 0: parser enabled. Bit 1: ingress backpressured. Bit 2: event FIFO non-empty. Bit 3: event FIFO full. Bit 4: event output valid. Bit 5: feed healthy. |
 | `0x0008` | `BUILD_ID` | RO | Build/version identifier. Default: `0x4d505253`. |
 
 ## Implemented Parser Counters
@@ -39,6 +39,19 @@ parser through `market_parser_512_system.sv`.
 | `0x00A4` | `EVENT_FIFO_WRITE_COUNT` | RO | Normalized events written into the output FIFO. |
 | `0x00A8` | `EVENT_FIFO_READ_COUNT` | RO | Normalized events accepted by the downstream event stream. |
 | `0x00AC` | `EVENT_FIFO_BACKPRESSURE_COUNT` | RO | Cycles where the parser had an event but the event FIFO was full. |
+
+## Feed Integrity
+
+| Offset | Name | Access | Description |
+| :--- | :--- | :--- | :--- |
+| `0x00B0` | `FEED_STATUS` | RO | Bit 0: feed healthy. A sequence discontinuity clears this bit until recovery. |
+| `0x00B4` | `FEED_GAP_COUNT` | RO | Sequence-gap packets observed since the current counter baseline. |
+| `0x00B8` | `FEED_SUPPRESSED_EVENT_COUNT` | RO | Events suppressed while the feed guard is unhealthy or handling a gap packet. |
+
+Writing `CONTROL[2]` rearms the feed guard and clears bounded book state through
+the strategy recovery path. It does not erase fault history. Writing
+`CONTROL[1]` updates the software-visible counter baselines, including both
+feed counters.
 
 The event payload still exits through the normalized event stream. A future
 software-only demo wrapper may add memory-mapped event-data pop registers, but

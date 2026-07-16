@@ -84,11 +84,11 @@ The routed implementation harness for the full strategy path also closes this
 a compact board-like IO surface; it is implementation evidence for the RTL
 path, not a replacement for actual CMAC IP and board constraints.
 
-The source-only CMAC AXIS routed harness also closes the same target post-route.
-`market_parser_100g_cmac_axis_impl_harness` reports WNS `0.022 ns`, TNS
-`0.000 ns`, 19418 LUTs, 22531 registers, and no BRAM/DSP usage on
-`xcu50-fsvh2104-2-e`. This is the current strongest RTL proof for the
-CMAC-AXIS-facing path before inserting the generated vendor IP.
+The prior single-symbol revision of the source-only CMAC AXIS routed harness
+also closed the same target post-route with WNS `0.022 ns` and TNS `0.000 ns`.
+The harness now instantiates the guarded multi-symbol boundary; its updated
+timing and utilization must be measured before those older figures are applied
+to the expanded hierarchy.
 
 The school Vivado 2024.2 IP catalog for `xcu50-fsvh2104-2-e` includes the
 UltraScale+ CMAC IP needed for a real board shell:
@@ -378,6 +378,12 @@ path. The default bridge depth is 16 beats to match the current
 `PACKET_BEATS_MAX` timing target; larger RX buffers should be swept separately
 once the board traffic profile and acceptable overflow policy are fixed.
 
+`market_parser_100g_cmac_axis_multi_strategy_top` uses the same packet bridge
+for the guarded multi-symbol book bank. It exposes feed health, gap, suppressed
+event, bridge, ingress, and book counters while keeping generated CMAC IP out of
+the source-level boundary. `market_parser_100g_cmac_axis_impl_harness` retains
+this hierarchy for routed timing with a compact external I/O surface.
+
 ## CMAC AXIS Boundary Timing
 
 After staging the UDP payload-strip predecode path, the CMAC AXIS strategy
@@ -427,9 +433,9 @@ A first real hardware integration should include:
    regressions with the shell attached.
 5. Use `tools/probe_cmac_ip.tcl` to record the CMAC/100G IP definitions visible
    in the selected Vivado install.
-6. Keep `market_parser_100g_cmac_axis_strategy_top` in the OOC matrix as the
-   no-backpressure CMAC RX boundary regression before adding the generated
-   vendor IP.
+6. Keep `market_parser_100g_cmac_axis_multi_strategy_top` in the OOC matrix as
+   the no-backpressure, feed-guarded CMAC RX boundary regression before adding
+   the generated vendor IP.
 7. Keep `tools/run_hft_impl_matrix.sh` as the routed RTL harness regression for
    the selected school-supported part.
 8. Use `tools/build_cmac_usplus_axis_ip.tcl` to generate the real AXIS-mode

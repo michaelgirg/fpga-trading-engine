@@ -44,9 +44,13 @@ module market_parser_axi_lite_regs #(
     input  wire logic                   ingress_backpressure_active,
     input  wire logic                   event_out_valid,
     input  wire logic [ 7:0]            error_flags_in,
+    input  wire logic                   feed_healthy,
+    input  wire logic [31:0]            feed_gap_count,
+    input  wire logic [31:0]            feed_suppressed_event_count,
 
     output logic                        parser_enable,
-    output logic                        clear_counters_pulse
+    output logic                        clear_counters_pulse,
+    output logic                        feed_recover_pulse
 );
     localparam logic [11:0] REG_CONTROL          = 12'h000;
     localparam logic [11:0] REG_STATUS           = 12'h004;
@@ -61,6 +65,9 @@ module market_parser_axi_lite_regs #(
     localparam logic [11:0] REG_EVENT_FIFO_WR    = 12'h0a4;
     localparam logic [11:0] REG_EVENT_FIFO_RD    = 12'h0a8;
     localparam logic [11:0] REG_EVENT_FIFO_BP    = 12'h0ac;
+    localparam logic [11:0] REG_FEED_STATUS      = 12'h0b0;
+    localparam logic [11:0] REG_FEED_GAP_COUNT   = 12'h0b4;
+    localparam logic [11:0] REG_FEED_SUPPRESSED  = 12'h0b8;
 
     logic [ADDR_WIDTH-1:0] awaddr_r;
     logic [31:0]           wdata_r;
@@ -81,7 +88,10 @@ module market_parser_axi_lite_regs #(
     logic [31:0]           event_fifo_write_count_base_r;
     logic [31:0]           event_fifo_read_count_base_r;
     logic [31:0]           event_fifo_backpressure_count_base_r;
+    logic [31:0]           feed_gap_count_base_r;
+    logic [31:0]           feed_suppressed_event_count_base_r;
     logic                  clear_counters_pulse_r;
+    logic                  feed_recover_pulse_r;
 
     assign s_axi_awready = !aw_hold_r && !bvalid_r;
     assign s_axi_wready  = !w_hold_r && !bvalid_r;
@@ -94,6 +104,7 @@ module market_parser_axi_lite_regs #(
 
     assign parser_enable       = parser_enable_r;
     assign clear_counters_pulse = clear_counters_pulse_r;
+    assign feed_recover_pulse   = feed_recover_pulse_r;
 
     function automatic logic [31:0] apply_wstrb(
         input logic [31:0] old_value,
@@ -119,11 +130,12 @@ module market_parser_axi_lite_regs #(
 
         case (reg_addr)
             REG_CONTROL: begin
-                read_reg = {30'd0, 1'b0, parser_enable_r};
+                read_reg = {29'd0, 2'b00, parser_enable_r};
             end
             REG_STATUS: begin
                 read_reg = {
-                    27'd0,
+                    26'd0,
+                    feed_healthy,
                     event_out_valid,
                     fifo_full,
                     !fifo_empty,
@@ -164,6 +176,15 @@ module market_parser_axi_lite_regs #(
             REG_EVENT_FIFO_BP: begin
                 read_reg = event_fifo_backpressure_count - event_fifo_backpressure_count_base_r;
             end
+            REG_FEED_STATUS: begin
+                read_reg = {31'd0, feed_healthy};
+            end
+            REG_FEED_GAP_COUNT: begin
+                read_reg = feed_gap_count - feed_gap_count_base_r;
+            end
+            REG_FEED_SUPPRESSED: begin
+                read_reg = feed_suppressed_event_count - feed_suppressed_event_count_base_r;
+            end
             default: begin
                 read_reg = 32'h0000_0000;
             end
@@ -176,6 +197,7 @@ module market_parser_axi_lite_regs #(
         logic [ 7:0] sticky_next;
         logic        write_fire;
         logic        do_clear;
+        logic        do_feed_recover;
 
         if (rst) begin
             awaddr_r                              <= '0;
@@ -196,12 +218,17 @@ module market_parser_axi_lite_regs #(
             event_fifo_write_count_base_r         <= '0;
             event_fifo_read_count_base_r          <= '0;
             event_fifo_backpressure_count_base_r  <= '0;
+            feed_gap_count_base_r                 <= '0;
+            feed_suppressed_event_count_base_r    <= '0;
             clear_counters_pulse_r                <= 1'b0;
+            feed_recover_pulse_r                  <= 1'b0;
         end else begin
             write_fire = aw_hold_r && w_hold_r && !bvalid_r;
             do_clear   = 1'b0;
+            do_feed_recover = 1'b0;
             sticky_next = sticky_error_flags_r | error_flags_in;
             clear_counters_pulse_r <= 1'b0;
+            feed_recover_pulse_r   <= 1'b0;
 
             if (s_axi_awvalid && s_axi_awready) begin
                 awaddr_r  <= s_axi_awaddr;
@@ -217,9 +244,10 @@ module market_parser_axi_lite_regs #(
             if (write_fire) begin
                 write_addr = 12'(awaddr_r) & 12'hffc;
                 if (write_addr == REG_CONTROL) begin
-                    control_next = apply_wstrb({30'd0, 1'b0, parser_enable_r}, wdata_r, wstrb_r);
+                    control_next = apply_wstrb({29'd0, 2'b00, parser_enable_r}, wdata_r, wstrb_r);
                     parser_enable_r <= control_next[0];
                     do_clear = control_next[1];
+                    do_feed_recover = control_next[2];
                 end else if (write_addr == REG_ERROR_FLAGS) begin
                     sticky_next = sticky_next & ~wdata_r[7:0];
                 end
@@ -249,10 +277,16 @@ module market_parser_axi_lite_regs #(
                 event_fifo_write_count_base_r        <= event_fifo_write_count;
                 event_fifo_read_count_base_r         <= event_fifo_read_count;
                 event_fifo_backpressure_count_base_r <= event_fifo_backpressure_count;
+                feed_gap_count_base_r                 <= feed_gap_count;
+                feed_suppressed_event_count_base_r    <= feed_suppressed_event_count;
                 sticky_error_flags_r                 <= '0;
                 clear_counters_pulse_r               <= 1'b1;
             end else begin
                 sticky_error_flags_r <= sticky_next;
+            end
+
+            if (do_feed_recover) begin
+                feed_recover_pulse_r <= 1'b1;
             end
         end
     end
