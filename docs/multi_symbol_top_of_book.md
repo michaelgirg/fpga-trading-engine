@@ -47,12 +47,14 @@ later events without updating a book. `feed_healthy`, `feed_rebuilding`,
 `feed_gap_count`, `feed_suppressed_event_count`, `feed_idle_cycles`, and
 `feed_timeout_count` expose the guard state and history.
 
-Recovery is deliberately two-phase. The external `feed_recover` input or
-`CONTROL[2]` clears all books and enters rebuild mode. Contiguous replay events
-repopulate book state, but quote updates are consumed internally and the feed
-remains non-tradable. The external `feed_activate` input or `CONTROL[3]` marks a
-rebuilt feed healthy and exposes subsequent quotes. A fault during rebuild
-clears state and requires recovery to begin again. `FEED_STATUS`,
+Recovery is deliberately two-phase. At an idle parser boundary, the external
+`feed_recover` input or `CONTROL[2]` clears all books and the MoldUDP64 sequence
+expectation, then enters rebuild mode. The first replay packet establishes the
+new sequence baseline. Contiguous replay events repopulate book state, but
+quote updates are consumed internally and the feed remains non-tradable. The
+external `feed_activate` input or `CONTROL[3]` marks a rebuilt feed healthy and
+exposes subsequent quotes. A fault during rebuild clears state and requires
+recovery to begin again. `FEED_STATUS`,
 `FEED_GAP_COUNT`, and `FEED_SUPPRESSED_EVENT_COUNT` expose the guard state to
 software. `FEED_TIMEOUT_CYCLES` configures the watchdog in parser-clock cycles,
 with zero disabling it; configuration changes and recovery restart the idle
@@ -72,12 +74,12 @@ to `MultiSymbolTopOfBookModel`. The replay contains 11 ITCH events, eight
 applied updates, three ignored events, one untracked symbol, and eight expected
 quote updates. It verifies zero bridge overflow or dropped beats, then replays
 a stale sequence, checks the AXI-Lite health/counter registers, begins software
-recovery, and proves that contiguous replay repopulates book state without
-exposing quotes before activation. A short runtime watchdog threshold then
-verifies inactivity timeout, fail-closed book clearing, distinct cause
-telemetry, rebuild, and activation. The test finally forces a 17-beat packet
-into the 16-beat bridge and checks atomic rollback, immediate feed
-invalidation, book clearing, cause telemetry, rebuild, and activation with
+recovery, and proves that replay from an unrelated 64-bit sequence repopulates
+book state without exposing quotes before activation. A short runtime watchdog
+threshold then verifies inactivity timeout, fail-closed book clearing,
+distinct cause telemetry, rebuild, and activation. The test finally forces a
+17-beat packet into the 16-beat bridge and checks atomic rollback, immediate
+feed invalidation, book clearing, cause telemetry, rebuild, and activation with
 preserved history. No CMAC IP license is required for this simulation path.
 
 ## U50 OOC Results

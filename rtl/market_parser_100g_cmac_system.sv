@@ -18,6 +18,7 @@ module market_parser_100g_cmac_system #(
 ) (
     input  wire logic         clk,
     input  wire logic         rst,
+    input  wire logic         sequence_rearm,
 
     input  wire logic         s_axis_cmac_rx_tvalid,
     output logic              s_axis_cmac_rx_tready,
@@ -167,6 +168,7 @@ module market_parser_100g_cmac_system #(
     ) parser_system_i (
         .clk                       (clk),
         .rst                       (rst),
+        .sequence_rearm            (sequence_rearm),
         .s_axis_rx_tvalid          (parser_payload_tvalid),
         .s_axis_rx_tready          (parser_payload_tready),
         .s_axis_rx_tdata           (parser_payload_tdata),

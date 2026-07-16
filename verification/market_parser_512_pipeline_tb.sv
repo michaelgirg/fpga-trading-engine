@@ -57,6 +57,7 @@ module market_parser_512_pipeline_tb #(
     ) DUT (
         .clk                       (clk),
         .rst                       (rst),
+        .sequence_rearm            (1'b0),
         .s_axis_rx_tvalid          (s_axis_rx_tvalid),
         .s_axis_rx_tready          (s_axis_rx_tready),
         .s_axis_rx_tdata           (s_axis_rx_tdata),

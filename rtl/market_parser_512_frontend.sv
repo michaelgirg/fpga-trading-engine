@@ -12,6 +12,7 @@ module market_parser_512_frontend #(
 ) (
     input  wire logic         clk,
     input  wire logic         rst,
+    input  wire logic         sequence_rearm,
 
     input  wire logic         s_axis_rx_tvalid,
     output logic              s_axis_rx_tready,
@@ -121,7 +122,8 @@ module market_parser_512_frontend #(
     assign desc_message_type_valid = desc_type_valid_q[q_head_r];
     assign desc_flags              = desc_flags_q[q_head_r];
 
-    assign s_axis_rx_tready = !beat_valid_r && !cand_valid_r && !len_stage_valid_r &&
+    assign s_axis_rx_tready = !sequence_rearm &&
+                              !beat_valid_r && !cand_valid_r && !len_stage_valid_r &&
                               (int'(q_count_r) < DESC_QUEUE_DEPTH);
     assign packet_count     = packet_count_r + 32'(packet_count_pending_r);
     assign descriptor_count = descriptor_count_r + 32'(descriptor_count_pending_r);
@@ -224,6 +226,9 @@ module market_parser_512_frontend #(
             packet_count_pending_r <= 1'b0;
             descriptor_count_pending_r <= 1'b0;
             error_count_pending_r  <= 1'b0;
+        end else if (sequence_rearm) begin
+            expected_sequence_valid_r <= 1'b0;
+            packet_gap_r              <= 1'b0;
         end else begin
             q_tail_next  = int'(q_tail_r);
             q_count_next = int'(q_count_r);

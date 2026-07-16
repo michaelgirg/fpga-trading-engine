@@ -210,14 +210,14 @@ module market_parser_100g_multi_strategy_top_tb #(
         for (int idx = 0; idx < MULTI_SYMBOL_RAW_0_BYTES; idx++) begin
             recovery_raw_mem[idx] = raw_0_mem[idx];
         end
-        recovery_raw_mem[52] = 8'h00;
-        recovery_raw_mem[53] = 8'h00;
-        recovery_raw_mem[54] = 8'h00;
-        recovery_raw_mem[55] = 8'h00;
-        recovery_raw_mem[56] = 8'h00;
-        recovery_raw_mem[57] = 8'h00;
-        recovery_raw_mem[58] = 8'h07;
-        recovery_raw_mem[59] = 8'hd3;
+        recovery_raw_mem[52] = 8'h11;
+        recovery_raw_mem[53] = 8'h22;
+        recovery_raw_mem[54] = 8'h33;
+        recovery_raw_mem[55] = 8'h44;
+        recovery_raw_mem[56] = 8'h55;
+        recovery_raw_mem[57] = 8'h66;
+        recovery_raw_mem[58] = 8'h77;
+        recovery_raw_mem[59] = 8'h88;
     endtask
 
     task automatic expect_no_quote(input int cycles, input string msg);
@@ -465,6 +465,8 @@ module market_parser_100g_multi_strategy_top_tb #(
         expect_no_quote(800, "rebuild suppresses external quotes");
         check(feed_rebuilding && !feed_healthy,
               "contiguous rebuild packet remains non-tradable");
+        check(feed_gap_count == 32'd1,
+              "recovery packet establishes a new sequence baseline");
         check(book_quote_update_count == 32'(MULTI_SYMBOL_PACKET_0_QUOTES),
               "rebuild packet repopulates book state internally");
         activate_feed();

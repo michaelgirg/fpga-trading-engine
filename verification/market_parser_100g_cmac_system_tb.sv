@@ -79,6 +79,7 @@ module market_parser_100g_cmac_system_tb #(
     ) DUT (
         .clk                            (clk),
         .rst                            (rst),
+        .sequence_rearm                 (1'b0),
         .s_axis_cmac_rx_tvalid          (s_axis_cmac_rx_tvalid),
         .s_axis_cmac_rx_tready          (s_axis_cmac_rx_tready),
         .s_axis_cmac_rx_tdata           (s_axis_cmac_rx_tdata),

@@ -238,6 +238,7 @@ module market_parser_100g_multi_strategy_top #(
     ) ingress_parser_i (
         .clk                            (clk),
         .rst                            (rst),
+        .sequence_rearm                 (feed_recover_i),
         .s_axis_cmac_rx_tvalid          (s_axis_cmac_rx_tvalid),
         .s_axis_cmac_rx_tready          (s_axis_cmac_rx_tready),
         .s_axis_cmac_rx_tdata           (s_axis_cmac_rx_tdata),

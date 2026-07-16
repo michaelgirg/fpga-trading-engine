@@ -18,7 +18,7 @@ pipeline intended for 100G-class FPGA Ethernet user clocks.
 - Fail-closed multi-symbol book invalidation for MoldUDP64 sequence gaps, CMAC
   packet-buffer loss, and packet inactivity, with event suppression,
   configurable AXI-Lite liveness monitoring, fault counters, two-phase book
-  rebuild, and explicit feed activation.
+  rebuild, sequence re-baselining, and explicit feed activation.
 - CMAC-facing UDP payload stripping and AXI stream buffering for a generated
   AMD/Xilinx UltraScale+ CMAC interface.
 - Self-checking Questa/SystemVerilog tests, deterministic packet vectors,
@@ -63,8 +63,9 @@ single- and multi-symbol golden-model top-of-book replay. It also verifies
 contiguous no-`tready` CMAC bursts, packet-atomic overflow rollback, immediate
 feed invalidation on bridge loss, bridge-health telemetry, sequence-gap
 handling, packet-inactivity timeout, distinct fault causes, and AXI-Lite
-rebuild/activation. The current checked-in baseline passes with zero compile
-errors, zero compile warnings, and zero failed tests.
+rebuild/activation from an independent replay sequence. The current checked-in
+baseline passes with zero compile errors, zero compile warnings, and zero
+failed tests.
 
 Generate or refresh deterministic packet vectors with Python 3:
 

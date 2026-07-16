@@ -23,6 +23,7 @@ module market_parser_512_frontend_tb #(
 
     logic clk = 1'b0;
     logic rst;
+    logic sequence_rearm;
 
     logic         s_axis_rx_tvalid;
     logic         s_axis_rx_tready;
@@ -62,6 +63,7 @@ module market_parser_512_frontend_tb #(
     market_parser_512_frontend DUT (
         .clk                       (clk),
         .rst                       (rst),
+        .sequence_rearm            (sequence_rearm),
         .s_axis_rx_tvalid          (s_axis_rx_tvalid),
         .s_axis_rx_tready          (s_axis_rx_tready),
         .s_axis_rx_tdata           (s_axis_rx_tdata),
@@ -90,6 +92,7 @@ module market_parser_512_frontend_tb #(
 
     task automatic reset_dut();
         rst                       = 1'b1;
+        sequence_rearm            = 1'b0;
         s_axis_rx_tvalid          = 1'b0;
         s_axis_rx_tdata           = '0;
         s_axis_rx_tkeep           = '0;
@@ -180,9 +183,12 @@ module market_parser_512_frontend_tb #(
         check(desc_valid, {msg, " descriptor valid"});
     endtask
 
-    task automatic check_mixed_desc(input int idx, input logic [7:0] extra_flags);
+    task automatic check_mixed_desc(input int idx,
+                                    input logic [63:0] expected_sequence,
+                                    input logic [7:0] extra_flags);
         wait_desc($sformatf("mixed message %0d", idx));
-        check(desc_packet_sequence == 64'd5, $sformatf("mixed message %0d sequence", idx));
+        check(desc_packet_sequence == expected_sequence,
+              $sformatf("mixed message %0d sequence", idx));
         check(desc_message_index == idx[15:0], $sformatf("mixed message %0d index", idx));
         check(desc_message_length == expected_len[idx][15:0], $sformatf("mixed message %0d length", idx));
         check(desc_message_start_byte == expected_start[idx][15:0], $sformatf("mixed message %0d start offset", idx));
@@ -311,7 +317,7 @@ module market_parser_512_frontend_tb #(
             send_packet(MIXED_PACKET_BYTES, mixed_packet_mem, 1'b0);
             begin
                 for (int i = 0; i < EXPECTED_MIXED_DESCS; i++) begin
-                    check_mixed_desc(i, 8'h00);
+                    check_mixed_desc(i, 64'd5, 8'h00);
                 end
             end
         join
@@ -323,13 +329,39 @@ module market_parser_512_frontend_tb #(
             send_packet(MIXED_PACKET_BYTES, mixed_packet_mem, 1'b0);
             begin
                 for (int i = 0; i < EXPECTED_MIXED_DESCS; i++) begin
-                    check_mixed_desc(i, DESC_FLAG_GAP);
+                    check_mixed_desc(i, 64'd5, DESC_FLAG_GAP);
                 end
             end
         join
         check(packet_count == 32'd2, "gap packet count");
         check(descriptor_count == 32'd16, "gap packet descriptor count");
         check(error_count == 32'd1, "sequence gap increments error count once");
+
+        @(negedge clk);
+        sequence_rearm = 1'b1;
+        #1;
+        check(!s_axis_rx_tready, "sequence rearm blocks a new input beat");
+        @(negedge clk);
+        sequence_rearm = 1'b0;
+        mixed_packet_mem[10] = 8'h11;
+        mixed_packet_mem[11] = 8'h22;
+        mixed_packet_mem[12] = 8'h33;
+        mixed_packet_mem[13] = 8'h44;
+        mixed_packet_mem[14] = 8'h55;
+        mixed_packet_mem[15] = 8'h66;
+        mixed_packet_mem[16] = 8'h77;
+        mixed_packet_mem[17] = 8'h88;
+        fork
+            send_packet(MIXED_PACKET_BYTES, mixed_packet_mem, 1'b0);
+            begin
+                for (int i = 0; i < EXPECTED_MIXED_DESCS; i++) begin
+                    check_mixed_desc(i, 64'h1122_3344_5566_7788, 8'h00);
+                end
+            end
+        join
+        check(packet_count == 32'd3, "rearmed packet count");
+        check(descriptor_count == 32'd24, "rearmed descriptor count");
+        check(error_count == 32'd1, "sequence rearm does not add a gap error");
 
         reset_dut();
         build_split_length_packet();

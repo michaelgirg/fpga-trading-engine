@@ -20,6 +20,7 @@ module market_parser_512_pipeline #(
 ) (
     input  wire logic         clk,
     input  wire logic         rst,
+    input  wire logic         sequence_rearm,
 
     input  wire logic         s_axis_rx_tvalid,
     output logic              s_axis_rx_tready,
@@ -337,6 +338,7 @@ module market_parser_512_pipeline #(
     ) frontend_i (
         .clk                       (clk),
         .rst                       (rst),
+        .sequence_rearm            (sequence_rearm),
         .s_axis_rx_tvalid          (frontend_valid),
         .s_axis_rx_tready          (frontend_ready),
         .s_axis_rx_tdata           (s_axis_rx_tdata),

@@ -398,11 +398,12 @@ quotes, clears every bounded book, and leaves the overflow counters intact for
 diagnosis. Software must explicitly rearm the feed after correcting or
 accepting the loss condition.
 
-Rearming is a two-phase operation. Recovery first clears the books and permits
-contiguous replay traffic to rebuild them with quote output suppressed.
-Software activates the feed only after that rebuild is complete. Any bridge
-loss, sequence gap, or liveness timeout during rebuild returns the guard to the
-faulted state.
+Rearming is a two-phase operation performed after the CMAC and event buffers
+drain. Recovery first clears the books and parser sequence expectation. The
+first replay packet establishes a new MoldUDP64 baseline, and contiguous replay
+traffic rebuilds the books with quote output suppressed. Software activates
+the feed only after that rebuild is complete. Any bridge loss, sequence gap, or
+liveness timeout during rebuild returns the guard to the faulted state.
 
 The guarded path also monitors cycles since the last complete CMAC packet. A
 programmable AXI-Lite threshold converts prolonged packet inactivity into the

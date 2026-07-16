@@ -55,12 +55,14 @@ parser through `market_parser_512_system.sv`.
 | `0x00D0` | `FEED_TIMEOUT_CYCLES` | RW | Feed-liveness threshold in parser clock cycles. Zero disables the watchdog. Changing the value restarts the interval. |
 | `0x00D4` | `FEED_TIMEOUT_COUNT` | RO | Feed-liveness timeouts observed since the current counter baseline. |
 
-Writing `CONTROL[2]` clears bounded book state and enters rebuild mode. Rebuild
-events update the books while external quotes remain suppressed. After replay
-or snapshot processing is complete, software writes `CONTROL[3]` to mark the
-feed healthy and expose subsequent quotes. Activation outside rebuild is
-ignored. Bridge overflow invalidates the feed immediately; software can
-distinguish that cause with `STATUS[6]` and
+Writing `CONTROL[2]` clears bounded book state, clears the parser's MoldUDP64
+sequence expectation, and enters rebuild mode. The first replay packet
+establishes a new sequence baseline. Rebuild events update the books while
+external quotes remain suppressed. After replay or snapshot processing is
+complete, software writes `CONTROL[3]` to mark the feed healthy and expose
+subsequent quotes. Activation outside rebuild is ignored. Bridge overflow
+invalidates the feed immediately; software can distinguish that cause with
+`STATUS[6]` and
 `CMAC_AXIS_OVERFLOW`. Packet inactivity also invalidates the guarded production
 path when `FEED_IDLE_CYCLES` reaches `FEED_TIMEOUT_CYCLES`; its default is
 `322400000` cycles, approximately one second at the native 322.4 MHz clock.
@@ -69,6 +71,11 @@ interval. Recovery does not erase fault history. Writing `CONTROL[1]` updates
 the software-visible parser, feed, CMAC AXIS, and timeout counter baselines.
 The CMAC AXIS FIFO high-water mark is a since-reset value and is not changed by
 `CONTROL[1]`.
+
+Recovery is an idle-boundary operation. Software should stop ingress and wait
+for `CMAC_AXIS_FIFO[15:0]` and `EVENT_FIFO_STATUS[31:16]` to reach zero before
+writing `CONTROL[2]`. This keeps pre-fault buffered work out of the rebuild
+stream without resetting parser counters or AXI-Lite configuration.
 
 The event payload still exits through the normalized event stream. A future
 software-only demo wrapper may add memory-mapped event-data pop registers, but
