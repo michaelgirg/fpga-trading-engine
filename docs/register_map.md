@@ -12,7 +12,7 @@ parser through `market_parser_512_system.sv`.
 | Offset | Name | Access | Description |
 | :--- | :--- | :--- | :--- |
 | `0x0000` | `CONTROL` | RW | Bit 0: enable parser. Bit 1: clear sticky flags/counters through software-visible baselines. Bit 2: write one to pulse feed recovery; reads as zero. |
-| `0x0004` | `STATUS` | RO | Bit 0: parser enabled. Bit 1: ingress backpressured. Bit 2: event FIFO non-empty. Bit 3: event FIFO full. Bit 4: event output valid. Bit 5: feed healthy. |
+| `0x0004` | `STATUS` | RO | Bit 0: parser enabled. Bit 1: ingress backpressured. Bit 2: event FIFO non-empty. Bit 3: event FIFO full. Bit 4: event output valid. Bit 5: feed healthy. Bit 6: CMAC AXIS packet-buffer overflow observed since the current counter baseline. |
 | `0x0008` | `BUILD_ID` | RO | Build/version identifier. Default: `0x4d505253`. |
 
 ## Implemented Parser Counters
@@ -47,11 +47,16 @@ parser through `market_parser_512_system.sv`.
 | `0x00B0` | `FEED_STATUS` | RO | Bit 0: feed healthy. A sequence discontinuity clears this bit until recovery. |
 | `0x00B4` | `FEED_GAP_COUNT` | RO | Sequence-gap packets observed since the current counter baseline. |
 | `0x00B8` | `FEED_SUPPRESSED_EVENT_COUNT` | RO | Events suppressed while the feed guard is unhealthy or handling a gap packet. |
+| `0x00BC` | `CMAC_AXIS_FIFO` | RO | Bits 15:0: current packet-buffer beat occupancy. Bits 31:16: maximum occupancy observed since reset. |
+| `0x00C0` | `CMAC_AXIS_ACCEPTED` | RO | Complete CMAC AXIS packets accepted since the current counter baseline. |
+| `0x00C4` | `CMAC_AXIS_OVERFLOW` | RO | CMAC AXIS packets discarded after packet-buffer overflow since the current counter baseline. |
+| `0x00C8` | `CMAC_AXIS_DROPPED_BEATS` | RO | Beats discarded while dropping an overflowing CMAC AXIS packet since the current counter baseline. |
 
 Writing `CONTROL[2]` rearms the feed guard and clears bounded book state through
 the strategy recovery path. It does not erase fault history. Writing
-`CONTROL[1]` updates the software-visible counter baselines, including both
-feed counters.
+`CONTROL[1]` updates the software-visible parser, feed, and CMAC AXIS counter
+baselines. The CMAC AXIS FIFO high-water mark is a since-reset value and is not
+changed by `CONTROL[1]`.
 
 The event payload still exits through the normalized event stream. A future
 software-only demo wrapper may add memory-mapped event-data pop registers, but

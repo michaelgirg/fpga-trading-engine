@@ -58,10 +58,11 @@ vsim -c -do run_questa.do
 
 The regression covers parser correctness, malformed and truncated frames,
 randomized backpressure, dense messages, FIFO pressure, AXI-Lite status, and
-single- and multi-symbol golden-model top-of-book replay. It also verifies a
-no-`tready` CMAC burst, fail-closed sequence-gap handling, software-visible
-feed health, and AXI-Lite recovery. The current checked-in baseline passes with
-zero compile errors, zero compile warnings, and zero failed tests.
+single- and multi-symbol golden-model top-of-book replay. It also verifies
+contiguous no-`tready` CMAC bursts, packet-atomic overflow rollback, bridge
+health telemetry, fail-closed sequence-gap handling, and AXI-Lite recovery. The
+current checked-in baseline passes with zero compile errors, zero compile
+warnings, and zero failed tests.
 
 Generate or refresh deterministic packet vectors with Python 3:
 

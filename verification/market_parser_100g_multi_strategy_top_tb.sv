@@ -17,6 +17,10 @@ module market_parser_100g_multi_strategy_top_tb #(
     localparam logic [11:0] REG_FEED_STATUS     = 12'h0b0;
     localparam logic [11:0] REG_FEED_GAP_COUNT  = 12'h0b4;
     localparam logic [11:0] REG_FEED_SUPPRESSED = 12'h0b8;
+    localparam logic [11:0] REG_CMAC_AXIS_FIFO  = 12'h0bc;
+    localparam logic [11:0] REG_CMAC_AXIS_ACCEPT = 12'h0c0;
+    localparam logic [11:0] REG_CMAC_AXIS_OVFL  = 12'h0c4;
+    localparam logic [11:0] REG_CMAC_AXIS_DROP  = 12'h0c8;
 
 `include "verification/vectors/multi_symbol_meta.svh"
 
@@ -73,6 +77,7 @@ module market_parser_100g_multi_strategy_top_tb #(
     logic [31:0] cmac_axis_overflow_packet_count;
     logic [31:0] cmac_axis_dropped_beat_count;
     logic [15:0] cmac_axis_fifo_level;
+    logic [15:0] cmac_axis_fifo_high_watermark;
     logic [15:0] cmac_axis_buffered_packet_count;
 
     byte_t raw_0_mem[MULTI_SYMBOL_RAW_0_BYTES];
@@ -130,6 +135,7 @@ module market_parser_100g_multi_strategy_top_tb #(
         .cmac_axis_overflow_packet_count(cmac_axis_overflow_packet_count),
         .cmac_axis_dropped_beat_count   (cmac_axis_dropped_beat_count),
         .cmac_axis_fifo_level           (cmac_axis_fifo_level),
+        .cmac_axis_fifo_high_watermark  (cmac_axis_fifo_high_watermark),
         .cmac_axis_buffered_packet_count(cmac_axis_buffered_packet_count),
         .cmac_accepted_frame_count      (cmac_accepted_frame_count),
         .cmac_dropped_frame_count       (cmac_dropped_frame_count),
@@ -359,8 +365,20 @@ module market_parser_100g_multi_strategy_top_tb #(
         check(cmac_axis_overflow_packet_count == 32'd0, "source-only bridge has no overflow");
         check(cmac_axis_dropped_beat_count == 32'd0, "source-only bridge drops no beats");
         check(cmac_axis_fifo_level == 16'd0, "source-only bridge FIFO drains");
+        check(cmac_axis_fifo_high_watermark != 16'd0,
+              "source-only bridge records occupancy high watermark");
         check(cmac_axis_buffered_packet_count == 16'd0,
               "source-only bridge has no buffered packet after replay");
+        axi_read(REG_CMAC_AXIS_FIFO, reg_value);
+        check(reg_value == {cmac_axis_fifo_high_watermark, 16'd0},
+              "AXI-Lite exposes bridge FIFO level and high watermark");
+        axi_read(REG_CMAC_AXIS_ACCEPT, reg_value);
+        check(reg_value == 32'(MULTI_SYMBOL_PACKETS),
+              "AXI-Lite exposes accepted CMAC packet count");
+        axi_read(REG_CMAC_AXIS_OVFL, reg_value);
+        check(reg_value == 32'd0, "AXI-Lite reports zero CMAC packet overflow");
+        axi_read(REG_CMAC_AXIS_DROP, reg_value);
+        check(reg_value == 32'd0, "AXI-Lite reports zero CMAC dropped beats");
         check(cmac_accepted_frame_count == 32'(MULTI_SYMBOL_PACKETS), "accepted frame counter");
         check(cmac_payload_packet_count == 32'(MULTI_SYMBOL_PACKETS), "payload packet counter");
         check(cmac_dropped_frame_count == 32'd0, "dropped frame counter");

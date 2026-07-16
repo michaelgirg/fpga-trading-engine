@@ -47,6 +47,11 @@ module market_parser_axi_lite_regs #(
     input  wire logic                   feed_healthy,
     input  wire logic [31:0]            feed_gap_count,
     input  wire logic [31:0]            feed_suppressed_event_count,
+    input  wire logic [31:0]            cmac_axis_accepted_packet_count,
+    input  wire logic [31:0]            cmac_axis_overflow_packet_count,
+    input  wire logic [31:0]            cmac_axis_dropped_beat_count,
+    input  wire logic [15:0]            cmac_axis_fifo_level,
+    input  wire logic [15:0]            cmac_axis_fifo_high_watermark,
 
     output logic                        parser_enable,
     output logic                        clear_counters_pulse,
@@ -68,6 +73,10 @@ module market_parser_axi_lite_regs #(
     localparam logic [11:0] REG_FEED_STATUS      = 12'h0b0;
     localparam logic [11:0] REG_FEED_GAP_COUNT   = 12'h0b4;
     localparam logic [11:0] REG_FEED_SUPPRESSED  = 12'h0b8;
+    localparam logic [11:0] REG_CMAC_AXIS_FIFO   = 12'h0bc;
+    localparam logic [11:0] REG_CMAC_AXIS_ACCEPT = 12'h0c0;
+    localparam logic [11:0] REG_CMAC_AXIS_OVFL   = 12'h0c4;
+    localparam logic [11:0] REG_CMAC_AXIS_DROP   = 12'h0c8;
 
     logic [ADDR_WIDTH-1:0] awaddr_r;
     logic [31:0]           wdata_r;
@@ -90,6 +99,9 @@ module market_parser_axi_lite_regs #(
     logic [31:0]           event_fifo_backpressure_count_base_r;
     logic [31:0]           feed_gap_count_base_r;
     logic [31:0]           feed_suppressed_event_count_base_r;
+    logic [31:0]           cmac_axis_accepted_packet_count_base_r;
+    logic [31:0]           cmac_axis_overflow_packet_count_base_r;
+    logic [31:0]           cmac_axis_dropped_beat_count_base_r;
     logic                  clear_counters_pulse_r;
     logic                  feed_recover_pulse_r;
 
@@ -134,7 +146,8 @@ module market_parser_axi_lite_regs #(
             end
             REG_STATUS: begin
                 read_reg = {
-                    26'd0,
+                    25'd0,
+                    cmac_axis_overflow_packet_count != cmac_axis_overflow_packet_count_base_r,
                     feed_healthy,
                     event_out_valid,
                     fifo_full,
@@ -185,6 +198,18 @@ module market_parser_axi_lite_regs #(
             REG_FEED_SUPPRESSED: begin
                 read_reg = feed_suppressed_event_count - feed_suppressed_event_count_base_r;
             end
+            REG_CMAC_AXIS_FIFO: begin
+                read_reg = {cmac_axis_fifo_high_watermark, cmac_axis_fifo_level};
+            end
+            REG_CMAC_AXIS_ACCEPT: begin
+                read_reg = cmac_axis_accepted_packet_count - cmac_axis_accepted_packet_count_base_r;
+            end
+            REG_CMAC_AXIS_OVFL: begin
+                read_reg = cmac_axis_overflow_packet_count - cmac_axis_overflow_packet_count_base_r;
+            end
+            REG_CMAC_AXIS_DROP: begin
+                read_reg = cmac_axis_dropped_beat_count - cmac_axis_dropped_beat_count_base_r;
+            end
             default: begin
                 read_reg = 32'h0000_0000;
             end
@@ -220,6 +245,9 @@ module market_parser_axi_lite_regs #(
             event_fifo_backpressure_count_base_r  <= '0;
             feed_gap_count_base_r                 <= '0;
             feed_suppressed_event_count_base_r    <= '0;
+            cmac_axis_accepted_packet_count_base_r <= '0;
+            cmac_axis_overflow_packet_count_base_r <= '0;
+            cmac_axis_dropped_beat_count_base_r    <= '0;
             clear_counters_pulse_r                <= 1'b0;
             feed_recover_pulse_r                  <= 1'b0;
         end else begin
@@ -279,6 +307,9 @@ module market_parser_axi_lite_regs #(
                 event_fifo_backpressure_count_base_r <= event_fifo_backpressure_count;
                 feed_gap_count_base_r                 <= feed_gap_count;
                 feed_suppressed_event_count_base_r    <= feed_suppressed_event_count;
+                cmac_axis_accepted_packet_count_base_r <= cmac_axis_accepted_packet_count;
+                cmac_axis_overflow_packet_count_base_r <= cmac_axis_overflow_packet_count;
+                cmac_axis_dropped_beat_count_base_r    <= cmac_axis_dropped_beat_count;
                 sticky_error_flags_r                 <= '0;
                 clear_counters_pulse_r               <= 1'b1;
             end else begin

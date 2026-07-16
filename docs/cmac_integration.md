@@ -384,6 +384,13 @@ event, bridge, ingress, and book counters while keeping generated CMAC IP out of
 the source-level boundary. `market_parser_100g_cmac_axis_impl_harness` retains
 this hierarchy for routed timing with a compact external I/O surface.
 
+The bridge management registers expose current FIFO occupancy, a since-reset
+occupancy high-water mark, accepted packets, overflowing packets, and dropped
+beats. Counter clear establishes a new software baseline without hiding the
+physical high-water mark. Simulation covers contiguous full-depth packets and
+proves that overflow rollback drops only the current packet while preserving a
+previously completed buffered packet.
+
 ## CMAC AXIS Boundary Timing
 
 After staging the UDP payload-strip predecode path, the CMAC AXIS strategy

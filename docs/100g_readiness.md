@@ -91,6 +91,8 @@ checks that the ingress side accepts the burst without stalls.
   - bad-frame beats
   - FIFO level
 - Regression coverage for a full packet delivered as a no-stall 512-bit burst.
+- No-`tready` CMAC bridge coverage for contiguous full-depth packets, FIFO
+  occupancy high-water telemetry, and packet-atomic overflow rollback.
 - Same normalized parser output checked against generated reference vectors.
 - First-beat parallel boundary scanner for MoldUDP64 sequence/message count and
   early ITCH message-length candidates.
@@ -153,8 +155,8 @@ checks:
 1. Keep the U50/U55-class OOC result as the HFT reference timing target and use
    the 1.950 ns near miss as the next optional timing cleanup target.
 2. Run the school Vivado matrix across U50/U55/Virtex UltraScale+ style parts.
-3. Add deeper event FIFO buffering, more burst-depth sweeps, and 512-byte
-   long-payload stress cases.
+3. Add event FIFO depth sweeps, sustained back-to-back maximum-size traffic,
+   and 512-byte long-payload stress cases.
 4. Integrate against a concrete 100G MAC/CMAC shell and board clocking model.
 5. Repeat routed implementation timing with the actual CMAC IP boundary and
    board constraints.

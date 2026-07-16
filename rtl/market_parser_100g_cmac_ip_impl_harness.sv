@@ -61,6 +61,7 @@ module market_parser_100g_cmac_ip_impl_harness (
     logic [31:0] cmac_axis_overflow_packet_count;
     logic [31:0] cmac_axis_dropped_beat_count;
     logic [15:0] cmac_axis_fifo_level;
+    logic [15:0] cmac_axis_fifo_high_watermark;
     logic [15:0] cmac_axis_buffered_packet_count;
 
     logic [31:0] cmac_accepted_frame_count;
@@ -152,6 +153,7 @@ module market_parser_100g_cmac_ip_impl_harness (
         .cmac_axis_overflow_packet_count(cmac_axis_overflow_packet_count),
         .cmac_axis_dropped_beat_count  (cmac_axis_dropped_beat_count),
         .cmac_axis_fifo_level          (cmac_axis_fifo_level),
+        .cmac_axis_fifo_high_watermark (cmac_axis_fifo_high_watermark),
         .cmac_axis_buffered_packet_count(cmac_axis_buffered_packet_count),
         .cmac_accepted_frame_count     (cmac_accepted_frame_count),
         .cmac_dropped_frame_count      (cmac_dropped_frame_count),
@@ -185,7 +187,8 @@ module market_parser_100g_cmac_ip_impl_harness (
                            ^ cmac_axis_overflow_packet_count
                            ^ cmac_axis_dropped_beat_count
                            ^ {cmac_axis_fifo_level,
-                              cmac_axis_buffered_packet_count};
+                              cmac_axis_buffered_packet_count}
+                           ^ {16'd0, cmac_axis_fifo_high_watermark};
             status_ingress_r <= cmac_accepted_frame_count
                               ^ cmac_dropped_frame_count
                               ^ cmac_header_error_count

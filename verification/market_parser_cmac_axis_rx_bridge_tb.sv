@@ -24,6 +24,7 @@ module market_parser_cmac_axis_rx_bridge_tb;
     logic [31:0]           overflow_packet_count;
     logic [31:0]           dropped_beat_count;
     logic [15:0]           fifo_level;
+    logic [15:0]           fifo_high_watermark;
     logic [15:0]           buffered_packet_count;
     int                    failed;
 
@@ -49,6 +50,7 @@ module market_parser_cmac_axis_rx_bridge_tb;
         .overflow_packet_count(overflow_packet_count),
         .dropped_beat_count   (dropped_beat_count),
         .fifo_level           (fifo_level),
+        .fifo_high_watermark  (fifo_high_watermark),
         .buffered_packet_count(buffered_packet_count)
     );
 
@@ -102,6 +104,24 @@ module market_parser_cmac_axis_rx_bridge_tb;
         end
     endtask
 
+    task automatic send_packet_contiguous(input int beats,
+                                          input logic [DATA_WIDTH-1:0] base);
+        @(negedge clk);
+        for (int idx = 0; idx < beats; idx++) begin
+            rx_axis_tvalid = 1'b1;
+            rx_axis_tdata  = base + DATA_WIDTH'(idx);
+            rx_axis_tkeep  = '1;
+            rx_axis_tlast  = (idx == beats - 1);
+            rx_axis_tuser  = 1'b0;
+            @(negedge clk);
+        end
+        rx_axis_tvalid = 1'b0;
+        rx_axis_tdata  = '0;
+        rx_axis_tkeep  = '0;
+        rx_axis_tlast  = 1'b0;
+        rx_axis_tuser  = 1'b0;
+    endtask
+
     task automatic expect_beat(input logic [DATA_WIDTH-1:0] data,
                                input logic                  last,
                                input logic                  user);
@@ -130,6 +150,7 @@ module market_parser_cmac_axis_rx_bridge_tb;
         check(accepted_packet_count == 32'd1, "one complete packet accepted");
         check(buffered_packet_count == 16'd1, "one complete packet buffered");
         check(fifo_level == 16'd3, "three packet beats buffered");
+        check(fifo_high_watermark == 16'd3, "FIFO high watermark records occupancy");
         expect_beat(64'h1000, 1'b0, 1'b0);
         expect_beat(64'h1001, 1'b0, 1'b0);
         expect_beat(64'h1002, 1'b1, 1'b0);
@@ -146,11 +167,34 @@ module market_parser_cmac_axis_rx_bridge_tb;
         check(dropped_beat_count == 32'd5, "overflow dropped beats counted");
         check(buffered_packet_count == 16'd0, "no complete packet after overflow");
         check(fifo_level == 16'd0, "partial packet rolled back on overflow");
+        check(fifo_high_watermark == 16'd4, "overflow run records full FIFO watermark");
 
         send_packet(1, 64'h3000);
         repeat (2) @(negedge clk);
         check(accepted_packet_count == 32'd1, "bridge recovers after overflow");
         expect_beat(64'h3000, 1'b1, 1'b0);
+
+        reset_dut();
+        send_packet_contiguous(4, 64'h4000);
+        repeat (2) @(negedge clk);
+        check(accepted_packet_count == 32'd1, "full-depth contiguous packet accepted");
+        check(overflow_packet_count == 32'd0, "full-depth packet does not overflow");
+        check(fifo_high_watermark == 16'd4, "contiguous packet reaches full-depth watermark");
+        for (int idx = 0; idx < 4; idx++) begin
+            expect_beat(64'h4000 + 64'(idx), idx == 3, 1'b0);
+        end
+
+        reset_dut();
+        send_packet_contiguous(2, 64'h5000);
+        send_packet_contiguous(3, 64'h6000);
+        repeat (2) @(negedge clk);
+        check(accepted_packet_count == 32'd1, "complete packet retained before later overflow");
+        check(overflow_packet_count == 32'd1, "later contiguous overflow counted once");
+        check(dropped_beat_count == 32'd3, "only overflowing packet beats are dropped");
+        check(fifo_level == 16'd2, "overflow rollback preserves earlier complete packet");
+        check(buffered_packet_count == 16'd1, "earlier complete packet remains available");
+        expect_beat(64'h5000, 1'b0, 1'b0);
+        expect_beat(64'h5001, 1'b1, 1'b0);
 
         $display("MARKET PARSER CMAC AXIS RX BRIDGE TESTS");
         $display("Tests failed: %0d", failed);

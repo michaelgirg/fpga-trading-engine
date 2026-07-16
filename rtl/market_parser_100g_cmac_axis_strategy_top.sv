@@ -60,6 +60,7 @@ module market_parser_100g_cmac_axis_strategy_top #(
     output logic [31:0]       cmac_axis_overflow_packet_count,
     output logic [31:0]       cmac_axis_dropped_beat_count,
     output logic [15:0]       cmac_axis_fifo_level,
+    output logic [15:0]       cmac_axis_fifo_high_watermark,
     output logic [15:0]       cmac_axis_buffered_packet_count,
 
     output logic [31:0]       cmac_accepted_frame_count,
@@ -103,6 +104,7 @@ module market_parser_100g_cmac_axis_strategy_top #(
         .overflow_packet_count(cmac_axis_overflow_packet_count),
         .dropped_beat_count   (cmac_axis_dropped_beat_count),
         .fifo_level           (cmac_axis_fifo_level),
+        .fifo_high_watermark  (cmac_axis_fifo_high_watermark),
         .buffered_packet_count(cmac_axis_buffered_packet_count)
     );
 
@@ -125,6 +127,11 @@ module market_parser_100g_cmac_axis_strategy_top #(
         .s_axis_cmac_rx_tkeep           (parser_rx_tkeep),
         .s_axis_cmac_rx_tlast           (parser_rx_tlast),
         .s_axis_cmac_rx_tuser_bad_frame (parser_rx_tuser_bad_frame),
+        .cmac_axis_accepted_packet_count_status(cmac_axis_accepted_packet_count),
+        .cmac_axis_overflow_packet_count_status(cmac_axis_overflow_packet_count),
+        .cmac_axis_dropped_beat_count_status(cmac_axis_dropped_beat_count),
+        .cmac_axis_fifo_level_status    (cmac_axis_fifo_level),
+        .cmac_axis_fifo_high_watermark_status(cmac_axis_fifo_high_watermark),
         .quote_valid                    (quote_valid),
         .quote_ready                    (quote_ready),
         .quote_stock_locate             (quote_stock_locate),

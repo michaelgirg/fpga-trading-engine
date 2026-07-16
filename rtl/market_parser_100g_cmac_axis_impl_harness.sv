@@ -41,6 +41,7 @@ module market_parser_100g_cmac_axis_impl_harness (
     (* keep = "true" *) logic [31:0] cmac_axis_overflow_packet_count;
     (* keep = "true" *) logic [31:0] cmac_axis_dropped_beat_count;
     (* keep = "true" *) logic [15:0] cmac_axis_fifo_level;
+    (* keep = "true" *) logic [15:0] cmac_axis_fifo_high_watermark;
     (* keep = "true" *) logic [15:0] cmac_axis_buffered_packet_count;
 
     (* keep = "true" *) logic [31:0] cmac_accepted_frame_count;
@@ -165,6 +166,7 @@ module market_parser_100g_cmac_axis_impl_harness (
         .cmac_axis_overflow_packet_count(cmac_axis_overflow_packet_count),
         .cmac_axis_dropped_beat_count   (cmac_axis_dropped_beat_count),
         .cmac_axis_fifo_level           (cmac_axis_fifo_level),
+        .cmac_axis_fifo_high_watermark  (cmac_axis_fifo_high_watermark),
         .cmac_axis_buffered_packet_count(cmac_axis_buffered_packet_count),
         .cmac_accepted_frame_count      (cmac_accepted_frame_count),
         .cmac_dropped_frame_count       (cmac_dropped_frame_count),
@@ -189,7 +191,7 @@ module market_parser_100g_cmac_axis_impl_harness (
         end else begin
             status_sample <= {
                 cmac_axis_accepted_packet_count[3:0],
-                cmac_axis_fifo_level[3:0],
+                cmac_axis_fifo_level[3:0] ^ cmac_axis_fifo_high_watermark[3:0],
                 cmac_accepted_frame_count[3:0],
                 cmac_payload_packet_count[3:0],
                 feed_gap_count[3:0],

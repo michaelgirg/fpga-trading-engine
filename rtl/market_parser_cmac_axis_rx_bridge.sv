@@ -35,6 +35,7 @@ module market_parser_cmac_axis_rx_bridge #(
     output logic [31:0]                overflow_packet_count,
     output logic [31:0]                dropped_beat_count,
     output logic [15:0]                fifo_level,
+    output logic [15:0]                fifo_high_watermark,
     output logic [15:0]                buffered_packet_count
 );
     localparam int PTR_WIDTH = (FIFO_DEPTH <= 1) ? 1 : $clog2(FIFO_DEPTH);
@@ -56,6 +57,7 @@ module market_parser_cmac_axis_rx_bridge #(
     logic [PTR_WIDTH:0]   count_r;
     logic [PTR_WIDTH:0]   partial_count_r;
     logic [PTR_WIDTH:0]   complete_packet_count_r;
+    logic [PTR_WIDTH:0]   high_watermark_r;
 
     logic                 dropping_packet_r;
     logic [31:0]          accepted_packet_count_r;
@@ -76,6 +78,7 @@ module market_parser_cmac_axis_rx_bridge #(
     assign overflow_packet_count = overflow_packet_count_r;
     assign dropped_beat_count    = dropped_beat_count_r;
     assign fifo_level            = 16'(count_r);
+    assign fifo_high_watermark   = 16'(high_watermark_r);
     assign buffered_packet_count = 16'(complete_packet_count_r);
 
     function automatic logic [PTR_WIDTH-1:0] inc_ptr(input logic [PTR_WIDTH-1:0] ptr);
@@ -102,6 +105,7 @@ module market_parser_cmac_axis_rx_bridge #(
             count_r                 <= '0;
             partial_count_r         <= '0;
             complete_packet_count_r <= '0;
+            high_watermark_r         <= '0;
             dropping_packet_r       <= 1'b0;
             accepted_packet_count_r <= '0;
             overflow_packet_count_r <= '0;
@@ -165,6 +169,9 @@ module market_parser_cmac_axis_rx_bridge #(
             count_r                 <= count_next;
             partial_count_r         <= partial_next;
             complete_packet_count_r <= complete_next;
+            if (count_next > high_watermark_r) begin
+                high_watermark_r <= count_next;
+            end
             dropping_packet_r       <= dropping_next;
         end
     end

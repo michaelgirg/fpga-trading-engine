@@ -33,6 +33,12 @@ module market_parser_512_system #(
     input  wire logic [31:0]  feed_suppressed_event_count_status,
     output logic              feed_recover_pulse,
 
+    input  wire logic [31:0]  cmac_axis_accepted_packet_count_status,
+    input  wire logic [31:0]  cmac_axis_overflow_packet_count_status,
+    input  wire logic [31:0]  cmac_axis_dropped_beat_count_status,
+    input  wire logic [15:0]  cmac_axis_fifo_level_status,
+    input  wire logic [15:0]  cmac_axis_fifo_high_watermark_status,
+
     input  wire logic [11:0]  s_axi_awaddr,
     input  wire logic         s_axi_awvalid,
     output logic              s_axi_awready,
@@ -168,6 +174,11 @@ module market_parser_512_system #(
         .feed_healthy                   (feed_healthy_status),
         .feed_gap_count                 (feed_gap_count_status),
         .feed_suppressed_event_count    (feed_suppressed_event_count_status),
+        .cmac_axis_accepted_packet_count(cmac_axis_accepted_packet_count_status),
+        .cmac_axis_overflow_packet_count(cmac_axis_overflow_packet_count_status),
+        .cmac_axis_dropped_beat_count   (cmac_axis_dropped_beat_count_status),
+        .cmac_axis_fifo_level           (cmac_axis_fifo_level_status),
+        .cmac_axis_fifo_high_watermark  (cmac_axis_fifo_high_watermark_status),
         .parser_enable                  (parser_enable),
         .clear_counters_pulse           (clear_counters_pulse),
         .feed_recover_pulse             (feed_recover_pulse)

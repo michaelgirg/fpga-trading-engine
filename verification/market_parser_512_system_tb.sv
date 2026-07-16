@@ -25,6 +25,10 @@ module market_parser_512_system_tb #(
     localparam logic [11:0] REG_FEED_STATUS      = 12'h0b0;
     localparam logic [11:0] REG_FEED_GAP_COUNT   = 12'h0b4;
     localparam logic [11:0] REG_FEED_SUPPRESSED  = 12'h0b8;
+    localparam logic [11:0] REG_CMAC_AXIS_FIFO   = 12'h0bc;
+    localparam logic [11:0] REG_CMAC_AXIS_ACCEPT = 12'h0c0;
+    localparam logic [11:0] REG_CMAC_AXIS_OVFL   = 12'h0c4;
+    localparam logic [11:0] REG_CMAC_AXIS_DROP   = 12'h0c8;
 
     typedef logic [7:0] byte_t;
 
@@ -67,6 +71,11 @@ module market_parser_512_system_tb #(
     logic [31:0] feed_suppressed_event_count_status;
     logic        feed_recover_pulse;
     logic        feed_recover_seen_r;
+    logic [31:0] cmac_axis_accepted_packet_count_status;
+    logic [31:0] cmac_axis_overflow_packet_count_status;
+    logic [31:0] cmac_axis_dropped_beat_count_status;
+    logic [15:0] cmac_axis_fifo_level_status;
+    logic [15:0] cmac_axis_fifo_high_watermark_status;
 
     int passed;
     int failed;
@@ -92,6 +101,11 @@ module market_parser_512_system_tb #(
         .feed_gap_count_status     (feed_gap_count_status),
         .feed_suppressed_event_count_status(feed_suppressed_event_count_status),
         .feed_recover_pulse        (feed_recover_pulse),
+        .cmac_axis_accepted_packet_count_status(cmac_axis_accepted_packet_count_status),
+        .cmac_axis_overflow_packet_count_status(cmac_axis_overflow_packet_count_status),
+        .cmac_axis_dropped_beat_count_status(cmac_axis_dropped_beat_count_status),
+        .cmac_axis_fifo_level_status(cmac_axis_fifo_level_status),
+        .cmac_axis_fifo_high_watermark_status(cmac_axis_fifo_high_watermark_status),
         .s_axi_awaddr              (s_axi_awaddr),
         .s_axi_awvalid             (s_axi_awvalid),
         .s_axi_awready             (s_axi_awready),
@@ -141,6 +155,11 @@ module market_parser_512_system_tb #(
         feed_healthy_status       = 1'b1;
         feed_gap_count_status     = 32'd0;
         feed_suppressed_event_count_status = 32'd0;
+        cmac_axis_accepted_packet_count_status = 32'd0;
+        cmac_axis_overflow_packet_count_status = 32'd0;
+        cmac_axis_dropped_beat_count_status = 32'd0;
+        cmac_axis_fifo_level_status = 16'd0;
+        cmac_axis_fifo_high_watermark_status = 16'd0;
         s_axi_awaddr              = '0;
         s_axi_awvalid             = 1'b0;
         s_axi_wdata               = '0;
@@ -269,6 +288,23 @@ module market_parser_512_system_tb #(
         check(value == 32'd1, "feed health register");
 
         @(negedge clk);
+        cmac_axis_accepted_packet_count_status = 32'd11;
+        cmac_axis_overflow_packet_count_status = 32'd2;
+        cmac_axis_dropped_beat_count_status = 32'd7;
+        cmac_axis_fifo_level_status = 16'd3;
+        cmac_axis_fifo_high_watermark_status = 16'd9;
+        axi_read(REG_CMAC_AXIS_FIFO, value);
+        check(value == {16'd9, 16'd3}, "CMAC AXIS FIFO level and high watermark readable");
+        axi_read(REG_CMAC_AXIS_ACCEPT, value);
+        check(value == 32'd11, "CMAC AXIS accepted-packet counter readable");
+        axi_read(REG_CMAC_AXIS_OVFL, value);
+        check(value == 32'd2, "CMAC AXIS overflow counter readable");
+        axi_read(REG_CMAC_AXIS_DROP, value);
+        check(value == 32'd7, "CMAC AXIS dropped-beat counter readable");
+        axi_read(REG_STATUS, value);
+        check(value[6], "aggregate status reports CMAC AXIS overflow");
+
+        @(negedge clk);
         feed_healthy_status = 1'b0;
         feed_gap_count_status = 32'd2;
         feed_suppressed_event_count_status = 32'd7;
@@ -330,6 +366,14 @@ module market_parser_512_system_tb #(
         check(value == 32'd0, "feed gap counter clears via baseline");
         axi_read(REG_FEED_SUPPRESSED, value);
         check(value == 32'd0, "suppressed-event counter clears via baseline");
+        axi_read(REG_CMAC_AXIS_ACCEPT, value);
+        check(value == 32'd0, "CMAC AXIS accepted counter clears via baseline");
+        axi_read(REG_CMAC_AXIS_OVFL, value);
+        check(value == 32'd0, "CMAC AXIS overflow counter clears via baseline");
+        axi_read(REG_CMAC_AXIS_DROP, value);
+        check(value == 32'd0, "CMAC AXIS dropped-beat counter clears via baseline");
+        axi_read(REG_STATUS, value);
+        check(!value[6], "counter clear removes aggregate overflow status");
         axi_read(REG_ERROR_FLAGS, value);
         check(value == 32'd0, "sticky error flags clear with counter clear");
         axi_read(REG_STATUS, value);
