@@ -17,7 +17,8 @@ module market_parser_100g_multi_strategy_top #(
     parameter int          EXTRACTION_WINDOW_BYTES  = 256,
     parameter int          EVENT_FIFO_DEPTH         = 16,
     parameter int          ORDER_TABLE_DEPTH        = 16,
-    parameter logic [31:0] BUILD_ID                 = 32'h4d50_5253
+    parameter logic [31:0] BUILD_ID                 = 32'h4d50_5253,
+    parameter logic [31:0] FEED_TIMEOUT_CYCLES_DEFAULT = 32'd322_400_000
 ) (
     input  wire logic         clk,
     input  wire logic         rst,
@@ -79,7 +80,9 @@ module market_parser_100g_multi_strategy_top #(
 
     output logic              feed_healthy,
     output logic [31:0]       feed_gap_count,
-    output logic [31:0]       feed_suppressed_event_count
+    output logic [31:0]       feed_suppressed_event_count,
+    output logic [31:0]       feed_idle_cycles,
+    output logic [31:0]       feed_timeout_count
 );
     logic         event_valid;
     logic         event_ready;
@@ -98,33 +101,50 @@ module market_parser_100g_multi_strategy_top #(
     logic [31:0]  feed_suppressed_event_count_r;
     logic         feed_recover_sw;
     logic         feed_recover_i;
+    logic         feed_fault_i;
+    logic         watchdog_timeout_i;
+    logic [31:0]  feed_idle_cycles_r;
+    logic [31:0]  feed_timeout_count_r;
+    logic [31:0]  feed_timeout_cycles_config;
+    logic [31:0]  feed_timeout_cycles_prev_r;
+    logic [31:0]  accepted_packet_count_seen_r;
 
     assign feed_recover_i = feed_recover || feed_recover_sw;
+    assign watchdog_timeout_i = feed_healthy_r && !feed_recover_i && !feed_fault &&
+                                (feed_timeout_cycles_config == feed_timeout_cycles_prev_r) &&
+                                (feed_timeout_cycles_config != 32'd0) &&
+                                (cmac_axis_accepted_packet_count_status ==
+                                 accepted_packet_count_seen_r) &&
+                                (feed_idle_cycles_r + 1'b1 >=
+                                 feed_timeout_cycles_config);
+    assign feed_fault_i = feed_fault || watchdog_timeout_i;
 
     assign gap_event_i = event_valid &&
                          ((event_data[239:232] & FLAG_GAP) != 8'h00);
     assign event_ready = feed_recover_i ? 1'b0 :
-                         ((!feed_healthy_r || gap_event_i || feed_fault) ?
+                         ((!feed_healthy_r || gap_event_i || feed_fault_i) ?
                           1'b1 : book_event_ready);
     assign event_fire_i = event_valid && event_ready;
     assign book_event_valid = event_valid && feed_healthy_r &&
-                              !gap_event_i && !feed_fault && !feed_recover_i;
+                              !gap_event_i && !feed_fault_i && !feed_recover_i;
     assign book_rst = rst || feed_recover_i ||
-                      feed_fault ||
+                      feed_fault_i ||
                       (event_fire_i && gap_event_i && feed_healthy_r);
 
     assign quote_valid = feed_healthy_r && !gap_event_i &&
-                         !feed_fault && !feed_recover_i && book_quote_valid;
+                         !feed_fault_i && !feed_recover_i && book_quote_valid;
     assign feed_healthy = feed_healthy_r;
     assign feed_gap_count = feed_gap_count_r;
     assign feed_suppressed_event_count = feed_suppressed_event_count_r;
+    assign feed_idle_cycles = feed_idle_cycles_r;
+    assign feed_timeout_count = feed_timeout_count_r;
 
     always_ff @(posedge clk) begin
         if (rst) begin
             feed_healthy_r                <= 1'b1;
             feed_gap_count_r              <= '0;
             feed_suppressed_event_count_r <= '0;
-        end else if (feed_fault) begin
+        end else if (feed_fault_i) begin
             feed_healthy_r <= 1'b0;
             if (event_fire_i) begin
                 feed_suppressed_event_count_r <= feed_suppressed_event_count_r + 1'b1;
@@ -142,6 +162,34 @@ module market_parser_100g_multi_strategy_top #(
         end
     end
 
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            accepted_packet_count_seen_r <= cmac_axis_accepted_packet_count_status;
+            feed_timeout_cycles_prev_r   <= FEED_TIMEOUT_CYCLES_DEFAULT;
+            feed_idle_cycles_r           <= '0;
+            feed_timeout_count_r         <= '0;
+        end else begin
+            accepted_packet_count_seen_r <= cmac_axis_accepted_packet_count_status;
+            feed_timeout_cycles_prev_r   <= feed_timeout_cycles_config;
+
+            if (feed_recover_i ||
+                (feed_timeout_cycles_config != feed_timeout_cycles_prev_r)) begin
+                feed_idle_cycles_r <= '0;
+            end else if (!feed_healthy_r || feed_fault) begin
+                feed_idle_cycles_r <= feed_idle_cycles_r;
+            end else if (cmac_axis_accepted_packet_count_status !=
+                         accepted_packet_count_seen_r) begin
+                feed_idle_cycles_r <= '0;
+            end else if (feed_idle_cycles_r != 32'hffff_ffff) begin
+                feed_idle_cycles_r <= feed_idle_cycles_r + 1'b1;
+            end
+
+            if (watchdog_timeout_i) begin
+                feed_timeout_count_r <= feed_timeout_count_r + 1'b1;
+            end
+        end
+    end
+
     market_parser_100g_cmac_system #(
         .FEED_UDP_PORT           (FEED_UDP_PORT),
         .STRIP_FIFO_DEPTH        (STRIP_FIFO_DEPTH),
@@ -149,7 +197,8 @@ module market_parser_100g_multi_strategy_top #(
         .DESC_FIFO_DEPTH         (DESC_FIFO_DEPTH),
         .EXTRACTION_WINDOW_BYTES (EXTRACTION_WINDOW_BYTES),
         .EVENT_FIFO_DEPTH        (EVENT_FIFO_DEPTH),
-        .BUILD_ID                (BUILD_ID)
+        .BUILD_ID                (BUILD_ID),
+        .FEED_TIMEOUT_CYCLES_DEFAULT(FEED_TIMEOUT_CYCLES_DEFAULT)
     ) ingress_parser_i (
         .clk                            (clk),
         .rst                            (rst),
@@ -168,7 +217,10 @@ module market_parser_100g_multi_strategy_top #(
         .feed_healthy_status            (feed_healthy_r),
         .feed_gap_count_status          (feed_gap_count_r),
         .feed_suppressed_event_count_status(feed_suppressed_event_count_r),
+        .feed_idle_cycles_status        (feed_idle_cycles_r),
+        .feed_timeout_count_status      (feed_timeout_count_r),
         .feed_recover_pulse             (feed_recover_sw),
+        .feed_timeout_cycles_config     (feed_timeout_cycles_config),
         .cmac_axis_accepted_packet_count_status(cmac_axis_accepted_packet_count_status),
         .cmac_axis_overflow_packet_count_status(cmac_axis_overflow_packet_count_status),
         .cmac_axis_dropped_beat_count_status(cmac_axis_dropped_beat_count_status),

@@ -21,6 +21,9 @@ module market_parser_100g_multi_strategy_top_tb #(
     localparam logic [11:0] REG_CMAC_AXIS_ACCEPT = 12'h0c0;
     localparam logic [11:0] REG_CMAC_AXIS_OVFL  = 12'h0c4;
     localparam logic [11:0] REG_CMAC_AXIS_DROP  = 12'h0c8;
+    localparam logic [11:0] REG_FEED_IDLE_CYCLES = 12'h0cc;
+    localparam logic [11:0] REG_FEED_TIMEOUT_CFG = 12'h0d0;
+    localparam logic [11:0] REG_FEED_TIMEOUT_CNT = 12'h0d4;
 
 `include "verification/vectors/multi_symbol_meta.svh"
 
@@ -73,6 +76,8 @@ module market_parser_100g_multi_strategy_top_tb #(
     logic feed_healthy;
     logic [31:0] feed_gap_count;
     logic [31:0] feed_suppressed_event_count;
+    logic [31:0] feed_idle_cycles;
+    logic [31:0] feed_timeout_count;
     logic [31:0] cmac_axis_accepted_packet_count;
     logic [31:0] cmac_axis_overflow_packet_count;
     logic [31:0] cmac_axis_dropped_beat_count;
@@ -150,7 +155,9 @@ module market_parser_100g_multi_strategy_top_tb #(
         .book_quote_update_count        (book_quote_update_count),
         .feed_healthy                   (feed_healthy),
         .feed_gap_count                 (feed_gap_count),
-        .feed_suppressed_event_count    (feed_suppressed_event_count)
+        .feed_suppressed_event_count    (feed_suppressed_event_count),
+        .feed_idle_cycles               (feed_idle_cycles),
+        .feed_timeout_count             (feed_timeout_count)
     );
 
     initial begin : generate_clock
@@ -445,6 +452,36 @@ module market_parser_100g_multi_strategy_top_tb #(
         check(feed_gap_count == 32'd1, "recovery does not erase fault history");
         check(feed_suppressed_event_count == 32'd3,
               "recovery does not erase suppression history");
+
+        axi_write(REG_FEED_TIMEOUT_CFG, 32'd32);
+        axi_read(REG_FEED_TIMEOUT_CFG, reg_value);
+        check(reg_value == 32'd32, "software configures feed liveness timeout");
+        repeat (36) @(negedge clk);
+        check(!feed_healthy, "packet inactivity invalidates feed");
+        check(feed_timeout_count == 32'd1, "feed timeout counted once");
+        check(feed_idle_cycles >= 32'd32,
+              $sformatf("idle counter captures timeout interval (observed %0d)",
+                        feed_idle_cycles));
+        check(feed_gap_count == 32'd1,
+              "liveness timeout does not masquerade as sequence gap");
+        check(book_accepted_event_count == 32'd0,
+              "liveness timeout clears active book state");
+        axi_read(REG_FEED_IDLE_CYCLES, reg_value);
+        check(reg_value >= 32'd32,
+              $sformatf("AXI-Lite exposes feed idle cycles (observed %0d)", reg_value));
+        axi_read(REG_FEED_TIMEOUT_CNT, reg_value);
+        check(reg_value == 32'd1, "AXI-Lite exposes feed timeout count");
+        axi_read(REG_FEED_STATUS, reg_value);
+        check(reg_value == 32'd2, "feed status identifies liveness timeout");
+        axi_read(REG_STATUS, reg_value);
+        check(!reg_value[5] && !reg_value[6] && reg_value[7],
+              "aggregate status distinguishes timeout from bridge overflow");
+        recover_feed();
+        check(feed_healthy, "software recovery rearms feed after timeout");
+        check(feed_idle_cycles <= 32'd2, "recovery restarts liveness timer");
+        axi_read(REG_STATUS, reg_value);
+        check(reg_value[5] && !reg_value[6] && reg_value[7],
+              "timeout recovery preserves timeout history");
 
         send_oversize_packet(17);
         repeat (4) @(posedge clk);

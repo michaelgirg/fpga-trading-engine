@@ -18,7 +18,8 @@ module market_parser_100g_cmac_axis_multi_strategy_top #(
     parameter int          EXTRACTION_WINDOW_BYTES  = 256,
     parameter int          EVENT_FIFO_DEPTH         = 16,
     parameter int          ORDER_TABLE_DEPTH        = 16,
-    parameter logic [31:0] BUILD_ID                 = 32'h4d50_5253
+    parameter logic [31:0] BUILD_ID                 = 32'h4d50_5253,
+    parameter logic [31:0] FEED_TIMEOUT_CYCLES_DEFAULT = 32'd322_400_000
 ) (
     input  wire logic         clk,
     input  wire logic         rst,
@@ -79,7 +80,9 @@ module market_parser_100g_cmac_axis_multi_strategy_top #(
 
     output logic              feed_healthy,
     output logic [31:0]       feed_gap_count,
-    output logic [31:0]       feed_suppressed_event_count
+    output logic [31:0]       feed_suppressed_event_count,
+    output logic [31:0]       feed_idle_cycles,
+    output logic [31:0]       feed_timeout_count
 );
     logic         parser_rx_tvalid;
     logic         parser_rx_tready;
@@ -126,7 +129,8 @@ module market_parser_100g_cmac_axis_multi_strategy_top #(
         .EXTRACTION_WINDOW_BYTES(EXTRACTION_WINDOW_BYTES),
         .EVENT_FIFO_DEPTH       (EVENT_FIFO_DEPTH),
         .ORDER_TABLE_DEPTH      (ORDER_TABLE_DEPTH),
-        .BUILD_ID               (BUILD_ID)
+        .BUILD_ID               (BUILD_ID),
+        .FEED_TIMEOUT_CYCLES_DEFAULT(FEED_TIMEOUT_CYCLES_DEFAULT)
     ) multi_strategy_top_i (
         .clk                            (clk),
         .rst                            (rst),
@@ -181,7 +185,9 @@ module market_parser_100g_cmac_axis_multi_strategy_top #(
         .book_quote_update_count        (book_quote_update_count),
         .feed_healthy                   (feed_healthy),
         .feed_gap_count                 (feed_gap_count),
-        .feed_suppressed_event_count    (feed_suppressed_event_count)
+        .feed_suppressed_event_count    (feed_suppressed_event_count),
+        .feed_idle_cycles               (feed_idle_cycles),
+        .feed_timeout_count             (feed_timeout_count)
     );
 
 endmodule

@@ -379,10 +379,11 @@ path. The default bridge depth is 16 beats to match the current
 once the board traffic profile and acceptable overflow policy are fixed.
 
 `market_parser_100g_cmac_axis_multi_strategy_top` uses the same packet bridge
-for the guarded multi-symbol book bank. It exposes feed health, gap, suppressed
-event, bridge, ingress, and book counters while keeping generated CMAC IP out of
-the source-level boundary. `market_parser_100g_cmac_axis_impl_harness` retains
-this hierarchy for routed timing with a compact external I/O surface.
+for the guarded multi-symbol book bank. It exposes feed health, sequence-gap,
+packet-loss, liveness-timeout, ingress, and book telemetry while keeping
+generated CMAC IP out of the source-level boundary.
+`market_parser_100g_cmac_axis_impl_harness` retains this hierarchy for routed
+timing with a compact external I/O surface.
 
 The bridge management registers expose current FIFO occupancy, a since-reset
 occupancy high-water mark, accepted packets, overflowing packets, and dropped
@@ -396,6 +397,12 @@ when rollback begins. That event immediately marks the feed unhealthy, blocks
 quotes, clears every bounded book, and leaves the overflow counters intact for
 diagnosis. Software must explicitly rearm the feed after correcting or
 accepting the loss condition.
+
+The guarded path also monitors cycles since the last complete CMAC packet. A
+programmable AXI-Lite threshold converts prolonged packet inactivity into the
+same fail-closed response while retaining a separate timeout counter and cause
+bit. A zero threshold disables this check; configuration changes and software
+recovery restart the interval.
 
 ## CMAC AXIS Boundary Timing
 
@@ -421,8 +428,9 @@ board design, but it is the right source-level boundary for the generated
 `cmac_usplus` AXIS template.
 
 The guarded four-symbol boundary includes the same no-`tready` packet bridge,
-plus sequence-gap invalidation, AXI-Lite feed health/recovery, four independent
-bounded books, ordered quote arbitration, and AXI-Lite bridge-health telemetry.
+plus sequence-gap and packet-inactivity invalidation, AXI-Lite feed
+health/recovery, four independent bounded books, ordered quote arbitration,
+and AXI-Lite bridge-health telemetry.
 It closes through 2.500 ns / 400 MHz with 66 ps of setup margin and uses zero
 BRAM tiles and DSPs.
 

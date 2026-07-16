@@ -95,6 +95,8 @@ checks that the ingress side accepts the burst without stalls.
   occupancy high-water telemetry, and packet-atomic overflow rollback.
 - Immediate fail-closed feed invalidation and bounded-book clearing when the
   no-`tready` CMAC packet buffer loses a packet.
+- Configurable feed-liveness timeout with a saturating idle-cycle counter,
+  distinct fault history, fail-closed book clearing, and software recovery.
 - Same normalized parser output checked against generated reference vectors.
 - First-beat parallel boundary scanner for MoldUDP64 sequence/message count and
   early ITCH message-length candidates.

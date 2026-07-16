@@ -29,6 +29,9 @@ module market_parser_512_system_tb #(
     localparam logic [11:0] REG_CMAC_AXIS_ACCEPT = 12'h0c0;
     localparam logic [11:0] REG_CMAC_AXIS_OVFL   = 12'h0c4;
     localparam logic [11:0] REG_CMAC_AXIS_DROP   = 12'h0c8;
+    localparam logic [11:0] REG_FEED_IDLE_CYCLES = 12'h0cc;
+    localparam logic [11:0] REG_FEED_TIMEOUT_CFG = 12'h0d0;
+    localparam logic [11:0] REG_FEED_TIMEOUT_CNT = 12'h0d4;
 
     typedef logic [7:0] byte_t;
 
@@ -69,7 +72,10 @@ module market_parser_512_system_tb #(
     logic        feed_healthy_status;
     logic [31:0] feed_gap_count_status;
     logic [31:0] feed_suppressed_event_count_status;
+    logic [31:0] feed_idle_cycles_status;
+    logic [31:0] feed_timeout_count_status;
     logic        feed_recover_pulse;
+    logic [31:0] feed_timeout_cycles_config;
     logic        feed_recover_seen_r;
     logic [31:0] cmac_axis_accepted_packet_count_status;
     logic [31:0] cmac_axis_overflow_packet_count_status;
@@ -82,7 +88,9 @@ module market_parser_512_system_tb #(
 
     byte_t mixed_packet_mem[MIXED_PACKET_BYTES];
 
-    market_parser_512_system DUT (
+    market_parser_512_system #(
+        .FEED_TIMEOUT_CYCLES_DEFAULT(32'd1234)
+    ) DUT (
         .clk                       (clk),
         .rst                       (rst),
         .s_axis_rx_tvalid          (s_axis_rx_tvalid),
@@ -100,7 +108,10 @@ module market_parser_512_system_tb #(
         .feed_healthy_status       (feed_healthy_status),
         .feed_gap_count_status     (feed_gap_count_status),
         .feed_suppressed_event_count_status(feed_suppressed_event_count_status),
+        .feed_idle_cycles_status   (feed_idle_cycles_status),
+        .feed_timeout_count_status (feed_timeout_count_status),
         .feed_recover_pulse        (feed_recover_pulse),
+        .feed_timeout_cycles_config(feed_timeout_cycles_config),
         .cmac_axis_accepted_packet_count_status(cmac_axis_accepted_packet_count_status),
         .cmac_axis_overflow_packet_count_status(cmac_axis_overflow_packet_count_status),
         .cmac_axis_dropped_beat_count_status(cmac_axis_dropped_beat_count_status),
@@ -155,6 +166,8 @@ module market_parser_512_system_tb #(
         feed_healthy_status       = 1'b1;
         feed_gap_count_status     = 32'd0;
         feed_suppressed_event_count_status = 32'd0;
+        feed_idle_cycles_status = 32'd0;
+        feed_timeout_count_status = 32'd0;
         cmac_axis_accepted_packet_count_status = 32'd0;
         cmac_axis_overflow_packet_count_status = 32'd0;
         cmac_axis_dropped_beat_count_status = 32'd0;
@@ -286,6 +299,13 @@ module market_parser_512_system_tb #(
         check(value[5], "feed health visible in aggregate status");
         axi_read(REG_FEED_STATUS, value);
         check(value == 32'd1, "feed health register");
+        axi_read(REG_FEED_TIMEOUT_CFG, value);
+        check(value == 32'd1234 && feed_timeout_cycles_config == 32'd1234,
+              "feed timeout resets to configured default");
+        axi_write(REG_FEED_TIMEOUT_CFG, 32'd64);
+        axi_read(REG_FEED_TIMEOUT_CFG, value);
+        check(value == 32'd64 && feed_timeout_cycles_config == 32'd64,
+              "feed timeout configuration is software writable");
 
         @(negedge clk);
         cmac_axis_accepted_packet_count_status = 32'd11;
@@ -305,11 +325,21 @@ module market_parser_512_system_tb #(
         check(value[6], "aggregate status reports CMAC AXIS overflow");
 
         @(negedge clk);
+        feed_idle_cycles_status = 32'd19;
+        feed_timeout_count_status = 32'd3;
+        axi_read(REG_FEED_IDLE_CYCLES, value);
+        check(value == 32'd19, "feed idle-cycle telemetry readable");
+        axi_read(REG_FEED_TIMEOUT_CNT, value);
+        check(value == 32'd3, "feed timeout counter readable");
+        axi_read(REG_STATUS, value);
+        check(value[7], "aggregate status reports feed timeout history");
+
+        @(negedge clk);
         feed_healthy_status = 1'b0;
         feed_gap_count_status = 32'd2;
         feed_suppressed_event_count_status = 32'd7;
         axi_read(REG_FEED_STATUS, value);
-        check(value == 32'd0, "unhealthy feed status readable");
+        check(value == 32'd2, "feed status reports unhealthy timeout history");
         axi_read(REG_FEED_GAP_COUNT, value);
         check(value == 32'd2, "feed gap counter readable");
         axi_read(REG_FEED_SUPPRESSED, value);
@@ -366,6 +396,8 @@ module market_parser_512_system_tb #(
         check(value == 32'd0, "feed gap counter clears via baseline");
         axi_read(REG_FEED_SUPPRESSED, value);
         check(value == 32'd0, "suppressed-event counter clears via baseline");
+        axi_read(REG_FEED_TIMEOUT_CNT, value);
+        check(value == 32'd0, "feed timeout counter clears via baseline");
         axi_read(REG_CMAC_AXIS_ACCEPT, value);
         check(value == 32'd0, "CMAC AXIS accepted counter clears via baseline");
         axi_read(REG_CMAC_AXIS_OVFL, value);
@@ -373,7 +405,8 @@ module market_parser_512_system_tb #(
         axi_read(REG_CMAC_AXIS_DROP, value);
         check(value == 32'd0, "CMAC AXIS dropped-beat counter clears via baseline");
         axi_read(REG_STATUS, value);
-        check(!value[6], "counter clear removes aggregate overflow status");
+        check(!value[7] && !value[6],
+              "counter clear removes aggregate timeout and overflow status");
         axi_read(REG_ERROR_FLAGS, value);
         check(value == 32'd0, "sticky error flags clear with counter clear");
         axi_read(REG_STATUS, value);

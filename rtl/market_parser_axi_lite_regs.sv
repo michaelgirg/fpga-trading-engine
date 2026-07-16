@@ -9,7 +9,8 @@
 module market_parser_axi_lite_regs #(
     parameter int ADDR_WIDTH = 12,
     parameter logic [31:0] BUILD_ID = 32'h4d50_5253,
-    parameter int EVENT_FIFO_DEPTH = 16
+    parameter int EVENT_FIFO_DEPTH = 16,
+    parameter logic [31:0] FEED_TIMEOUT_CYCLES_DEFAULT = 32'd0
 ) (
     input  wire logic                   clk,
     input  wire logic                   rst,
@@ -47,6 +48,8 @@ module market_parser_axi_lite_regs #(
     input  wire logic                   feed_healthy,
     input  wire logic [31:0]            feed_gap_count,
     input  wire logic [31:0]            feed_suppressed_event_count,
+    input  wire logic [31:0]            feed_idle_cycles,
+    input  wire logic [31:0]            feed_timeout_count,
     input  wire logic [31:0]            cmac_axis_accepted_packet_count,
     input  wire logic [31:0]            cmac_axis_overflow_packet_count,
     input  wire logic [31:0]            cmac_axis_dropped_beat_count,
@@ -55,7 +58,8 @@ module market_parser_axi_lite_regs #(
 
     output logic                        parser_enable,
     output logic                        clear_counters_pulse,
-    output logic                        feed_recover_pulse
+    output logic                        feed_recover_pulse,
+    output logic [31:0]                 feed_timeout_cycles_config
 );
     localparam logic [11:0] REG_CONTROL          = 12'h000;
     localparam logic [11:0] REG_STATUS           = 12'h004;
@@ -77,6 +81,9 @@ module market_parser_axi_lite_regs #(
     localparam logic [11:0] REG_CMAC_AXIS_ACCEPT = 12'h0c0;
     localparam logic [11:0] REG_CMAC_AXIS_OVFL   = 12'h0c4;
     localparam logic [11:0] REG_CMAC_AXIS_DROP   = 12'h0c8;
+    localparam logic [11:0] REG_FEED_IDLE_CYCLES = 12'h0cc;
+    localparam logic [11:0] REG_FEED_TIMEOUT_CFG = 12'h0d0;
+    localparam logic [11:0] REG_FEED_TIMEOUT_CNT = 12'h0d4;
 
     logic [ADDR_WIDTH-1:0] awaddr_r;
     logic [31:0]           wdata_r;
@@ -99,11 +106,13 @@ module market_parser_axi_lite_regs #(
     logic [31:0]           event_fifo_backpressure_count_base_r;
     logic [31:0]           feed_gap_count_base_r;
     logic [31:0]           feed_suppressed_event_count_base_r;
+    logic [31:0]           feed_timeout_count_base_r;
     logic [31:0]           cmac_axis_accepted_packet_count_base_r;
     logic [31:0]           cmac_axis_overflow_packet_count_base_r;
     logic [31:0]           cmac_axis_dropped_beat_count_base_r;
     logic                  clear_counters_pulse_r;
     logic                  feed_recover_pulse_r;
+    logic [31:0]           feed_timeout_cycles_r;
 
     assign s_axi_awready = !aw_hold_r && !bvalid_r;
     assign s_axi_wready  = !w_hold_r && !bvalid_r;
@@ -117,6 +126,7 @@ module market_parser_axi_lite_regs #(
     assign parser_enable       = parser_enable_r;
     assign clear_counters_pulse = clear_counters_pulse_r;
     assign feed_recover_pulse   = feed_recover_pulse_r;
+    assign feed_timeout_cycles_config = feed_timeout_cycles_r;
 
     function automatic logic [31:0] apply_wstrb(
         input logic [31:0] old_value,
@@ -146,7 +156,8 @@ module market_parser_axi_lite_regs #(
             end
             REG_STATUS: begin
                 read_reg = {
-                    25'd0,
+                    24'd0,
+                    feed_timeout_count != feed_timeout_count_base_r,
                     cmac_axis_overflow_packet_count != cmac_axis_overflow_packet_count_base_r,
                     feed_healthy,
                     event_out_valid,
@@ -190,7 +201,11 @@ module market_parser_axi_lite_regs #(
                 read_reg = event_fifo_backpressure_count - event_fifo_backpressure_count_base_r;
             end
             REG_FEED_STATUS: begin
-                read_reg = {31'd0, feed_healthy};
+                read_reg = {
+                    30'd0,
+                    feed_timeout_count != feed_timeout_count_base_r,
+                    feed_healthy
+                };
             end
             REG_FEED_GAP_COUNT: begin
                 read_reg = feed_gap_count - feed_gap_count_base_r;
@@ -209,6 +224,15 @@ module market_parser_axi_lite_regs #(
             end
             REG_CMAC_AXIS_DROP: begin
                 read_reg = cmac_axis_dropped_beat_count - cmac_axis_dropped_beat_count_base_r;
+            end
+            REG_FEED_IDLE_CYCLES: begin
+                read_reg = feed_idle_cycles;
+            end
+            REG_FEED_TIMEOUT_CFG: begin
+                read_reg = feed_timeout_cycles_r;
+            end
+            REG_FEED_TIMEOUT_CNT: begin
+                read_reg = feed_timeout_count - feed_timeout_count_base_r;
             end
             default: begin
                 read_reg = 32'h0000_0000;
@@ -245,11 +269,13 @@ module market_parser_axi_lite_regs #(
             event_fifo_backpressure_count_base_r  <= '0;
             feed_gap_count_base_r                 <= '0;
             feed_suppressed_event_count_base_r    <= '0;
+            feed_timeout_count_base_r             <= '0;
             cmac_axis_accepted_packet_count_base_r <= '0;
             cmac_axis_overflow_packet_count_base_r <= '0;
             cmac_axis_dropped_beat_count_base_r    <= '0;
             clear_counters_pulse_r                <= 1'b0;
             feed_recover_pulse_r                  <= 1'b0;
+            feed_timeout_cycles_r                 <= FEED_TIMEOUT_CYCLES_DEFAULT;
         end else begin
             write_fire = aw_hold_r && w_hold_r && !bvalid_r;
             do_clear   = 1'b0;
@@ -278,6 +304,12 @@ module market_parser_axi_lite_regs #(
                     do_feed_recover = control_next[2];
                 end else if (write_addr == REG_ERROR_FLAGS) begin
                     sticky_next = sticky_next & ~wdata_r[7:0];
+                end else if (write_addr == REG_FEED_TIMEOUT_CFG) begin
+                    feed_timeout_cycles_r <= apply_wstrb(
+                        feed_timeout_cycles_r,
+                        wdata_r,
+                        wstrb_r
+                    );
                 end
 
                 aw_hold_r <= 1'b0;
@@ -307,6 +339,7 @@ module market_parser_axi_lite_regs #(
                 event_fifo_backpressure_count_base_r <= event_fifo_backpressure_count;
                 feed_gap_count_base_r                 <= feed_gap_count;
                 feed_suppressed_event_count_base_r    <= feed_suppressed_event_count;
+                feed_timeout_count_base_r             <= feed_timeout_count;
                 cmac_axis_accepted_packet_count_base_r <= cmac_axis_accepted_packet_count;
                 cmac_axis_overflow_packet_count_base_r <= cmac_axis_overflow_packet_count;
                 cmac_axis_dropped_beat_count_base_r    <= cmac_axis_dropped_beat_count;

@@ -13,7 +13,8 @@ module market_parser_100g_cmac_system #(
     parameter int          DESC_FIFO_DEPTH        = 32,
     parameter int          EXTRACTION_WINDOW_BYTES = 256,
     parameter int          EVENT_FIFO_DEPTH       = 16,
-    parameter logic [31:0] BUILD_ID               = 32'h4d50_5253
+    parameter logic [31:0] BUILD_ID               = 32'h4d50_5253,
+    parameter logic [31:0] FEED_TIMEOUT_CYCLES_DEFAULT = 32'd0
 ) (
     input  wire logic         clk,
     input  wire logic         rst,
@@ -35,7 +36,10 @@ module market_parser_100g_cmac_system #(
     input  wire logic         feed_healthy_status,
     input  wire logic [31:0]  feed_gap_count_status,
     input  wire logic [31:0]  feed_suppressed_event_count_status,
+    input  wire logic [31:0]  feed_idle_cycles_status,
+    input  wire logic [31:0]  feed_timeout_count_status,
     output logic              feed_recover_pulse,
+    output logic [31:0]       feed_timeout_cycles_config,
 
     input  wire logic [31:0]  cmac_axis_accepted_packet_count_status,
     input  wire logic [31:0]  cmac_axis_overflow_packet_count_status,
@@ -156,7 +160,8 @@ module market_parser_100g_cmac_system #(
         .DESC_FIFO_DEPTH         (DESC_FIFO_DEPTH),
         .EXTRACTION_WINDOW_BYTES (EXTRACTION_WINDOW_BYTES),
         .EVENT_FIFO_DEPTH        (EVENT_FIFO_DEPTH),
-        .BUILD_ID                (BUILD_ID)
+        .BUILD_ID                (BUILD_ID),
+        .FEED_TIMEOUT_CYCLES_DEFAULT(FEED_TIMEOUT_CYCLES_DEFAULT)
     ) parser_system_i (
         .clk                       (clk),
         .rst                       (rst),
@@ -175,7 +180,10 @@ module market_parser_100g_cmac_system #(
         .feed_healthy_status       (feed_healthy_status),
         .feed_gap_count_status     (feed_gap_count_status),
         .feed_suppressed_event_count_status(feed_suppressed_event_count_status),
+        .feed_idle_cycles_status   (feed_idle_cycles_status),
+        .feed_timeout_count_status (feed_timeout_count_status),
         .feed_recover_pulse        (feed_recover_pulse),
+        .feed_timeout_cycles_config(feed_timeout_cycles_config),
         .cmac_axis_accepted_packet_count_status(cmac_axis_accepted_packet_count_status),
         .cmac_axis_overflow_packet_count_status(cmac_axis_overflow_packet_count_status),
         .cmac_axis_dropped_beat_count_status(cmac_axis_dropped_beat_count_status),

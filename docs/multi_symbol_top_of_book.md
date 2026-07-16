@@ -40,17 +40,21 @@ The 512-bit frontend tracks the next expected MoldUDP64 sequence and marks
 every normalized event from a discontinuous packet with `FLAG_GAP`. The
 multi-symbol strategy top treats that flag as a feed-integrity fault. The
 CMAC-facing wrapper also raises the same fail-closed guard immediately when its
-no-`tready` packet buffer overflows. Either cause clears all bounded book state,
-suppresses quote output, and consumes later events without updating a book.
-`feed_healthy`,
-`feed_gap_count`, and `feed_suppressed_event_count` expose the guard state and
-history.
+no-`tready` packet buffer overflows. A programmable liveness watchdog raises a
+third fault when no complete CMAC packet arrives before its cycle threshold.
+Any cause clears all bounded book state, suppresses quote output, and consumes
+later events without updating a book. `feed_healthy`, `feed_gap_count`,
+`feed_suppressed_event_count`, `feed_idle_cycles`, and `feed_timeout_count`
+expose the guard state and history.
 
 The guard rearms when the external `feed_recover` input is asserted or software
 writes one to `CONTROL[2]` through AXI-Lite. `FEED_STATUS`, `FEED_GAP_COUNT`,
 and `FEED_SUPPRESSED_EVENT_COUNT` expose the same guard state to software.
-Fault-history counters persist across recovery; the existing counter-clear
-control establishes new software-visible baselines.
+`FEED_TIMEOUT_CYCLES` configures the watchdog in parser-clock cycles, with zero
+disabling it; configuration changes and recovery restart the idle interval.
+The guarded production top defaults to `322400000` cycles. Fault-history
+counters persist across recovery; the existing counter-clear control
+establishes new software-visible baselines.
 
 ## Verification
 
@@ -65,10 +69,12 @@ applied updates, three ignored events, one untracked symbol, and eight expected
 quote updates. It verifies zero bridge overflow or dropped beats, then replays
 a stale sequence, checks the AXI-Lite health/counter registers, performs
 software recovery, and proves that a correctly resequenced packet produces the
-expected quotes. It then forces a 17-beat packet into the 16-beat bridge and
-checks atomic rollback, immediate feed invalidation, book clearing, cause
-telemetry, and recovery with preserved history. No CMAC IP license is required
-for this simulation path.
+expected quotes. A short runtime watchdog threshold then verifies inactivity
+timeout, fail-closed book clearing, distinct cause telemetry, and recovery. The
+test finally forces a 17-beat packet into the 16-beat bridge and checks atomic
+rollback, immediate feed invalidation, book clearing, cause telemetry, and
+recovery with preserved history. No CMAC IP license is required for this
+simulation path.
 
 ## U50 OOC Results
 

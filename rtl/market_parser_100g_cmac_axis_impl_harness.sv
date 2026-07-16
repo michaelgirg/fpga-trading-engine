@@ -59,6 +59,8 @@ module market_parser_100g_cmac_axis_impl_harness (
     (* keep = "true" *) logic        feed_healthy;
     (* keep = "true" *) logic [31:0] feed_gap_count;
     (* keep = "true" *) logic [31:0] feed_suppressed_event_count;
+    (* keep = "true" *) logic [31:0] feed_idle_cycles;
+    (* keep = "true" *) logic [31:0] feed_timeout_count;
 
     logic [3:0] beat_index;
     logic [5:0] gap_count;
@@ -181,7 +183,9 @@ module market_parser_100g_cmac_axis_impl_harness (
         .book_quote_update_count        (book_quote_update_count),
         .feed_healthy                   (feed_healthy),
         .feed_gap_count                 (feed_gap_count),
-        .feed_suppressed_event_count    (feed_suppressed_event_count)
+        .feed_suppressed_event_count    (feed_suppressed_event_count),
+        .feed_idle_cycles               (feed_idle_cycles),
+        .feed_timeout_count             (feed_timeout_count)
     );
 
     always_ff @(posedge clk) begin
@@ -194,8 +198,8 @@ module market_parser_100g_cmac_axis_impl_harness (
                 cmac_axis_fifo_level[3:0] ^ cmac_axis_fifo_high_watermark[3:0],
                 cmac_accepted_frame_count[3:0],
                 cmac_payload_packet_count[3:0],
-                feed_gap_count[3:0],
-                feed_suppressed_event_count[3:0],
+                feed_gap_count[3:0] ^ feed_timeout_count[3:0],
+                feed_suppressed_event_count[3:0] ^ feed_idle_cycles[3:0],
                 quote_bid_price[3:0],
                 quote_ask_price[3:0]
             };
