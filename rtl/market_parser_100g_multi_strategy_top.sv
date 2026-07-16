@@ -102,7 +102,8 @@ module market_parser_100g_multi_strategy_top #(
     logic         feed_recover_sw;
     logic         feed_recover_i;
     logic         feed_fault_i;
-    logic         watchdog_timeout_i;
+    logic         watchdog_timeout_due_i;
+    logic         watchdog_timeout_r;
     logic [31:0]  feed_idle_cycles_r;
     logic [31:0]  feed_timeout_count_r;
     logic [31:0]  feed_timeout_cycles_config;
@@ -110,14 +111,13 @@ module market_parser_100g_multi_strategy_top #(
     logic [31:0]  accepted_packet_count_seen_r;
 
     assign feed_recover_i = feed_recover || feed_recover_sw;
-    assign watchdog_timeout_i = feed_healthy_r && !feed_recover_i && !feed_fault &&
-                                (feed_timeout_cycles_config == feed_timeout_cycles_prev_r) &&
-                                (feed_timeout_cycles_config != 32'd0) &&
-                                (cmac_axis_accepted_packet_count_status ==
-                                 accepted_packet_count_seen_r) &&
-                                (feed_idle_cycles_r + 1'b1 >=
-                                 feed_timeout_cycles_config);
-    assign feed_fault_i = feed_fault || watchdog_timeout_i;
+    assign watchdog_timeout_due_i =
+        feed_healthy_r && !feed_recover_i && !feed_fault_i &&
+        (feed_timeout_cycles_config == feed_timeout_cycles_prev_r) &&
+        (feed_timeout_cycles_config != 32'd0) &&
+        (cmac_axis_accepted_packet_count_status == accepted_packet_count_seen_r) &&
+        (feed_idle_cycles_r + 1'b1 >= feed_timeout_cycles_config);
+    assign feed_fault_i = feed_fault || watchdog_timeout_r;
 
     assign gap_event_i = event_valid &&
                          ((event_data[239:232] & FLAG_GAP) != 8'h00);
@@ -168,14 +168,16 @@ module market_parser_100g_multi_strategy_top #(
             feed_timeout_cycles_prev_r   <= FEED_TIMEOUT_CYCLES_DEFAULT;
             feed_idle_cycles_r           <= '0;
             feed_timeout_count_r         <= '0;
+            watchdog_timeout_r           <= 1'b0;
         end else begin
             accepted_packet_count_seen_r <= cmac_axis_accepted_packet_count_status;
             feed_timeout_cycles_prev_r   <= feed_timeout_cycles_config;
+            watchdog_timeout_r           <= watchdog_timeout_due_i;
 
             if (feed_recover_i ||
                 (feed_timeout_cycles_config != feed_timeout_cycles_prev_r)) begin
                 feed_idle_cycles_r <= '0;
-            end else if (!feed_healthy_r || feed_fault) begin
+            end else if (!feed_healthy_r || feed_fault_i) begin
                 feed_idle_cycles_r <= feed_idle_cycles_r;
             end else if (cmac_axis_accepted_packet_count_status !=
                          accepted_packet_count_seen_r) begin
@@ -184,7 +186,7 @@ module market_parser_100g_multi_strategy_top #(
                 feed_idle_cycles_r <= feed_idle_cycles_r + 1'b1;
             end
 
-            if (watchdog_timeout_i) begin
+            if (watchdog_timeout_due_i) begin
                 feed_timeout_count_r <= feed_timeout_count_r + 1'b1;
             end
         end
