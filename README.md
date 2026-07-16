@@ -117,6 +117,12 @@ independent order tables, feed-integrity protection, and ordered quote
 arbitration. These source-level OOC results do not require CMAC IP. The guarded
 design misses 2.400 ns / 416.7 MHz by only 2 ps.
 
+The source-only CMAC AXIS implementation harness, including packet buffering,
+UDP realignment, parser, feed guard, AXI-Lite recovery, and four bounded books,
+also closes post-route at the native 3.102 ns / 322 MHz target with `+0.006 ns`
+WNS and `+0.011 ns` WHS. This routed result excludes the generated encrypted
+CMAC IP and is not a bitstream or hardware-programming claim.
+
 The CAUI-4 CMAC integration flow has also been routed on the U50-class target:
 
 - CMAC core: `CMACE4_X0Y4`.

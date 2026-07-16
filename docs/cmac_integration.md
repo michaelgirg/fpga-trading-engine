@@ -84,11 +84,11 @@ The routed implementation harness for the full strategy path also closes this
 a compact board-like IO surface; it is implementation evidence for the RTL
 path, not a replacement for actual CMAC IP and board constraints.
 
-The prior single-symbol revision of the source-only CMAC AXIS routed harness
-also closed the same target post-route with WNS `0.022 ns` and TNS `0.000 ns`.
-The harness now instantiates the guarded multi-symbol boundary; its updated
-timing and utilization must be measured before those older figures are applied
-to the expanded hierarchy.
+The expanded source-only CMAC AXIS routed harness closes the same target
+post-route with WNS `0.006 ns`, TNS `0.000 ns`, WHS `0.011 ns`, 23113 LUTs,
+28963 registers, and no BRAM/DSP usage. This result includes the guarded
+four-symbol boundary and is the current routed source-level evidence before
+inserting generated vendor IP.
 
 The school Vivado 2024.2 IP catalog for `xcu50-fsvh2104-2-e` includes the
 UltraScale+ CMAC IP needed for a real board shell:
