@@ -95,9 +95,10 @@ fail-closed sequence-gap handling also closes 2.500 ns / 400 MHz:
 | `market_parser_100g_multi_strategy_top` | `2.400 ns` | 417 MHz | `-0.002 ns` | `-0.012 ns` | `29773 / 871680 (3.42%)` | `33591 / 1743360 (1.93%)` | Near miss |
 | `market_parser_100g_multi_strategy_top` | `2.350 ns` | 426 MHz | `-0.052 ns` | `-0.262 ns` | `29764 / 871680 (3.41%)` | `33590 / 1743360 (1.93%)` | Does not close |
 | `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | 322 MHz | `0.700 ns` | `0.000 ns` | `30186 / 871680 (3.46%)` | `34111 / 1743360 (1.96%)` | Meets |
-| `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.098 ns` | `0.000 ns` | `30379 / 871680 (3.49%)` | `34099 / 1743360 (1.96%)` | Meets |
+| `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.099 ns` | `0.000 ns` | `30396 / 871680 (3.49%)` | `34116 / 1743360 (1.96%)` | Meets |
 
 The watchdog-enabled source-only CMAC packet bridge and telemetry boundary has
-98 ps of setup margin at 400 MHz with zero BRAM tiles and zero DSPs. This is a
+99 ps of setup margin at 400 MHz with zero BRAM tiles and zero DSPs. This is a
 source-level OOC result and does not depend on generated CMAC IP. The watchdog
-comparison is registered before the fail-closed book-control fanout.
+comparison and decoded sequence-gap reset are registered before the
+fail-closed book-control fanout.

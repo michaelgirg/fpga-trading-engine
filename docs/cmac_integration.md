@@ -85,8 +85,8 @@ a compact board-like IO surface; it is implementation evidence for the RTL
 path, not a replacement for actual CMAC IP and board constraints.
 
 The expanded source-only CMAC AXIS routed harness closes the same target
-post-route with WNS `0.086 ns`, TNS `0.000 ns`, WHS `0.011 ns`, 23056 LUTs,
-29275 registers, and no BRAM/DSP usage. This result includes the guarded
+post-route with WNS `0.036 ns`, TNS `0.000 ns`, WHS `0.010 ns`, 23177 LUTs,
+29287 registers, and no BRAM/DSP usage. This result includes the guarded
 four-symbol boundary and is the current routed source-level evidence before
 inserting generated vendor IP.
 
@@ -423,7 +423,7 @@ wrapper closes OOC on the school U50-class target at the 3.102 ns / 322 MHz
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.500 ns` | `-0.153 ns` | `-399.967 ns` | `24150 / 871680 (2.77%)` | `23713 / 1743360 (1.36%)` | Stress miss |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.350 ns` | `-0.303 ns` | `-1015.845 ns` | `24150 / 871680 (2.77%)` | `23713 / 1743360 (1.36%)` | Stress miss |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | `0.700 ns` | `0.000 ns` | `30186 / 871680 (3.46%)` | `34111 / 1743360 (1.96%)` | Meets |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | `0.098 ns` | `0.000 ns` | `30379 / 871680 (3.49%)` | `34099 / 1743360 (1.96%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | `0.099 ns` | `0.000 ns` | `30396 / 871680 (3.49%)` | `34116 / 1743360 (1.96%)` | Meets |
 
 This pass covers the source-only CMAC AXIS RX bridge, UDP strip/realignment,
 MoldUDP64/ITCH parser pipeline, event buffering, and top-of-book strategy path.
@@ -436,7 +436,7 @@ The guarded four-symbol boundary includes the same no-`tready` packet bridge,
 plus sequence-gap and packet-inactivity invalidation, AXI-Lite feed
 rebuild/activation, four independent bounded books, ordered quote arbitration,
 and AXI-Lite bridge-health telemetry.
-It closes through 2.500 ns / 400 MHz with 98 ps of setup margin and uses zero
+It closes through 2.500 ns / 400 MHz with 99 ps of setup margin and uses zero
 BRAM tiles and DSPs. This measured revision includes the programmable
 feed-liveness watchdog and its registered fail-closed timing boundary.
 
