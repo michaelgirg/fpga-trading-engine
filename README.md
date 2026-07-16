@@ -122,14 +122,18 @@ The CAUI-4 CMAC integration flow has also been routed on the U50-class target:
 - Reference-clock site: `GTYE4_COMMON_X0Y7`.
 - Board I/O and hard-block placement are constrained and reported.
 - Zero black boxes remain after integrated synthesis.
-- Post-route timing at 3.102 ns: WNS `+0.026 ns`, TNS `0.000 ns`.
+- Post-route timing at 3.102 ns: WNS `+0.071 ns`, TNS `0.000 ns`, WHS
+  `+0.010 ns`.
 - Final DRC has no errors or critical warnings; one non-blocking `PDRC-146`
   slice-packing warning remains.
 
-Bitstream generation is currently blocked by the encrypted CMAC IP license on
-the available Vivado installation. This is a tool-license limitation after
-successful synthesis, placement, routing, timing, and DRC; it is not evidence
-that the design has been programmed onto hardware.
+Bitstream generation is currently blocked by the encrypted CMAC IP license
+level exposed by the available Vivado installation. `report_ip_status
+-license_status` reports `Design_Linking` for `cmac_usplus@2020.05`, while
+`write_bitstream` rejects the encrypted CMAC cell at that level. This is a
+license-entitlement limitation after successful synthesis, placement, routing,
+timing, and DRC; it is not evidence that the design has been programmed onto
+hardware.
 
 See `docs/cmac_integration.md` for the generated-IP flow and board-shell
 details, `docs/timing_matrix.md` for measured timing, and

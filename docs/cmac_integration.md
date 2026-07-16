@@ -225,8 +225,8 @@ The final `au50` implementation run resolved the hard-block placement exactly
 as intended: `CMACE4_X0Y4`, `GTYE4_CHANNEL_X0Y28` through `X0Y31`, and
 `GTYE4_COMMON_X0Y7` for the reference-clock buffer. The complete generated
 CMAC plus parser design linked zero black boxes, placed and routed fully, and
-met the 3.102 ns / 322 MHz target with WNS `0.026 ns`, TNS `0.000 ns`, WHS
-`0.012 ns`, and THS `0.000 ns`.
+met the 3.102 ns / 322 MHz target with WNS `0.071 ns`, TNS `0.000 ns`, WHS
+`0.010 ns`, and THS `0.000 ns`.
 
 The board shell uses the 100 MHz CMC differential clock on `G17/G16`, PCIe
 reset on `AW27`, a one-bit status LED on `E18`, grounded HBM `CATTRIP` on
@@ -240,11 +240,13 @@ non-blocking `PDRC-146` slice-packing warning at `SLICE_X30Y396`.
 With `MARKET_PARSER_WRITE_BITSTREAM=1`, Vivado proceeded through that complete
 implementation and then stopped at the encrypted CMAC bitstream-license gate:
 `i_cmac_usplus_0_top (<encrypted cellview>)` was not permitted for bitstream
-generation. Vivado successfully acquired the U50 implementation/device
-license, so this is not a synthesis, placement, routing, timing, pin, or DRC
-failure. The school installation needs the CMAC bitstream license before the
-same run can emit `market_parser_100g_cmac_ip_impl_harness_au50.bit` and move
-to hardware programming.
+generation. The U50 implementation/device license was acquired, and
+`report_ip_status -license_status` showed `Design_Linking` as both the
+generated and available level for `cmac_usplus@2020.05`. This is not a
+synthesis, placement, routing, timing, pin, or DRC failure; the school
+installation needs a bitstream-authorized CMAC entitlement before the same
+run can emit `market_parser_100g_cmac_ip_impl_harness_au50.bit` and move to
+hardware programming.
 
 Use this command shape when moving from a probe to actual generated vendor IP
 artifacts:
@@ -273,9 +275,10 @@ The July 4, 2026 school Vivado 2024.2 generator run on
 - generated `cmac_usplus_0.xci`, `cmac_usplus_0.v`,
   `cmac_usplus_0.veo`, `cmac_usplus_0.vho`, and CMAC/GT XDC files
 
-Vivado emitted repeated `Design_Linking` license warnings for the CMAC IP, but
-the IP generation flow completed. Treat those warnings as expected unless a
-later synthesis or implementation command exits with a license error.
+Vivado emitted repeated `Design_Linking` license warnings for the CMAC IP, and
+the IP generation flow completed. That level is sufficient for the observed
+generation, synthesis, and routed implementation flow, but it did not pass the
+final encrypted-cell bitstream checkpoint.
 
 `market_parser_100g_cmac_ip_strategy_top` is the first checked-in wrapper around
 that generated IP boundary. It instantiates `cmac_usplus_0`, exposes the GT
