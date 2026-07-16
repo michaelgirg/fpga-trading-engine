@@ -396,6 +396,9 @@ wrapper closes OOC on the school U50-class target at the 3.102 ns / 322 MHz
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.750 ns` | `0.097 ns` | `0.000 ns` | `24146 / 871680 (2.77%)` | `23709 / 1743360 (1.36%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.500 ns` | `-0.153 ns` | `-399.967 ns` | `24150 / 871680 (2.77%)` | `23713 / 1743360 (1.36%)` | Stress miss |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.350 ns` | `-0.303 ns` | `-1015.845 ns` | `24150 / 871680 (2.77%)` | `23713 / 1743360 (1.36%)` | Stress miss |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | `0.700 ns` | `0.000 ns` | `30056 / 871680 (3.45%)` | `33788 / 1743360 (1.94%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `2.750 ns` | `0.348 ns` | `0.000 ns` | `30269 / 871680 (3.47%)` | `33787 / 1743360 (1.94%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | `0.098 ns` | `0.000 ns` | `30266 / 871680 (3.47%)` | `33775 / 1743360 (1.94%)` | Meets |
 
 This pass covers the source-only CMAC AXIS RX bridge, UDP strip/realignment,
 MoldUDP64/ITCH parser pipeline, event buffering, and top-of-book strategy path.
@@ -403,6 +406,11 @@ The same boundary closes through 2.750 ns / 364 MHz and misses 2.500 ns /
 400 MHz by 0.153 ns. It is still an OOC RTL result, not a placed vendor-CMAC
 board design, but it is the right source-level boundary for the generated
 `cmac_usplus` AXIS template.
+
+The guarded four-symbol boundary includes the same no-`tready` packet bridge,
+plus sequence-gap invalidation, AXI-Lite feed health/recovery, four independent
+bounded books, and ordered quote arbitration. It closes through 2.500 ns /
+400 MHz with 98 ps of setup margin and uses zero BRAM tiles and DSPs.
 
 ## Minimum Board Shell
 

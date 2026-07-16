@@ -79,9 +79,14 @@ fail-closed sequence-gap handling also closes 2.500 ns / 400 MHz:
 | `market_parser_100g_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.098 ns` | `0.000 ns` | `29760 / 871680 (3.41%)` | `33591 / 1743360 (1.93%)` | Meets |
 | `market_parser_100g_multi_strategy_top` | `2.400 ns` | 417 MHz | `-0.002 ns` | `-0.012 ns` | `29773 / 871680 (3.42%)` | `33591 / 1743360 (1.93%)` | Near miss |
 | `market_parser_100g_multi_strategy_top` | `2.350 ns` | 426 MHz | `-0.052 ns` | `-0.262 ns` | `29764 / 871680 (3.41%)` | `33590 / 1743360 (1.93%)` | Does not close |
+| `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | 322 MHz | `0.700 ns` | `0.000 ns` | `30056 / 871680 (3.45%)` | `33788 / 1743360 (1.94%)` | Meets |
+| `market_parser_100g_cmac_axis_multi_strategy_top` | `2.750 ns` | 364 MHz | `0.348 ns` | `0.000 ns` | `30269 / 871680 (3.47%)` | `33787 / 1743360 (1.94%)` | Meets |
+| `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.098 ns` | `0.000 ns` | `30266 / 871680 (3.47%)` | `33775 / 1743360 (1.94%)` | Meets |
 
 The 2.500 ns result has 98 ps of setup margin, so 400 MHz remains a measured
 high-frequency operating point after adding sequence-gap detection and
 fail-closed book protection. All builds use zero BRAM tiles and zero DSPs.
 These are source-level OOC results and do not depend on generated CMAC IP. The
-guarded design misses 2.400 ns / 416.7 MHz by only 2 ps.
+guarded design misses 2.400 ns / 416.7 MHz by only 2 ps. Adding the source-only
+CMAC packet bridge preserves the complete 2.500 ns / 400 MHz pass with the same
+98 ps of setup margin.
