@@ -45,15 +45,19 @@ third fault when no complete CMAC packet arrives before its cycle threshold.
 Any cause clears all bounded book state, suppresses quote output, and consumes
 later events without updating a book. `feed_healthy`, `feed_rebuilding`,
 `feed_gap_count`, `feed_suppressed_event_count`, `feed_idle_cycles`, and
-`feed_timeout_count` expose the guard state and history.
+`feed_timeout_count`, `feed_rebuild_ready`, and
+`feed_activation_reject_count` expose the guard state and history.
 
 Recovery is deliberately two-phase. At an idle parser boundary, the external
 `feed_recover` input or `CONTROL[2]` clears all books and the MoldUDP64 sequence
 expectation, then enters rebuild mode. The first replay packet establishes the
 new sequence baseline. Contiguous replay events repopulate book state, but
 quote updates are consumed internally and the feed remains non-tradable. The
-external `feed_activate` input or `CONTROL[3]` marks a rebuilt feed healthy and
-exposes subsequent quotes. A fault during rebuild clears state and requires
+After at least one rebuild event applies, `feed_rebuild_ready` and
+`FEED_STATUS[3]` qualify activation. The external `feed_activate` input or
+`CONTROL[3]` then marks the feed healthy and exposes subsequent quotes. An
+activation request outside rebuild or before qualification is rejected and
+counted without changing feed state. A fault during rebuild clears state and requires
 recovery to begin again. `FEED_STATUS`,
 `FEED_GAP_COUNT`, and `FEED_SUPPRESSED_EVENT_COUNT` expose the guard state to
 software. `FEED_TIMEOUT_CYCLES` configures the watchdog in parser-clock cycles,
@@ -77,7 +81,8 @@ a stale sequence, checks the AXI-Lite health/counter registers, begins software
 recovery, and proves that replay from an unrelated 64-bit sequence repopulates
 book state without exposing quotes before activation. A short runtime watchdog
 threshold then verifies inactivity timeout, fail-closed book clearing,
-distinct cause telemetry, rebuild, and activation. The test finally forces a
+distinct cause telemetry, rejection of empty activation, rebuild, and qualified
+activation. The test finally forces a
 17-beat packet into the 16-beat bridge and checks atomic rollback, immediate
 feed invalidation, book clearing, cause telemetry, rebuild, and activation with
 preserved history. No CMAC IP license is required for this simulation path.
@@ -96,8 +101,8 @@ fail-closed sequence-gap handling also closes 2.500 ns / 400 MHz:
 | `market_parser_100g_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.098 ns` | `0.000 ns` | `29760 / 871680 (3.41%)` | `33591 / 1743360 (1.93%)` | Meets |
 | `market_parser_100g_multi_strategy_top` | `2.400 ns` | 417 MHz | `-0.002 ns` | `-0.012 ns` | `29773 / 871680 (3.42%)` | `33591 / 1743360 (1.93%)` | Near miss |
 | `market_parser_100g_multi_strategy_top` | `2.350 ns` | 426 MHz | `-0.052 ns` | `-0.262 ns` | `29764 / 871680 (3.41%)` | `33590 / 1743360 (1.93%)` | Does not close |
-| `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | 322 MHz | `0.700 ns` | `0.000 ns` | `30186 / 871680 (3.46%)` | `34111 / 1743360 (1.96%)` | Meets |
-| `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.099 ns` | `0.000 ns` | `30396 / 871680 (3.49%)` | `34116 / 1743360 (1.96%)` | Meets |
+| `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | 322 MHz | `0.701 ns` | `0.000 ns` | `29763 / 871680 (3.41%)` | `34115 / 1743360 (1.96%)` | Meets |
+| `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.099 ns` | `0.000 ns` | `29972 / 871680 (3.44%)` | `34112 / 1743360 (1.96%)` | Meets |
 
 The watchdog-enabled source-only CMAC packet bridge and telemetry boundary has
 99 ps of setup margin at 400 MHz with zero BRAM tiles and zero DSPs. This is a

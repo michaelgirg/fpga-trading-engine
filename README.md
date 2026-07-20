@@ -18,7 +18,9 @@ pipeline intended for 100G-class FPGA Ethernet user clocks.
 - Fail-closed multi-symbol book invalidation for MoldUDP64 sequence gaps, CMAC
   packet-buffer loss, and packet inactivity, with event suppression,
   configurable AXI-Lite liveness monitoring, fault counters, two-phase book
-  rebuild, sequence re-baselining, and explicit feed activation.
+rebuild, sequence re-baselining, and explicit feed activation.
+- Hardware-qualified feed activation that requires applied rebuild traffic and
+  records rejected premature activation commands through AXI-Lite.
 - CMAC-facing UDP payload stripping and AXI stream buffering for a generated
   AMD/Xilinx UltraScale+ CMAC interface.
 - Self-checking Questa/SystemVerilog tests, deterministic packet vectors,
@@ -114,7 +116,7 @@ path is a larger packet-to-book design and is intentionally evaluated at the
 native 100G CMAC user-clock class rather than presented as a 500 MHz claim.
 
 The source-only CMAC AXIS four-symbol packet-to-quote top closes 2.500 ns /
-400 MHz with `+0.099 ns` WNS, using about 3.49% of LUTs and 1.96% of registers
+400 MHz with `+0.099 ns` WNS, using about 3.44% of LUTs and 1.96% of registers
 on the same U50-class part. This boundary includes Ethernet/IP/UDP stripping,
 MoldUDP64/ITCH parsing, event buffering, four independent order tables,
 fail-closed sequence, packet-loss, and liveness protection, and ordered quote
@@ -123,7 +125,8 @@ arbitration. These source-level OOC results do not require CMAC IP.
 The source-only CMAC AXIS implementation harness, including packet buffering,
 UDP realignment, parser, feed guard, AXI-Lite rebuild/activation, and four
 bounded books, also closes post-route at the native 3.102 ns / 322 MHz target
-with `+0.036 ns` WNS and `+0.010 ns` WHS. This routed result excludes the
+with `+0.072 ns` WNS and `+0.010 ns` WHS. This routed result includes the
+recovery sequence-rearm path but excludes the
 generated encrypted CMAC IP and is not a bitstream or hardware-programming
 claim.
 

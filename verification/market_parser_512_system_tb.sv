@@ -32,6 +32,7 @@ module market_parser_512_system_tb #(
     localparam logic [11:0] REG_FEED_IDLE_CYCLES = 12'h0cc;
     localparam logic [11:0] REG_FEED_TIMEOUT_CFG = 12'h0d0;
     localparam logic [11:0] REG_FEED_TIMEOUT_CNT = 12'h0d4;
+    localparam logic [11:0] REG_FEED_ACT_REJECT = 12'h0d8;
 
     typedef logic [7:0] byte_t;
 
@@ -71,10 +72,12 @@ module market_parser_512_system_tb #(
     logic        s_axi_rready;
     logic        feed_healthy_status;
     logic        feed_rebuilding_status;
+    logic        feed_rebuild_ready_status;
     logic [31:0] feed_gap_count_status;
     logic [31:0] feed_suppressed_event_count_status;
     logic [31:0] feed_idle_cycles_status;
     logic [31:0] feed_timeout_count_status;
+    logic [31:0] feed_activation_reject_count_status;
     logic        feed_recover_pulse;
     logic        feed_activate_pulse;
     logic [31:0] feed_timeout_cycles_config;
@@ -111,10 +114,12 @@ module market_parser_512_system_tb #(
         .event_last                (event_last),
         .feed_healthy_status       (feed_healthy_status),
         .feed_rebuilding_status    (feed_rebuilding_status),
+        .feed_rebuild_ready_status (feed_rebuild_ready_status),
         .feed_gap_count_status     (feed_gap_count_status),
         .feed_suppressed_event_count_status(feed_suppressed_event_count_status),
         .feed_idle_cycles_status   (feed_idle_cycles_status),
         .feed_timeout_count_status (feed_timeout_count_status),
+        .feed_activation_reject_count_status(feed_activation_reject_count_status),
         .feed_recover_pulse        (feed_recover_pulse),
         .feed_activate_pulse       (feed_activate_pulse),
         .feed_timeout_cycles_config(feed_timeout_cycles_config),
@@ -176,10 +181,12 @@ module market_parser_512_system_tb #(
         event_ready               = 1'b0;
         feed_healthy_status       = 1'b1;
         feed_rebuilding_status    = 1'b0;
+        feed_rebuild_ready_status = 1'b0;
         feed_gap_count_status     = 32'd0;
         feed_suppressed_event_count_status = 32'd0;
         feed_idle_cycles_status = 32'd0;
         feed_timeout_count_status = 32'd0;
+        feed_activation_reject_count_status = 32'd0;
         cmac_axis_accepted_packet_count_status = 32'd0;
         cmac_axis_overflow_packet_count_status = 32'd0;
         cmac_axis_dropped_beat_count_status = 32'd0;
@@ -349,16 +356,22 @@ module market_parser_512_system_tb #(
         @(negedge clk);
         feed_healthy_status = 1'b0;
         feed_rebuilding_status = 1'b1;
+        feed_rebuild_ready_status = 1'b1;
         feed_gap_count_status = 32'd2;
         feed_suppressed_event_count_status = 32'd7;
+        feed_activation_reject_count_status = 32'd2;
         axi_read(REG_FEED_STATUS, value);
-        check(value == 32'd6, "feed status reports rebuild and timeout history");
+        check(value == 32'h0000_001e,
+              "feed status reports rebuild readiness, timeout, and rejection history");
         axi_read(REG_STATUS, value);
-        check(value[8], "aggregate status reports feed rebuild state");
+        check(value[8] && value[9],
+              "aggregate status reports rebuild and activation rejection");
         axi_read(REG_FEED_GAP_COUNT, value);
         check(value == 32'd2, "feed gap counter readable");
         axi_read(REG_FEED_SUPPRESSED, value);
         check(value == 32'd7, "suppressed-event counter readable");
+        axi_read(REG_FEED_ACT_REJECT, value);
+        check(value == 32'd2, "activation rejection counter readable");
         axi_write(REG_CONTROL, 32'h0000_0005);
         repeat (2) @(posedge clk);
         check(feed_recover_seen_r, "control bit 2 emits feed recovery pulse");
@@ -372,6 +385,7 @@ module market_parser_512_system_tb #(
         @(negedge clk);
         feed_healthy_status = 1'b1;
         feed_rebuilding_status = 1'b0;
+        feed_rebuild_ready_status = 1'b0;
 
         axi_write(REG_CONTROL, 32'h0000_0000);
         @(negedge clk);
@@ -418,6 +432,8 @@ module market_parser_512_system_tb #(
         check(value == 32'd0, "suppressed-event counter clears via baseline");
         axi_read(REG_FEED_TIMEOUT_CNT, value);
         check(value == 32'd0, "feed timeout counter clears via baseline");
+        axi_read(REG_FEED_ACT_REJECT, value);
+        check(value == 32'd0, "activation rejection counter clears via baseline");
         axi_read(REG_CMAC_AXIS_ACCEPT, value);
         check(value == 32'd0, "CMAC AXIS accepted counter clears via baseline");
         axi_read(REG_CMAC_AXIS_OVFL, value);

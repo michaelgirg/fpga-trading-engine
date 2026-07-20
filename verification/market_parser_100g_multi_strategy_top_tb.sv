@@ -24,6 +24,7 @@ module market_parser_100g_multi_strategy_top_tb #(
     localparam logic [11:0] REG_FEED_IDLE_CYCLES = 12'h0cc;
     localparam logic [11:0] REG_FEED_TIMEOUT_CFG = 12'h0d0;
     localparam logic [11:0] REG_FEED_TIMEOUT_CNT = 12'h0d4;
+    localparam logic [11:0] REG_FEED_ACT_REJECT  = 12'h0d8;
 
 `include "verification/vectors/multi_symbol_meta.svh"
 
@@ -76,10 +77,12 @@ module market_parser_100g_multi_strategy_top_tb #(
     logic [31:0] book_quote_update_count;
     logic feed_healthy;
     logic feed_rebuilding;
+    logic feed_rebuild_ready;
     logic [31:0] feed_gap_count;
     logic [31:0] feed_suppressed_event_count;
     logic [31:0] feed_idle_cycles;
     logic [31:0] feed_timeout_count;
+    logic [31:0] feed_activation_reject_count;
     logic [31:0] cmac_axis_accepted_packet_count;
     logic [31:0] cmac_axis_overflow_packet_count;
     logic [31:0] cmac_axis_dropped_beat_count;
@@ -158,10 +161,12 @@ module market_parser_100g_multi_strategy_top_tb #(
         .book_quote_update_count        (book_quote_update_count),
         .feed_healthy                   (feed_healthy),
         .feed_rebuilding                (feed_rebuilding),
+        .feed_rebuild_ready             (feed_rebuild_ready),
         .feed_gap_count                 (feed_gap_count),
         .feed_suppressed_event_count    (feed_suppressed_event_count),
         .feed_idle_cycles               (feed_idle_cycles),
-        .feed_timeout_count             (feed_timeout_count)
+        .feed_timeout_count             (feed_timeout_count),
+        .feed_activation_reject_count   (feed_activation_reject_count)
     );
 
     initial begin : generate_clock
@@ -433,6 +438,8 @@ module market_parser_100g_multi_strategy_top_tb #(
         activate_feed();
         check(feed_healthy && !feed_rebuilding,
               "activation outside rebuild leaves healthy feed unchanged");
+        check(feed_activation_reject_count == 32'd1,
+              "activation outside rebuild is counted as rejected");
 
         send_packet(MULTI_SYMBOL_RAW_0_BYTES, raw_0_mem);
         expect_no_quote(500, "sequence-gap packet emits no quote");
@@ -443,7 +450,8 @@ module market_parser_100g_multi_strategy_top_tb #(
         axi_read(REG_STATUS, reg_value);
         check(!reg_value[5], "aggregate status reports feed unhealthy");
         axi_read(REG_FEED_STATUS, reg_value);
-        check(reg_value == 32'd0, "AXI-Lite feed health register reports fault");
+        check(!reg_value[0] && reg_value[4],
+              "feed status reports fault and activation rejection history");
         axi_read(REG_FEED_GAP_COUNT, reg_value);
         check(reg_value == 32'd1, "AXI-Lite exposes sequence-gap count");
         axi_read(REG_FEED_SUPPRESSED, reg_value);
@@ -460,7 +468,13 @@ module market_parser_100g_multi_strategy_top_tb #(
         check(!reg_value[5] && reg_value[8],
               "aggregate status reports feed rebuild state");
         axi_read(REG_FEED_STATUS, reg_value);
-        check(reg_value == 32'd4, "feed status distinguishes rebuild from healthy");
+        check(!reg_value[0] && reg_value[2] && !reg_value[3] && reg_value[4],
+              "feed status distinguishes empty rebuild from healthy");
+        activate_feed();
+        check(!feed_healthy && feed_rebuilding && !feed_rebuild_ready,
+              "empty rebuild rejects premature activation");
+        check(feed_activation_reject_count == 32'd2,
+              "premature activation increments rejection counter");
         send_packet(MULTI_SYMBOL_RAW_0_BYTES, recovery_raw_mem);
         expect_no_quote(800, "rebuild suppresses external quotes");
         check(feed_rebuilding && !feed_healthy,
@@ -469,6 +483,14 @@ module market_parser_100g_multi_strategy_top_tb #(
               "recovery packet establishes a new sequence baseline");
         check(book_quote_update_count == 32'(MULTI_SYMBOL_PACKET_0_QUOTES),
               "rebuild packet repopulates book state internally");
+        check(feed_rebuild_ready,
+              "applied rebuild traffic qualifies feed activation");
+        axi_read(REG_FEED_STATUS, reg_value);
+        check(reg_value[4:2] == 3'b111,
+              "feed status exposes rejection history and activation readiness");
+        axi_read(REG_FEED_ACT_REJECT, reg_value);
+        check(reg_value == 32'd2,
+              "AXI-Lite exposes activation rejection count");
         activate_feed();
         check(feed_healthy && !feed_rebuilding,
               "software activation makes rebuilt feed tradable");
@@ -498,7 +520,8 @@ module market_parser_100g_multi_strategy_top_tb #(
         axi_read(REG_FEED_TIMEOUT_CNT, reg_value);
         check(reg_value == 32'd1, "AXI-Lite exposes feed timeout count");
         axi_read(REG_FEED_STATUS, reg_value);
-        check(reg_value == 32'd2, "feed status identifies liveness timeout");
+        check(!reg_value[0] && reg_value[1] && !reg_value[2] && reg_value[4],
+              "feed status identifies liveness timeout and rejection history");
         axi_read(REG_STATUS, reg_value);
         check(!reg_value[5] && !reg_value[6] && reg_value[7],
               "aggregate status distinguishes timeout from bridge overflow");
@@ -506,6 +529,13 @@ module market_parser_100g_multi_strategy_top_tb #(
         check(!feed_healthy && feed_rebuilding,
               "timeout recovery enters rebuild state");
         check(feed_idle_cycles <= 32'd2, "recovery restarts liveness timer");
+        activate_feed();
+        check(!feed_healthy && feed_rebuilding,
+              "timeout recovery cannot activate an empty book");
+        axi_write(REG_FEED_TIMEOUT_CFG, 32'd0);
+        send_packet(MULTI_SYMBOL_RAW_0_BYTES, recovery_raw_mem);
+        expect_no_quote(800, "timeout rebuild suppresses external quotes");
+        check(feed_rebuild_ready, "timeout rebuild becomes activation-ready");
         activate_feed();
         check(feed_healthy && !feed_rebuilding,
               "activation rearms feed after timeout");
@@ -533,11 +563,20 @@ module market_parser_100g_multi_strategy_top_tb #(
         check(!feed_healthy && feed_rebuilding,
               "overflow recovery enters rebuild state");
         activate_feed();
+        check(!feed_healthy && feed_rebuilding,
+              "overflow recovery cannot activate an empty book");
+        send_packet(MULTI_SYMBOL_RAW_0_BYTES, recovery_raw_mem);
+        expect_no_quote(800, "overflow rebuild suppresses external quotes");
+        check(feed_rebuild_ready, "overflow rebuild becomes activation-ready");
+        activate_feed();
         check(feed_healthy && !feed_rebuilding,
               "activation rearms feed after CMAC overflow");
         axi_read(REG_STATUS, reg_value);
         check(reg_value[5] && reg_value[6] && !reg_value[8],
               "recovery preserves CMAC overflow history");
+        axi_read(REG_FEED_ACT_REJECT, reg_value);
+        check(reg_value == 32'd4,
+              "activation rejection history covers all premature commands");
 
         $display("========================================================");
         $display("Tests passed: %0d", passed);

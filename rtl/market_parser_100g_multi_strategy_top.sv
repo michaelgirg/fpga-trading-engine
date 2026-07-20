@@ -81,10 +81,12 @@ module market_parser_100g_multi_strategy_top #(
 
     output logic              feed_healthy,
     output logic              feed_rebuilding,
+    output logic              feed_rebuild_ready,
     output logic [31:0]       feed_gap_count,
     output logic [31:0]       feed_suppressed_event_count,
     output logic [31:0]       feed_idle_cycles,
-    output logic [31:0]       feed_timeout_count
+    output logic [31:0]       feed_timeout_count,
+    output logic [31:0]       feed_activation_reject_count
 );
     logic         event_valid;
     logic         event_ready;
@@ -116,6 +118,9 @@ module market_parser_100g_multi_strategy_top #(
     logic         watchdog_timeout_r;
     logic [31:0]  feed_idle_cycles_r;
     logic [31:0]  feed_timeout_count_r;
+    logic         rebuild_applied_event_seen_r;
+    logic [31:0]  book_applied_event_count_prev_r;
+    logic [31:0]  feed_activation_reject_count_r;
     logic [31:0]  feed_timeout_cycles_config;
     logic [31:0]  feed_timeout_cycles_prev_r;
     logic [31:0]  accepted_packet_count_seen_r;
@@ -123,7 +128,9 @@ module market_parser_100g_multi_strategy_top #(
     assign feed_recover_i = feed_recover || feed_recover_sw;
     assign feed_activate_i = feed_activate || feed_activate_sw;
     assign feed_operational_i = feed_healthy_r || feed_rebuilding_r;
-    assign feed_activate_effective_i = feed_activate_i && feed_rebuilding_r;
+    assign feed_activate_effective_i = feed_activate_i && !feed_recover_i &&
+                                       feed_rebuilding_r &&
+                                       rebuild_applied_event_seen_r;
     assign feed_control_transition_i = feed_recover_i || feed_activate_effective_i;
     assign watchdog_timeout_due_i =
         feed_operational_i && !feed_control_transition_i && !feed_fault_i &&
@@ -151,10 +158,37 @@ module market_parser_100g_multi_strategy_top #(
     assign book_quote_ready = feed_rebuilding_r ? 1'b1 : quote_ready;
     assign feed_healthy = feed_healthy_r;
     assign feed_rebuilding = feed_rebuilding_r;
+    assign feed_rebuild_ready = feed_rebuilding_r && rebuild_applied_event_seen_r;
     assign feed_gap_count = feed_gap_count_r;
     assign feed_suppressed_event_count = feed_suppressed_event_count_r;
     assign feed_idle_cycles = feed_idle_cycles_r;
     assign feed_timeout_count = feed_timeout_count_r;
+    assign feed_activation_reject_count = feed_activation_reject_count_r;
+
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            rebuild_applied_event_seen_r   <= 1'b0;
+            book_applied_event_count_prev_r <= '0;
+            feed_activation_reject_count_r <= '0;
+        end else begin
+            if (feed_fault_i || feed_recover_i || feed_activate_effective_i ||
+                (event_fire_i && gap_event_i && feed_operational_i)) begin
+                rebuild_applied_event_seen_r    <= 1'b0;
+                book_applied_event_count_prev_r <= '0;
+            end else begin
+                if (feed_rebuilding_r &&
+                    (book_applied_event_count != book_applied_event_count_prev_r)) begin
+                    rebuild_applied_event_seen_r <= 1'b1;
+                end
+                book_applied_event_count_prev_r <= book_applied_event_count;
+            end
+
+            if (feed_activate_i && !feed_activate_effective_i) begin
+                feed_activation_reject_count_r <=
+                    feed_activation_reject_count_r + 1'b1;
+            end
+        end
+    end
 
     // Isolate decoded event data from the high-fanout book reset network.
     always_ff @(posedge clk) begin
@@ -253,10 +287,12 @@ module market_parser_100g_multi_strategy_top #(
         .event_last                     (event_last),
         .feed_healthy_status            (feed_healthy_r),
         .feed_rebuilding_status         (feed_rebuilding_r),
+        .feed_rebuild_ready_status      (feed_rebuild_ready),
         .feed_gap_count_status          (feed_gap_count_r),
         .feed_suppressed_event_count_status(feed_suppressed_event_count_r),
         .feed_idle_cycles_status        (feed_idle_cycles_r),
         .feed_timeout_count_status      (feed_timeout_count_r),
+        .feed_activation_reject_count_status(feed_activation_reject_count_r),
         .feed_recover_pulse             (feed_recover_sw),
         .feed_activate_pulse            (feed_activate_sw),
         .feed_timeout_cycles_config     (feed_timeout_cycles_config),
