@@ -48,6 +48,8 @@ module market_parser_512_frontend_tb #(
     logic [31:0] error_count;
     logic        session_change_pulse;
     logic        session_change_seen_r;
+    logic        end_of_session_pulse;
+    logic        end_of_session_seen_r;
 
     int passed;
     int failed;
@@ -86,14 +88,19 @@ module market_parser_512_frontend_tb #(
         .packet_count              (packet_count),
         .descriptor_count          (descriptor_count),
         .error_count               (error_count),
-        .session_change_pulse      (session_change_pulse)
+        .session_change_pulse      (session_change_pulse),
+        .end_of_session_pulse      (end_of_session_pulse)
     );
 
     always_ff @(posedge clk) begin
         if (rst) begin
             session_change_seen_r <= 1'b0;
+            end_of_session_seen_r <= 1'b0;
         end else if (session_change_pulse) begin
             session_change_seen_r <= 1'b1;
+        end
+        if (!rst && end_of_session_pulse) begin
+            end_of_session_seen_r <= 1'b1;
         end
     end
 
@@ -391,6 +398,19 @@ module market_parser_512_frontend_tb #(
         check(packet_count == 32'd4, "session-change packet count");
         check(descriptor_count == 32'd32, "session-change descriptor count");
         check(error_count == 32'd2, "session change increments error count once");
+
+        mixed_packet_mem[17] = 8'h98;
+        mixed_packet_mem[18] = 8'hff;
+        mixed_packet_mem[19] = 8'hff;
+        send_packet(20, mixed_packet_mem, 1'b0);
+        repeat (10) @(posedge clk);
+        check(end_of_session_seen_r,
+              "MoldUDP64 end-of-session raises a pulse");
+        check(packet_count == 32'd5, "end-of-session packet count");
+        check(descriptor_count == 32'd32,
+              "end-of-session emits no descriptors");
+        check(error_count == 32'd2,
+              "end-of-session is not a malformed parser error");
 
         reset_dut();
         build_split_length_packet();

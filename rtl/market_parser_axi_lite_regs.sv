@@ -54,6 +54,7 @@ module market_parser_axi_lite_regs #(
     input  wire logic [31:0]            feed_timeout_count,
     input  wire logic [31:0]            feed_activation_reject_count,
     input  wire logic [31:0]            feed_session_change_count,
+    input  wire logic [31:0]            feed_end_of_session_count,
     input  wire logic [31:0]            cmac_axis_accepted_packet_count,
     input  wire logic [31:0]            cmac_axis_overflow_packet_count,
     input  wire logic [31:0]            cmac_axis_dropped_beat_count,
@@ -91,6 +92,7 @@ module market_parser_axi_lite_regs #(
     localparam logic [11:0] REG_FEED_TIMEOUT_CNT = 12'h0d4;
     localparam logic [11:0] REG_FEED_ACT_REJECT  = 12'h0d8;
     localparam logic [11:0] REG_FEED_SESSION_CHANGE = 12'h0dc;
+    localparam logic [11:0] REG_FEED_END_OF_SESSION = 12'h0e0;
 
     logic [ADDR_WIDTH-1:0] awaddr_r;
     logic [31:0]           wdata_r;
@@ -116,6 +118,7 @@ module market_parser_axi_lite_regs #(
     logic [31:0]           feed_timeout_count_base_r;
     logic [31:0]           feed_activation_reject_count_base_r;
     logic [31:0]           feed_session_change_count_base_r;
+    logic [31:0]           feed_end_of_session_count_base_r;
     logic [31:0]           cmac_axis_accepted_packet_count_base_r;
     logic [31:0]           cmac_axis_overflow_packet_count_base_r;
     logic [31:0]           cmac_axis_dropped_beat_count_base_r;
@@ -167,7 +170,8 @@ module market_parser_axi_lite_regs #(
             end
             REG_STATUS: begin
                 read_reg = {
-                    21'd0,
+                    20'd0,
+                    feed_end_of_session_count != feed_end_of_session_count_base_r,
                     feed_session_change_count != feed_session_change_count_base_r,
                     feed_activation_reject_count != feed_activation_reject_count_base_r,
                     feed_rebuilding,
@@ -216,7 +220,8 @@ module market_parser_axi_lite_regs #(
             end
             REG_FEED_STATUS: begin
                 read_reg = {
-                    26'd0,
+                    25'd0,
+                    feed_end_of_session_count != feed_end_of_session_count_base_r,
                     feed_session_change_count != feed_session_change_count_base_r,
                     feed_activation_reject_count != feed_activation_reject_count_base_r,
                     feed_rebuild_ready,
@@ -259,6 +264,9 @@ module market_parser_axi_lite_regs #(
             REG_FEED_SESSION_CHANGE: begin
                 read_reg = feed_session_change_count - feed_session_change_count_base_r;
             end
+            REG_FEED_END_OF_SESSION: begin
+                read_reg = feed_end_of_session_count - feed_end_of_session_count_base_r;
+            end
             default: begin
                 read_reg = 32'h0000_0000;
             end
@@ -297,7 +305,8 @@ module market_parser_axi_lite_regs #(
             feed_suppressed_event_count_base_r    <= '0;
             feed_timeout_count_base_r             <= '0;
             feed_activation_reject_count_base_r   <= '0;
-            feed_session_change_count_base_r     <= '0;
+            feed_session_change_count_base_r      <= '0;
+            feed_end_of_session_count_base_r      <= '0;
             cmac_axis_accepted_packet_count_base_r <= '0;
             cmac_axis_overflow_packet_count_base_r <= '0;
             cmac_axis_dropped_beat_count_base_r    <= '0;
@@ -373,7 +382,8 @@ module market_parser_axi_lite_regs #(
                 feed_suppressed_event_count_base_r    <= feed_suppressed_event_count;
                 feed_timeout_count_base_r             <= feed_timeout_count;
                 feed_activation_reject_count_base_r   <= feed_activation_reject_count;
-                feed_session_change_count_base_r     <= feed_session_change_count;
+                feed_session_change_count_base_r      <= feed_session_change_count;
+                feed_end_of_session_count_base_r      <= feed_end_of_session_count;
                 cmac_axis_accepted_packet_count_base_r <= cmac_axis_accepted_packet_count;
                 cmac_axis_overflow_packet_count_base_r <= cmac_axis_overflow_packet_count;
                 cmac_axis_dropped_beat_count_base_r    <= cmac_axis_dropped_beat_count;

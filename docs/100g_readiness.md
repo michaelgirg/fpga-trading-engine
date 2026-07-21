@@ -103,6 +103,8 @@ checks that the ingress side accepts the burst without stalls.
   traffic that starts independently of the failed live-feed sequence.
 - MoldUDP64 session-continuity tracking that invalidates the feed even when a
   restarted session presents a numerically contiguous sequence.
+- Explicit MoldUDP64 end-of-session handling that makes the feed non-tradable,
+  clears bounded books, and records a distinct management-plane cause.
 - Qualified feed activation that requires applied rebuild traffic and exposes
   premature activation attempts through status and counter telemetry.
 - Same normalized parser output checked against generated reference vectors.

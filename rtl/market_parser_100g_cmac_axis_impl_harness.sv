@@ -188,7 +188,8 @@ module market_parser_100g_cmac_axis_impl_harness (
         .feed_gap_count                 (feed_gap_count),
         .feed_suppressed_event_count    (feed_suppressed_event_count),
         .feed_idle_cycles               (feed_idle_cycles),
-        .feed_timeout_count             (feed_timeout_count)
+        .feed_timeout_count             (feed_timeout_count),
+        .feed_end_of_session_count      ()
     );
 
     always_ff @(posedge clk) begin

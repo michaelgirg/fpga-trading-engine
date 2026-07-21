@@ -21,7 +21,7 @@ captures the stronger post-route harness result at the 100G user-clock target.
 | U50-class HFT reference | `xcu50-fsvh2104-2-e` | `market_parser_512_pipeline` | `3.102 ns` | 322 MHz | `1.091 ns` | `0.000 ns` | Meets |
 | U50-class HFT reference | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_top` | `3.102 ns` | 322 MHz | `0.776 ns` | `0.000 ns` | Meets |
 | U50-class HFT reference | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `3.102 ns` | 322 MHz | `0.449 ns` | `0.000 ns` | Meets |
-| U50-class HFT reference | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | 322 MHz | `0.701 ns` | `0.000 ns` | Meets |
+| U50-class HFT reference | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | 322 MHz | `0.651 ns` | `0.000 ns` | Meets |
 
 ## U50 Frontend Clock Sweep
 
@@ -123,8 +123,8 @@ both close the native 3.102 ns / 322 MHz U50-class target.
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.098 ns` | `0.000 ns` | `29760 / 871680 (3.41%)` | `33591 / 1743360 (1.93%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_multi_strategy_top` | `2.400 ns` | 417 MHz | `-0.002 ns` | `-0.012 ns` | `29773 / 871680 (3.42%)` | `33591 / 1743360 (1.93%)` | Near miss |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_multi_strategy_top` | `2.350 ns` | 426 MHz | `-0.052 ns` | `-0.262 ns` | `29764 / 871680 (3.41%)` | `33590 / 1743360 (1.93%)` | Does not close |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | 322 MHz | `0.701 ns` | `0.000 ns` | `29824 / 871680 (3.42%)` | `34204 / 1743360 (1.96%)` | Meets |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.099 ns` | `0.000 ns` | `30017 / 871680 (3.44%)` | `34204 / 1743360 (1.96%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | 322 MHz | `0.651 ns` | `0.000 ns` | `29949 / 871680 (3.44%)` | `34363 / 1743360 (1.97%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.049 ns` | `0.000 ns` | `30126 / 871680 (3.46%)` | `34359 / 1743360 (1.97%)` | Meets |
 
 The result includes Ethernet/IP/UDP stripping, MoldUDP64/ITCH parsing, event
 buffering, exact Replace reference handling, four independent order tables,
@@ -132,7 +132,7 @@ fail-closed session-change, sequence-gap, packet-loss, and liveness protection, 
 quote arbitration. Registering balanced UDP `tkeep` counts removes the prior
 payload-strip timing wall, while registering watchdog detection separates its
 wide comparison from book control. The source-only CMAC AXIS full top closes
-2.500 ns / 400 MHz with 99 ps of setup margin. All builds use zero BRAM tiles
+2.500 ns / 400 MHz with 49 ps of setup margin. All builds use zero BRAM tiles
 and DSPs and do not depend on a CMAC IP license.
 
 ## CMAC AXIS Strategy Boundaries
@@ -152,8 +152,8 @@ the guarded four-symbol strategy path.
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.750 ns` | 364 MHz | `0.097 ns` | `0.000 ns` | `24146 / 871680 (2.77%)` | `23709 / 1743360 (1.36%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.500 ns` | 400 MHz | `-0.153 ns` | `-399.967 ns` | `24150 / 871680 (2.77%)` | `23713 / 1743360 (1.36%)` | Stress miss |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.350 ns` | 426 MHz | `-0.303 ns` | `-1015.845 ns` | `24150 / 871680 (2.77%)` | `23713 / 1743360 (1.36%)` | Stress miss |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | 322 MHz | `0.701 ns` | `0.000 ns` | `29824 / 871680 (3.42%)` | `34204 / 1743360 (1.96%)` | Meets |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.099 ns` | `0.000 ns` | `30017 / 871680 (3.44%)` | `34204 / 1743360 (1.96%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | 322 MHz | `0.651 ns` | `0.000 ns` | `29949 / 871680 (3.44%)` | `34363 / 1743360 (1.97%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.049 ns` | `0.000 ns` | `30126 / 871680 (3.46%)` | `34359 / 1743360 (1.97%)` | Meets |
 
 The first CMAC AXIS wrapper build missed this target with a long path from RX
 `tkeep` through UDP header/payload realignment into the payload FIFO controls.
@@ -173,14 +173,14 @@ packet-to-book datapath.
 | Part | Top | Period | Approx. frequency | WNS | TNS | LUTs | Registers | Status |
 | :--- | :--- | ---: | ---: | ---: | ---: | :--- | :--- | :--- |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_impl_harness` | `3.102 ns` | 322 MHz | `0.000 ns` | `0.000 ns` | `18492 / 871680 (2.12%)` | `21194 / 1743360 (1.22%)` | Meets |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_impl_harness` | `3.102 ns` | 322 MHz | `0.060 ns` | `0.000 ns` | `22742 / 871680 (2.61%)` | `29389 / 1743360 (1.69%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_impl_harness` | `3.102 ns` | 322 MHz | `0.004 ns` | `0.000 ns` | `22948 / 871680 (2.63%)` | `29537 / 1743360 (1.69%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_impl_harness` | `2.500 ns` | 400 MHz | `-0.826 ns` | `-4858.989 ns` | `18620 / 871680 (2.14%)` | `21169 / 1743360 (1.21%)` | Stress miss |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_impl_harness` | `2.350 ns` | 426 MHz | `-0.957 ns` | `-8524.854 ns` | `18632 / 871680 (2.14%)` | `21181 / 1743360 (1.21%)` | Stress miss |
 
 This is the current routed implementation milestone for the HFT path. It uses
 checked-in implementation harnesses and closes the 100G user-clock class for
 both the original ready/valid strategy path and the source-only CMAC AXIS
-four-symbol guarded boundary. The expanded harness has 72 ps of setup margin,
+four-symbol guarded boundary. The expanded harness has 4 ps of setup margin,
 so it is recorded as a native-clock pass rather than a higher-frequency claim.
 
 ## School Vivado Matrix Command

@@ -87,7 +87,8 @@ module market_parser_100g_cmac_axis_multi_strategy_top #(
     output logic [31:0]       feed_idle_cycles,
     output logic [31:0]       feed_timeout_count,
     output logic [31:0]       feed_activation_reject_count,
-    output logic [31:0]       feed_session_change_count
+    output logic [31:0]       feed_session_change_count,
+    output logic [31:0]       feed_end_of_session_count
 );
     logic         parser_rx_tvalid;
     logic         parser_rx_tready;
@@ -197,7 +198,8 @@ module market_parser_100g_cmac_axis_multi_strategy_top #(
         .feed_idle_cycles               (feed_idle_cycles),
         .feed_timeout_count             (feed_timeout_count),
         .feed_activation_reject_count   (feed_activation_reject_count),
-        .feed_session_change_count      (feed_session_change_count)
+        .feed_session_change_count      (feed_session_change_count),
+        .feed_end_of_session_count      (feed_end_of_session_count)
     );
 
 endmodule

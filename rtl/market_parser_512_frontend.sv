@@ -36,7 +36,8 @@ module market_parser_512_frontend #(
     output logic [31:0]       packet_count,
     output logic [31:0]       descriptor_count,
     output logic [31:0]       error_count,
-    output logic              session_change_pulse
+    output logic              session_change_pulse,
+    output logic              end_of_session_pulse
 );
     localparam int DESC_IDX_WIDTH = (DESC_QUEUE_DEPTH <= 1) ? 1 : $clog2(DESC_QUEUE_DEPTH);
 
@@ -233,11 +234,13 @@ module market_parser_512_frontend #(
             descriptor_count_pending_r <= 1'b0;
             error_count_pending_r  <= 1'b0;
             session_change_pulse   <= 1'b0;
+            end_of_session_pulse   <= 1'b0;
         end else if (sequence_rearm) begin
             expected_sequence_valid_r <= 1'b0;
             expected_session_valid_r  <= 1'b0;
             packet_gap_r              <= 1'b0;
             session_change_pulse      <= 1'b0;
+            end_of_session_pulse      <= 1'b0;
         end else begin
             q_tail_next  = int'(q_tail_r);
             q_count_next = int'(q_count_r);
@@ -248,6 +251,7 @@ module market_parser_512_frontend #(
             descriptor_count_pending_r <= 1'b0;
             error_count_pending_r      <= 1'b0;
             session_change_pulse       <= 1'b0;
+            end_of_session_pulse       <= 1'b0;
 
             if (desc_valid && desc_ready) begin
                 q_head_r     <= q_head_r + 1'b1;
@@ -334,6 +338,9 @@ module market_parser_512_frontend #(
                         end
                         expected_session_r       <= local_packet_session;
                         expected_session_valid_r <= 1'b1;
+                        if (local_message_count == 16'hffff) begin
+                            end_of_session_pulse <= 1'b1;
+                        end
                         if (local_message_count == 16'd0) begin
                             expected_sequence_r <= local_packet_sequence;
                         end else if (local_message_count != 16'hffff) begin

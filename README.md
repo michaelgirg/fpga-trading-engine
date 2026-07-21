@@ -9,7 +9,8 @@ pipeline intended for 100G-class FPGA Ethernet user clocks.
 
 ## What Is Included
 
-- MoldUDP64 header, sequence, message-length, heartbeat, and session handling.
+- MoldUDP64 header, sequence, message-length, heartbeat, session, and
+  end-of-session handling.
 - ITCH add, execute, cancel, delete, replace, trade, system, and unknown-message handling.
 - Normalized 256-bit event records, exact Replace reference tracking, and
   packet-to-top-of-book strategy paths.
@@ -17,7 +18,7 @@ pipeline intended for 100G-class FPGA Ethernet user clocks.
 - 512-bit cut-through parsing with descriptor generation, parallel extraction,
   event buffering, counters, sticky error flags, and AXI-Lite status registers.
 - Fail-closed multi-symbol book invalidation for MoldUDP64 session changes,
-  sequence gaps, CMAC
+  end-of-session markers, sequence gaps, CMAC
   packet-buffer loss, and packet inactivity, with event suppression,
   configurable AXI-Lite liveness monitoring, fault counters, two-phase book
 rebuild, session/sequence re-baselining, and explicit feed activation.
@@ -65,8 +66,8 @@ The regression covers parser correctness, malformed and truncated frames,
 randomized backpressure, dense messages, FIFO pressure, AXI-Lite status, and
 single- and multi-symbol golden-model top-of-book replay. It also verifies
 contiguous no-`tready` CMAC bursts, packet-atomic overflow rollback, immediate
-feed invalidation on bridge loss, bridge-health telemetry, session-change and
-sequence-gap handling, packet-inactivity timeout, distinct fault causes, and AXI-Lite
+feed invalidation on bridge loss, bridge-health telemetry, session-change,
+end-of-session, and sequence-gap handling, packet-inactivity timeout, distinct fault causes, and AXI-Lite
 rebuild/activation from an independent replay sequence. The current checked-in
 baseline passes with zero compile errors, zero compile warnings, and zero
 failed tests.
@@ -118,7 +119,7 @@ path is a larger packet-to-book design and is intentionally evaluated at the
 native 100G CMAC user-clock class rather than presented as a 500 MHz claim.
 
 The source-only CMAC AXIS four-symbol packet-to-quote top closes 2.500 ns /
-400 MHz with `+0.099 ns` WNS, using 30017 LUTs and 34204 registers
+400 MHz with `+0.049 ns` WNS, using 30126 LUTs and 34359 registers
 on the same U50-class part. This boundary includes Ethernet/IP/UDP stripping,
 MoldUDP64/ITCH parsing, event buffering, four independent order tables,
 fail-closed session, sequence, packet-loss, and liveness protection, and ordered quote
@@ -127,8 +128,9 @@ arbitration. These source-level OOC results do not require CMAC IP.
 The source-only CMAC AXIS implementation harness, including packet buffering,
 UDP realignment, parser, feed guard, AXI-Lite rebuild/activation, and four
 bounded books, also closes post-route at the native 3.102 ns / 322 MHz target
-with `+0.060 ns` WNS and `+0.012 ns` WHS. This routed result includes the
-qualified activation path but predates the session-continuity guard; it excludes the
+with `+0.004 ns` WNS and `+0.013 ns` WHS. This routed result includes the
+session-continuity guard; the subsequent end-of-session guard awaits refreshed
+timing. The harness excludes the
 generated encrypted CMAC IP and is not a bitstream or hardware-programming
 claim.
 

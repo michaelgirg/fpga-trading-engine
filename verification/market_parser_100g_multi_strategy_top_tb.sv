@@ -12,6 +12,7 @@ module market_parser_100g_multi_strategy_top_tb #(
     localparam logic [15:0] FEED_UDP_PORT = 16'd5000;
     localparam logic [47:0] SYMBOL_LOCATES = {16'h3333, 16'h2222, 16'h1111};
     localparam int RX_BYTES_PER_BEAT = 64;
+    localparam int END_OF_SESSION_RAW_BYTES = 62;
     localparam logic [11:0] REG_CONTROL         = 12'h000;
     localparam logic [11:0] REG_STATUS          = 12'h004;
     localparam logic [11:0] REG_FEED_STATUS     = 12'h0b0;
@@ -26,6 +27,7 @@ module market_parser_100g_multi_strategy_top_tb #(
     localparam logic [11:0] REG_FEED_TIMEOUT_CNT = 12'h0d4;
     localparam logic [11:0] REG_FEED_ACT_REJECT  = 12'h0d8;
     localparam logic [11:0] REG_FEED_SESSION_CHANGE = 12'h0dc;
+    localparam logic [11:0] REG_FEED_END_OF_SESSION = 12'h0e0;
 
 `include "verification/vectors/multi_symbol_meta.svh"
 
@@ -85,6 +87,7 @@ module market_parser_100g_multi_strategy_top_tb #(
     logic [31:0] feed_timeout_count;
     logic [31:0] feed_activation_reject_count;
     logic [31:0] feed_session_change_count;
+    logic [31:0] feed_end_of_session_count;
     logic [31:0] cmac_axis_accepted_packet_count;
     logic [31:0] cmac_axis_overflow_packet_count;
     logic [31:0] cmac_axis_dropped_beat_count;
@@ -97,6 +100,7 @@ module market_parser_100g_multi_strategy_top_tb #(
     byte_t raw_2_mem[MULTI_SYMBOL_RAW_2_BYTES];
     byte_t recovery_raw_mem[MULTI_SYMBOL_RAW_0_BYTES];
     byte_t session_change_raw_mem[MULTI_SYMBOL_RAW_0_BYTES];
+    byte_t end_of_session_raw_mem[END_OF_SESSION_RAW_BYTES];
     logic [191:0] expected_quote_mem[MULTI_SYMBOL_EXPECTED_QUOTES];
 
     int passed;
@@ -170,7 +174,8 @@ module market_parser_100g_multi_strategy_top_tb #(
         .feed_idle_cycles               (feed_idle_cycles),
         .feed_timeout_count             (feed_timeout_count),
         .feed_activation_reject_count   (feed_activation_reject_count),
-        .feed_session_change_count      (feed_session_change_count)
+        .feed_session_change_count      (feed_session_change_count),
+        .feed_end_of_session_count      (feed_end_of_session_count)
     );
 
     initial begin : generate_clock
@@ -219,6 +224,9 @@ module market_parser_100g_multi_strategy_top_tb #(
         for (int idx = 0; idx < MULTI_SYMBOL_RAW_0_BYTES; idx++) begin
             recovery_raw_mem[idx] = raw_0_mem[idx];
             session_change_raw_mem[idx] = raw_0_mem[idx];
+            if (idx < END_OF_SESSION_RAW_BYTES) begin
+                end_of_session_raw_mem[idx] = raw_0_mem[idx];
+            end
         end
         recovery_raw_mem[52] = 8'h11;
         recovery_raw_mem[53] = 8'h22;
@@ -237,6 +245,20 @@ module market_parser_100g_multi_strategy_top_tb #(
         session_change_raw_mem[57] = 8'h00;
         session_change_raw_mem[58] = 8'h07;
         session_change_raw_mem[59] = 8'hdb;
+        end_of_session_raw_mem[52] = 8'h11;
+        end_of_session_raw_mem[53] = 8'h22;
+        end_of_session_raw_mem[54] = 8'h33;
+        end_of_session_raw_mem[55] = 8'h44;
+        end_of_session_raw_mem[56] = 8'h55;
+        end_of_session_raw_mem[57] = 8'h66;
+        end_of_session_raw_mem[58] = 8'h77;
+        end_of_session_raw_mem[59] = 8'h8b;
+        end_of_session_raw_mem[60] = 8'hff;
+        end_of_session_raw_mem[61] = 8'hff;
+        end_of_session_raw_mem[16] = 8'h00;
+        end_of_session_raw_mem[17] = 8'h30;
+        end_of_session_raw_mem[38] = 8'h00;
+        end_of_session_raw_mem[39] = 8'h1c;
     endtask
 
     task automatic expect_no_quote(input int cycles, input string msg);
@@ -480,6 +502,33 @@ module market_parser_100g_multi_strategy_top_tb #(
         activate_feed();
         check(feed_healthy && !feed_rebuilding,
               "qualified activation completes session recovery");
+
+        send_packet(END_OF_SESSION_RAW_BYTES, end_of_session_raw_mem);
+        expect_no_quote(200, "end-of-session packet emits no quote");
+        check(!feed_healthy && !feed_rebuilding,
+              "MoldUDP64 end-of-session invalidates feed");
+        check(feed_end_of_session_count == 32'd1,
+              "end-of-session has distinct fault telemetry");
+        check(feed_session_change_count == 32'd1 && feed_gap_count == 32'd0,
+              "end-of-session does not masquerade as session change or sequence gap");
+        check(feed_suppressed_event_count == 32'd3,
+              "end-of-session packet carries no suppressible events");
+        axi_read(REG_STATUS, reg_value);
+        check(reg_value[11] && !reg_value[5],
+              "aggregate status identifies end-of-session and unhealthy feed");
+        axi_read(REG_FEED_STATUS, reg_value);
+        check(reg_value[6] && !reg_value[0],
+              "feed status retains end-of-session history");
+        axi_read(REG_FEED_END_OF_SESSION, reg_value);
+        check(reg_value == 32'd1, "AXI-Lite exposes end-of-session count");
+        recover_feed();
+        send_packet(MULTI_SYMBOL_RAW_0_BYTES, recovery_raw_mem);
+        expect_no_quote(800, "end-of-session recovery suppresses rebuild quotes");
+        check(feed_rebuild_ready,
+              "end-of-session recovery becomes activation-ready");
+        activate_feed();
+        check(feed_healthy && !feed_rebuilding,
+              "qualified activation completes end-of-session recovery");
 
         send_packet(MULTI_SYMBOL_RAW_0_BYTES, raw_0_mem);
         expect_no_quote(500, "sequence-gap packet emits no quote");

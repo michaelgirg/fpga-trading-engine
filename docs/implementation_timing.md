@@ -33,7 +33,7 @@ stripping:
 | Part | Top | Period | Frequency | WNS | TNS | LUTs | Registers | Status |
 | :--- | :--- | ---: | ---: | ---: | ---: | :--- | :--- | :--- |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_impl_harness` | `3.102 ns` | 322.4 MHz | `0.000 ns` | `0.000 ns` | `18492 / 871680 (2.12%)` | `21194 / 1743360 (1.22%)` | Meets |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_impl_harness` | `3.102 ns` | 322.4 MHz | `0.060 ns` | `0.000 ns` | `22742 / 871680 (2.61%)` | `29389 / 1743360 (1.69%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_impl_harness` | `3.102 ns` | 322.4 MHz | `0.004 ns` | `0.000 ns` | `22948 / 871680 (2.63%)` | `29537 / 1743360 (1.69%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_impl_harness` | `2.500 ns` | 400.0 MHz | `-0.826 ns` | `-4858.989 ns` | `18620 / 871680 (2.14%)` | `21169 / 1743360 (1.21%)` | Stress miss |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_impl_harness` | `2.350 ns` | 425.5 MHz | `-0.957 ns` | `-8524.854 ns` | `18632 / 871680 (2.14%)` | `21181 / 1743360 (1.21%)` | Stress miss |
 
@@ -49,11 +49,12 @@ milestone is the `3.102 ns` / 322 MHz pass.
 
 The CMAC AXIS implementation harness is now the stronger routed boundary proof:
 it includes the no-backpressure CMAC AXIS packet buffer, UDP strip/realignment,
-MoldUDP64/ITCH parser pipeline, event buffering, fail-closed sequence, loss, and
+MoldUDP64/ITCH parser pipeline, event buffering, fail-closed session, sequence,
+loss, and
 liveness protection, AXI-Lite feed rebuild/activation, and four-symbol
 top-of-book path, while still avoiding unrealistic package-pin pressure from
-debug buses. Its 60 ps setup margin is a valid native-clock pass, but not
-evidence for a higher routed frequency.
+debug buses. Its 4 ps setup margin is a valid native-clock pass with essentially
+no spare routed margin, and is not evidence for a higher routed frequency.
 
 This is still an RTL implementation flow, not a finished Alveo shell. The CMAC
 probe is intentionally separate because the actual IP wrapper depends on the

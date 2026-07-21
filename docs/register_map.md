@@ -12,7 +12,7 @@ parser through `market_parser_512_system.sv`.
 | Offset | Name | Access | Description |
 | :--- | :--- | :--- | :--- |
 | `0x0000` | `CONTROL` | RW | Bit 0: enable parser. Bit 1: clear sticky flags/counters through software-visible baselines. Bit 2: write one to clear book state and begin feed rebuild. Bit 3: write one to request activation of a qualified rebuilt feed; pulse bits read as zero. |
-| `0x0004` | `STATUS` | RO | Bit 0: parser enabled. Bit 1: ingress backpressured. Bit 2: event FIFO non-empty. Bit 3: event FIFO full. Bit 4: event output valid. Bit 5: feed healthy/tradable. Bit 6: CMAC AXIS packet-buffer overflow history. Bit 7: feed-liveness timeout history. Bit 8: feed rebuild in progress. Bit 9: activation rejection history. Bit 10: MoldUDP64 session-change history. History bits are relative to the current counter baseline. |
+| `0x0004` | `STATUS` | RO | Bit 0: parser enabled. Bit 1: ingress backpressured. Bit 2: event FIFO non-empty. Bit 3: event FIFO full. Bit 4: event output valid. Bit 5: feed healthy/tradable. Bit 6: CMAC AXIS packet-buffer overflow history. Bit 7: feed-liveness timeout history. Bit 8: feed rebuild in progress. Bit 9: activation rejection history. Bit 10: MoldUDP64 session-change history. Bit 11: MoldUDP64 end-of-session history. History bits are relative to the current counter baseline. |
 | `0x0008` | `BUILD_ID` | RO | Build/version identifier. Default: `0x4d505253`. |
 
 ## Implemented Parser Counters
@@ -44,7 +44,7 @@ parser through `market_parser_512_system.sv`.
 
 | Offset | Name | Access | Description |
 | :--- | :--- | :--- | :--- |
-| `0x00B0` | `FEED_STATUS` | RO | Bit 0: feed healthy/tradable. Bit 1: feed-liveness timeout history. Bit 2: feed rebuild in progress. Bit 3: rebuild has applied at least one event and is eligible for activation. Bit 4: activation rejection history. Bit 5: MoldUDP64 session-change history. A feed fault clears bits 0, 2, and 3. |
+| `0x00B0` | `FEED_STATUS` | RO | Bit 0: feed healthy/tradable. Bit 1: feed-liveness timeout history. Bit 2: feed rebuild in progress. Bit 3: rebuild has applied at least one event and is eligible for activation. Bit 4: activation rejection history. Bit 5: MoldUDP64 session-change history. Bit 6: MoldUDP64 end-of-session history. A feed fault clears bits 0, 2, and 3. |
 | `0x00B4` | `FEED_GAP_COUNT` | RO | Sequence-gap packets observed since the current counter baseline. |
 | `0x00B8` | `FEED_SUPPRESSED_EVENT_COUNT` | RO | Events suppressed while the feed guard is unhealthy or handling a gap packet. |
 | `0x00BC` | `CMAC_AXIS_FIFO` | RO | Bits 15:0: current packet-buffer beat occupancy. Bits 31:16: maximum occupancy observed since reset. |
@@ -56,6 +56,7 @@ parser through `market_parser_512_system.sv`.
 | `0x00D4` | `FEED_TIMEOUT_COUNT` | RO | Feed-liveness timeouts observed since the current counter baseline. |
 | `0x00D8` | `FEED_ACTIVATION_REJECT_COUNT` | RO | Activation requests rejected because the feed was not rebuilding or rebuild traffic had not yet applied an event. |
 | `0x00DC` | `FEED_SESSION_CHANGE_COUNT` | RO | Unexpected MoldUDP64 session changes observed since the current counter baseline. |
+| `0x00E0` | `FEED_END_OF_SESSION_COUNT` | RO | MoldUDP64 packets with message count `0xFFFF` observed since the current counter baseline. |
 
 Writing `CONTROL[2]` clears bounded book state, clears the parser's MoldUDP64
 session and sequence expectations, and enters rebuild mode. The first replay
@@ -76,7 +77,9 @@ invalidates the guarded production path when `FEED_IDLE_CYCLES` reaches
 Recovery, activation, and timeout-configuration writes restart the idle
 interval. Recovery does not erase fault history. Writing `CONTROL[1]` updates
 the software-visible parser, feed, CMAC AXIS, timeout, activation-rejection,
-and session-change counter baselines.
+and session-change/end-of-session counter baselines. A MoldUDP64 message count
+of `0xFFFF` also invalidates the feed immediately and is reported by
+`STATUS[11]`, `FEED_STATUS[6]`, and `FEED_END_OF_SESSION_COUNT`.
 The CMAC AXIS FIFO high-water mark is a since-reset value and is not changed by
 `CONTROL[1]`.
 
