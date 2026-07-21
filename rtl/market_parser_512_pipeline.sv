@@ -136,6 +136,13 @@ module market_parser_512_pipeline #(
     logic [15:0] window_base_byte;
     logic [EXTRACTION_WINDOW_BYTES*8-1:0] window_data;
     logic [  EXTRACTION_WINDOW_BYTES-1:0] window_keep;
+    logic          window_read_valid;
+    logic          window_meta_valid_r;
+    logic [15:0]   window_meta_message_length_r;
+    logic [15:0]   window_meta_message_start_r;
+    logic [15:0]   window_meta_message_end_r;
+    logic [ 7:0]   window_meta_flags_r;
+    logic          window_meta_last_r;
     logic          extract_desc_valid;
     logic          extract_event_valid;
     logic          extract_event_complete;
@@ -215,7 +222,8 @@ module market_parser_512_pipeline #(
                                     !possible_final_desc_blocked;
     assign desc_pop               = desc_head_consume;
     assign pipe_idle              = packet_done_r && frontend_ready && !frontend_desc_valid &&
-                                    (desc_count_r == '0) && !desc_head_valid_r && !extract_req_valid_r &&
+                                    (desc_count_r == '0) && !desc_head_valid_r && !window_meta_valid_r &&
+                                    !window_read_valid && !extract_req_valid_r &&
                                     !extract_coarse_valid_r && !extract_field_valid_r &&
                                     !extract_result_valid_r && !event_valid_r;
 
@@ -380,7 +388,10 @@ module market_parser_512_pipeline #(
         .beat_write_index       (16'(packet_beat_count_r)),
         .beat_write_data        (s_axis_rx_tdata),
         .beat_write_keep        (s_axis_rx_tkeep),
+        .read_en                (desc_pop),
         .read_message_start_byte(desc_head_message_start_r),
+        .read_stored_beats      (16'(packet_beats_stored_r)),
+        .read_valid             (window_read_valid),
         .window_base_byte       (window_base_byte),
         .window_data            (window_data),
         .window_keep            (window_keep)
@@ -439,6 +450,12 @@ module market_parser_512_pipeline #(
             accepting_packet_r      <= 1'b1;
             packet_done_r           <= 1'b0;
             clear_window            <= 1'b1;
+            window_meta_valid_r      <= 1'b0;
+            window_meta_message_length_r <= '0;
+            window_meta_message_start_r <= '0;
+            window_meta_message_end_r <= '0;
+            window_meta_flags_r      <= '0;
+            window_meta_last_r       <= 1'b0;
             extract_req_valid_r      <= 1'b0;
             extract_req_window_base_byte_r <= '0;
             extract_req_window_data_r <= '0;
@@ -582,20 +599,29 @@ module market_parser_512_pipeline #(
                 desc_head_window_ready_r <= desc_head_ready_next;
             end
 
+            window_meta_valid_r <= desc_pop;
             if (desc_pop) begin
                 event_last_next = packet_done_r && frontend_ready && !frontend_desc_valid &&
                                   (desc_count_next == 0);
+                window_meta_message_length_r <= desc_head_message_length_r;
+                window_meta_message_start_r  <= desc_head_message_start_r;
+                window_meta_message_end_r    <= desc_head_message_end_r;
+                window_meta_flags_r          <= desc_head_flags_r;
+                window_meta_last_r           <= event_last_next;
+                desc_head_valid_r            <= 1'b0;
+                desc_head_window_ready_r     <= 1'b0;
+            end
+
+            if (window_read_valid) begin
                 extract_req_valid_r            <= 1'b1;
                 extract_req_window_base_byte_r <= window_base_byte;
                 extract_req_window_data_r      <= window_data;
                 extract_req_window_keep_r      <= window_keep;
-                extract_req_message_length_r   <= desc_head_message_length_r;
-                extract_req_message_start_r    <= desc_head_message_start_r;
-                extract_req_message_end_r      <= desc_head_message_end_r;
-                extract_req_flags_r            <= desc_head_flags_r;
-                extract_req_last_r             <= event_last_next;
-                desc_head_valid_r              <= 1'b0;
-                desc_head_window_ready_r       <= 1'b0;
+                extract_req_message_length_r   <= window_meta_message_length_r;
+                extract_req_message_start_r    <= window_meta_message_start_r;
+                extract_req_message_end_r      <= window_meta_message_end_r;
+                extract_req_flags_r            <= window_meta_flags_r;
+                extract_req_last_r             <= window_meta_last_r;
             end else if (extract_req_to_coarse) begin
                 extract_req_valid_r <= 1'b0;
             end
@@ -615,6 +641,7 @@ module market_parser_512_pipeline #(
                 packet_done_r         <= 1'b0;
                 desc_head_valid_r     <= 1'b0;
                 desc_head_window_ready_r <= 1'b0;
+                window_meta_valid_r    <= 1'b0;
                 extract_req_valid_r    <= 1'b0;
                 extract_coarse_valid_r <= 1'b0;
                 extract_field_valid_r  <= 1'b0;

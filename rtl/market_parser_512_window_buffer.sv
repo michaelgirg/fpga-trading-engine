@@ -4,8 +4,9 @@
 // =============================================================================
 // Packet-local 512-bit beat store with a multi-beat extraction window.
 //
-// This block is intentionally small: it captures accepted packet beats and
-// presents the aligned window containing a requested message start byte.
+// Each window beat has an independent distributed-RAM read copy. Writes are
+// broadcast to every copy, allowing a registered multi-beat read without a
+// resettable register array or a wide asynchronous address mux.
 module market_parser_512_window_buffer #(
     parameter int PACKET_BEATS_MAX = 16,
     parameter int WINDOW_BYTES     = 256
@@ -19,12 +20,16 @@ module market_parser_512_window_buffer #(
     input  wire logic [                 511:0] beat_write_data,
     input  wire logic [                  63:0] beat_write_keep,
 
+    input  wire logic                         read_en,
     input  wire logic [                  15:0] read_message_start_byte,
+    input  wire logic [                  15:0] read_stored_beats,
+    output logic                              read_valid,
     output logic [                  15:0]      window_base_byte,
     output logic [    WINDOW_BYTES*8-1:0]      window_data,
     output logic [      WINDOW_BYTES-1:0]      window_keep
 );
     localparam int WINDOW_BEATS = WINDOW_BYTES / 64;
+    localparam int ENTRY_WIDTH  = 512 + 64;
 
     initial begin
         if (PACKET_BEATS_MAX < 2) begin
@@ -35,36 +40,61 @@ module market_parser_512_window_buffer #(
         end
     end
 
-    logic [511:0] beat_data_r [PACKET_BEATS_MAX];
-    logic [ 63:0] beat_keep_r [PACKET_BEATS_MAX];
-    logic         beat_valid_r[PACKET_BEATS_MAX];
+    logic [ENTRY_WIDTH-1:0] window_entry_r[WINDOW_BEATS];
+    logic [WINDOW_BEATS-1:0] window_entry_valid_r;
+    logic                    read_valid_r;
+    logic [15:0]             window_base_byte_r;
 
     always_ff @(posedge clk) begin
         if (rst || clear) begin
-            for (int i = 0; i < PACKET_BEATS_MAX; i++) begin
-                beat_data_r [i] <= '0;
-                beat_keep_r [i] <= '0;
-                beat_valid_r[i] <= 1'b0;
+            read_valid_r      <= 1'b0;
+            window_base_byte_r <= '0;
+        end else begin
+            read_valid_r <= read_en;
+            if (read_en) begin
+                window_base_byte_r <= {read_message_start_byte[15:6], 6'b0};
             end
-        end else if (beat_write_en && int'(beat_write_index) < PACKET_BEATS_MAX) begin
-            beat_data_r [int'(beat_write_index)] <= beat_write_data;
-            beat_keep_r [int'(beat_write_index)] <= beat_write_keep;
-            beat_valid_r[int'(beat_write_index)] <= 1'b1;
         end
     end
 
-    always_comb begin
-        int base_beat;
+    generate
+        for (genvar w = 0; w < WINDOW_BEATS; w++) begin : g_window_read_copy
+            (* ram_style = "distributed" *) logic [ENTRY_WIDTH-1:0] beat_mem[PACKET_BEATS_MAX];
 
-        base_beat        = int'(read_message_start_byte[15:6]);
-        window_base_byte = {read_message_start_byte[15:6], 6'b0};
+            always_ff @(posedge clk) begin
+                if (rst || clear) begin
+                    window_entry_r[w]       <= '0;
+                    window_entry_valid_r[w] <= 1'b0;
+                end else begin
+                    if (beat_write_en && int'(beat_write_index) < PACKET_BEATS_MAX) begin
+                        beat_mem[int'(beat_write_index)] <= {beat_write_keep, beat_write_data};
+                    end
+
+                    if (read_en) begin
+                        if ((int'(read_message_start_byte[15:6]) + w) < PACKET_BEATS_MAX) begin
+                            window_entry_r[w] <= beat_mem[int'(read_message_start_byte[15:6]) + w];
+                            window_entry_valid_r[w] <=
+                                (int'(read_message_start_byte[15:6]) + w) < int'(read_stored_beats);
+                        end else begin
+                            window_entry_r[w]       <= '0;
+                            window_entry_valid_r[w] <= 1'b0;
+                        end
+                    end
+                end
+            end
+        end
+    endgenerate
+
+    always_comb begin
+        read_valid      = read_valid_r;
+        window_base_byte = window_base_byte_r;
         window_data      = '0;
         window_keep      = '0;
 
         for (int w = 0; w < WINDOW_BEATS; w++) begin
-            if ((base_beat + w) < PACKET_BEATS_MAX && beat_valid_r[base_beat + w]) begin
-                window_data[w*512 +: 512] = beat_data_r[base_beat + w];
-                window_keep[w*64 +: 64]   = beat_keep_r[base_beat + w];
+            if (window_entry_valid_r[w]) begin
+                window_data[w*512 +: 512] = window_entry_r[w][511:0];
+                window_keep[w*64 +: 64]   = window_entry_r[w][512 +: 64];
             end
         end
     end
