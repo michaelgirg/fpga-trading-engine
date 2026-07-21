@@ -152,6 +152,33 @@ module market_parser_cmac_axis_rx_bridge_tb;
         m_axis_tready = 1'b0;
     endtask
 
+    task automatic expect_two_packets_contiguous(
+        input logic [DATA_WIDTH-1:0] first_base,
+        input logic [DATA_WIDTH-1:0] second_base
+    );
+        logic [DATA_WIDTH-1:0] expected_data;
+        int timeout;
+
+        timeout = 0;
+        while (!m_axis_tvalid && timeout < 20) begin
+            @(negedge clk);
+            timeout++;
+        end
+        check(m_axis_tvalid, "contiguous output stream becomes valid");
+
+        m_axis_tready = 1'b1;
+        for (int idx = 0; idx < 4; idx++) begin
+            expected_data = (idx < 2) ? first_base + DATA_WIDTH'(idx) :
+                                        second_base + DATA_WIDTH'(idx - 2);
+            check(m_axis_tvalid, "RAM-backed bridge emits without bubbles");
+            check(m_axis_tdata == expected_data, "contiguous output data matches");
+            check(m_axis_tlast == ((idx == 1) || (idx == 3)),
+                  "contiguous output packet boundary matches");
+            @(negedge clk);
+        end
+        m_axis_tready = 1'b0;
+    endtask
+
     initial begin
         failed = 0;
         reset_dut();
@@ -208,6 +235,16 @@ module market_parser_cmac_axis_rx_bridge_tb;
         check(buffered_packet_count == 16'd1, "earlier complete packet remains available");
         expect_beat(64'h5000, 1'b0, 1'b0);
         expect_beat(64'h5001, 1'b1, 1'b0);
+
+        reset_dut();
+        send_packet_contiguous(2, 64'h7000);
+        send_packet_contiguous(2, 64'h8000);
+        repeat (2) @(negedge clk);
+        check(accepted_packet_count == 32'd2, "two complete packets buffered");
+        expect_two_packets_contiguous(64'h7000, 64'h8000);
+        repeat (2) @(negedge clk);
+        check(fifo_level == 16'd0, "contiguous output stream drains FIFO");
+        check(buffered_packet_count == 16'd0, "contiguous output drains packet count");
 
         $display("MARKET PARSER CMAC AXIS RX BRIDGE TESTS");
         $display("Tests failed: %0d", failed);

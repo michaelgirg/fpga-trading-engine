@@ -40,6 +40,10 @@ module market_parser_cmac_axis_rx_bridge #(
     output logic                       overflow_event
 );
     localparam int PTR_WIDTH = (FIFO_DEPTH <= 1) ? 1 : $clog2(FIFO_DEPTH);
+    localparam int ENTRY_WIDTH = DATA_WIDTH + KEEP_WIDTH + 2;
+    localparam int KEEP_LSB = DATA_WIDTH;
+    localparam int LAST_BIT = DATA_WIDTH + KEEP_WIDTH;
+    localparam int USER_BIT = LAST_BIT + 1;
 
     initial begin
         if (FIFO_DEPTH < 4) begin
@@ -47,10 +51,11 @@ module market_parser_cmac_axis_rx_bridge #(
         end
     end
 
-    logic [DATA_WIDTH-1:0] data_q[FIFO_DEPTH];
-    logic [KEEP_WIDTH-1:0] keep_q[FIFO_DEPTH];
-    logic                  last_q[FIFO_DEPTH];
-    logic                  user_q[FIFO_DEPTH];
+    // A registered read port is required for block-RAM inference. Packing the
+    // AXIS sidebands with the data also keeps every beat under one address.
+    (* ram_style = "block" *) logic [ENTRY_WIDTH-1:0] fifo_mem[FIFO_DEPTH];
+    logic [ENTRY_WIDTH-1:0] output_entry_r;
+    logic                   output_valid_r;
 
     logic [PTR_WIDTH-1:0] wr_ptr_r;
     logic [PTR_WIDTH-1:0] rd_ptr_r;
@@ -67,11 +72,11 @@ module market_parser_cmac_axis_rx_bridge #(
 
     logic                 pop_i;
 
-    assign m_axis_tvalid          = (complete_packet_count_r != '0) && (count_r != '0);
-    assign m_axis_tdata           = data_q[rd_ptr_r];
-    assign m_axis_tkeep           = keep_q[rd_ptr_r];
-    assign m_axis_tlast           = last_q[rd_ptr_r];
-    assign m_axis_tuser_bad_frame = user_q[rd_ptr_r];
+    assign m_axis_tvalid          = output_valid_r;
+    assign m_axis_tdata           = output_entry_r[DATA_WIDTH-1:0];
+    assign m_axis_tkeep           = output_entry_r[KEEP_LSB +: KEEP_WIDTH];
+    assign m_axis_tlast           = output_entry_r[LAST_BIT];
+    assign m_axis_tuser_bad_frame = output_entry_r[USER_BIT];
 
     assign pop_i = m_axis_tvalid && m_axis_tready;
 
@@ -97,6 +102,7 @@ module market_parser_cmac_axis_rx_bridge #(
         logic [PTR_WIDTH:0]   count_next;
         logic [PTR_WIDTH:0]   partial_next;
         logic [PTR_WIDTH:0]   complete_next;
+        logic [PTR_WIDTH:0]   committed_after_pop;
         logic                 dropping_next;
 
         if (rst) begin
@@ -107,6 +113,8 @@ module market_parser_cmac_axis_rx_bridge #(
             partial_count_r         <= '0;
             complete_packet_count_r <= '0;
             high_watermark_r         <= '0;
+            output_entry_r           <= '0;
+            output_valid_r           <= 1'b0;
             dropping_packet_r       <= 1'b0;
             accepted_packet_count_r <= '0;
             overflow_packet_count_r <= '0;
@@ -125,10 +133,15 @@ module market_parser_cmac_axis_rx_bridge #(
             if (pop_i) begin
                 rd_next    = inc_ptr(rd_next);
                 count_next = count_next - 1'b1;
-                if (last_q[rd_ptr_r]) begin
+                if (m_axis_tlast) begin
                     complete_next = complete_next - 1'b1;
                 end
             end
+
+            // Only packets completed before this cycle may be prefetched.
+            // This avoids relying on block-RAM read-during-write behavior when
+            // the arriving beat completes the first buffered packet.
+            committed_after_pop = complete_next;
 
             if (rx_axis_tvalid) begin
                 if (dropping_next) begin
@@ -149,10 +162,12 @@ module market_parser_cmac_axis_rx_bridge #(
                         packet_start_next = wr_next;
                     end
 
-                    data_q[wr_next] <= rx_axis_tdata;
-                    keep_q[wr_next] <= rx_axis_tkeep;
-                    last_q[wr_next] <= rx_axis_tlast;
-                    user_q[wr_next] <= rx_axis_tuser;
+                    fifo_mem[wr_next] <= {
+                        rx_axis_tuser,
+                        rx_axis_tlast,
+                        rx_axis_tkeep,
+                        rx_axis_tdata
+                    };
 
                     wr_next      = inc_ptr(wr_next);
                     count_next   = count_next + 1'b1;
@@ -164,6 +179,15 @@ module market_parser_cmac_axis_rx_bridge #(
                         complete_next          = complete_next + 1'b1;
                         accepted_packet_count_r <= accepted_packet_count_r + 1'b1;
                     end
+                end
+            end
+
+            if (!output_valid_r || pop_i) begin
+                if (committed_after_pop != '0) begin
+                    output_entry_r <= fifo_mem[rd_next];
+                    output_valid_r <= 1'b1;
+                end else begin
+                    output_valid_r <= 1'b0;
                 end
             end
 
