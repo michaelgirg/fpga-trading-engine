@@ -36,24 +36,28 @@ stream blocks new book events, so no quote can be overtaken by a later symbol.
 
 ### Feed Integrity
 
-The 512-bit frontend tracks the next expected MoldUDP64 sequence and marks
+The 512-bit frontend tracks the 10-byte MoldUDP64 session and next expected
+sequence. It pulses immediately on an unexpected session change and marks
 every normalized event from a discontinuous packet with `FLAG_GAP`. The
 multi-symbol strategy top treats that flag as a feed-integrity fault. The
 CMAC-facing wrapper also raises the same fail-closed guard immediately when its
 no-`tready` packet buffer overflows. A programmable liveness watchdog raises a
-third fault when no complete CMAC packet arrives before its cycle threshold.
-Any cause clears all bounded book state, suppresses quote output, and consumes
+separate fault when no complete CMAC packet arrives before its cycle threshold.
+Session changes, sequence gaps, bridge loss, and watchdog timeout each clear
+all bounded book state, suppress quote output, and consume
 later events without updating a book. `feed_healthy`, `feed_rebuilding`,
-`feed_gap_count`, `feed_suppressed_event_count`, `feed_idle_cycles`, and
-`feed_timeout_count`, `feed_rebuild_ready`, and
-`feed_activation_reject_count` expose the guard state and history.
+`feed_gap_count`, `feed_suppressed_event_count`, `feed_idle_cycles`,
+`feed_timeout_count`, `feed_rebuild_ready`,
+`feed_activation_reject_count`, and `feed_session_change_count` expose the
+guard state and history.
 
 Recovery is deliberately two-phase. At an idle parser boundary, the external
-`feed_recover` input or `CONTROL[2]` clears all books and the MoldUDP64 sequence
-expectation, then enters rebuild mode. The first replay packet establishes the
-new sequence baseline. Contiguous replay events repopulate book state, but
-quote updates are consumed internally and the feed remains non-tradable. The
-After at least one rebuild event applies, `feed_rebuild_ready` and
+`feed_recover` input or `CONTROL[2]` clears all books and the MoldUDP64 session
+and sequence expectations, then enters rebuild mode. The first replay packet
+establishes new session and sequence baselines. Contiguous replay events
+repopulate book state, but quote updates are consumed internally and the feed
+remains non-tradable. After at least one rebuild event applies,
+`feed_rebuild_ready` and
 `FEED_STATUS[3]` qualify activation. The external `feed_activate` input or
 `CONTROL[3]` then marks the feed healthy and exposes subsequent quotes. An
 activation request outside rebuild or before qualification is rejected and
@@ -76,8 +80,10 @@ The end-to-end test drives the source-only CMAC AXIS interface without
 backpressure, replays three generated Ethernet frames, and compares every quote
 to `MultiSymbolTopOfBookModel`. The replay contains 11 ITCH events, eight
 applied updates, three ignored events, one untracked symbol, and eight expected
-quote updates. It verifies zero bridge overflow or dropped beats, then replays
-a stale sequence, checks the AXI-Lite health/counter registers, begins software
+quote updates. It verifies zero bridge overflow or dropped beats, then sends a
+sequence-correct packet with a changed session and proves immediate fail-closed
+handling and distinct telemetry. It also replays a stale sequence, checks the
+AXI-Lite health/counter registers, begins software
 recovery, and proves that replay from an unrelated 64-bit sequence repopulates
 book state without exposing quotes before activation. A short runtime watchdog
 threshold then verifies inactivity timeout, fail-closed book clearing,
@@ -92,7 +98,7 @@ preserved history. No CMAC IP license is required for this simulation path.
 Vivado 2024.2 out-of-context synthesis on `xcu50-fsvh2104-2-e` closes the
 3.102 ns / 322 MHz 100G user-clock target for both synthesis boundaries. After
 registering balanced UDP `tkeep` counts, the complete packet-to-quote top with
-fail-closed sequence-gap handling also closes 2.500 ns / 400 MHz:
+fail-closed feed-integrity handling also closes 2.500 ns / 400 MHz:
 
 | Top | Period | Frequency | WNS | TNS | LUTs | Registers | Status |
 | :--- | ---: | ---: | ---: | ---: | :--- | :--- | :--- |
@@ -101,11 +107,11 @@ fail-closed sequence-gap handling also closes 2.500 ns / 400 MHz:
 | `market_parser_100g_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.098 ns` | `0.000 ns` | `29760 / 871680 (3.41%)` | `33591 / 1743360 (1.93%)` | Meets |
 | `market_parser_100g_multi_strategy_top` | `2.400 ns` | 417 MHz | `-0.002 ns` | `-0.012 ns` | `29773 / 871680 (3.42%)` | `33591 / 1743360 (1.93%)` | Near miss |
 | `market_parser_100g_multi_strategy_top` | `2.350 ns` | 426 MHz | `-0.052 ns` | `-0.262 ns` | `29764 / 871680 (3.41%)` | `33590 / 1743360 (1.93%)` | Does not close |
-| `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | 322 MHz | `0.701 ns` | `0.000 ns` | `29763 / 871680 (3.41%)` | `34115 / 1743360 (1.96%)` | Meets |
-| `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.099 ns` | `0.000 ns` | `29972 / 871680 (3.44%)` | `34112 / 1743360 (1.96%)` | Meets |
+| `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | 322 MHz | `0.701 ns` | `0.000 ns` | `29824 / 871680 (3.42%)` | `34204 / 1743360 (1.96%)` | Meets |
+| `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.099 ns` | `0.000 ns` | `30017 / 871680 (3.44%)` | `34204 / 1743360 (1.96%)` | Meets |
 
 The watchdog-enabled source-only CMAC packet bridge and telemetry boundary has
 99 ps of setup margin at 400 MHz with zero BRAM tiles and zero DSPs. This is a
 source-level OOC result and does not depend on generated CMAC IP. The watchdog
-comparison and decoded sequence-gap reset are registered before the
+comparison and decoded feed-guard controls are registered before the
 fail-closed book-control fanout.

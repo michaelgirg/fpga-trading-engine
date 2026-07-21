@@ -40,7 +40,8 @@ module market_parser_512_pipeline #(
     output logic [31:0]       descriptor_count,
     output logic [31:0]       event_count,
     output logic [31:0]       extractor_error_count,
-    output logic [31:0]       bad_frame_count
+    output logic [31:0]       bad_frame_count,
+    output logic              session_change_pulse
 );
     localparam int DESC_IDX_WIDTH = (DESC_FIFO_DEPTH <= 1) ? 1 : $clog2(DESC_FIFO_DEPTH);
     localparam int BEAT_IDX_WIDTH = (PACKET_BEATS_MAX <= 1) ? 1 : $clog2(PACKET_BEATS_MAX);
@@ -79,6 +80,7 @@ module market_parser_512_pipeline #(
     logic [31:0] frontend_packet_count;
     logic [31:0] frontend_descriptor_count;
     logic [31:0] frontend_error_count;
+    logic        frontend_session_change_pulse;
 
     logic [63:0] desc_packet_sequence_q [DESC_FIFO_DEPTH];
     logic [15:0] desc_message_index_q   [DESC_FIFO_DEPTH];
@@ -226,6 +228,7 @@ module market_parser_512_pipeline #(
     assign event_count           = event_count_r;
     assign extractor_error_count = extractor_error_count_r;
     assign bad_frame_count       = bad_frame_count_r;
+    assign session_change_pulse  = frontend_session_change_pulse;
     // Completeness is checked before final packing; keep the packer off the
     // wide length/keep timing path and carry incompleteness as a descriptor flag.
     assign extract_field_extract_length = 16'd1;
@@ -358,7 +361,8 @@ module market_parser_512_pipeline #(
         .desc_flags                (frontend_desc_flags),
         .packet_count              (frontend_packet_count),
         .descriptor_count          (frontend_descriptor_count),
-        .error_count               (frontend_error_count)
+        .error_count               (frontend_error_count),
+        .session_change_pulse      (frontend_session_change_pulse)
     );
 
     market_parser_512_window_buffer #(

@@ -33,6 +33,7 @@ module market_parser_512_system_tb #(
     localparam logic [11:0] REG_FEED_TIMEOUT_CFG = 12'h0d0;
     localparam logic [11:0] REG_FEED_TIMEOUT_CNT = 12'h0d4;
     localparam logic [11:0] REG_FEED_ACT_REJECT = 12'h0d8;
+    localparam logic [11:0] REG_FEED_SESSION_CHANGE = 12'h0dc;
 
     typedef logic [7:0] byte_t;
 
@@ -78,6 +79,7 @@ module market_parser_512_system_tb #(
     logic [31:0] feed_idle_cycles_status;
     logic [31:0] feed_timeout_count_status;
     logic [31:0] feed_activation_reject_count_status;
+    logic [31:0] feed_session_change_count_status;
     logic        feed_recover_pulse;
     logic        feed_activate_pulse;
     logic [31:0] feed_timeout_cycles_config;
@@ -112,6 +114,7 @@ module market_parser_512_system_tb #(
         .event_new_order_ref       (event_new_order_ref),
         .event_keep                (event_keep),
         .event_last                (event_last),
+        .session_change_pulse      (),
         .feed_healthy_status       (feed_healthy_status),
         .feed_rebuilding_status    (feed_rebuilding_status),
         .feed_rebuild_ready_status (feed_rebuild_ready_status),
@@ -120,6 +123,7 @@ module market_parser_512_system_tb #(
         .feed_idle_cycles_status   (feed_idle_cycles_status),
         .feed_timeout_count_status (feed_timeout_count_status),
         .feed_activation_reject_count_status(feed_activation_reject_count_status),
+        .feed_session_change_count_status(feed_session_change_count_status),
         .feed_recover_pulse        (feed_recover_pulse),
         .feed_activate_pulse       (feed_activate_pulse),
         .feed_timeout_cycles_config(feed_timeout_cycles_config),
@@ -187,6 +191,7 @@ module market_parser_512_system_tb #(
         feed_idle_cycles_status = 32'd0;
         feed_timeout_count_status = 32'd0;
         feed_activation_reject_count_status = 32'd0;
+        feed_session_change_count_status = 32'd0;
         cmac_axis_accepted_packet_count_status = 32'd0;
         cmac_axis_overflow_packet_count_status = 32'd0;
         cmac_axis_dropped_beat_count_status = 32'd0;
@@ -360,18 +365,21 @@ module market_parser_512_system_tb #(
         feed_gap_count_status = 32'd2;
         feed_suppressed_event_count_status = 32'd7;
         feed_activation_reject_count_status = 32'd2;
+        feed_session_change_count_status = 32'd3;
         axi_read(REG_FEED_STATUS, value);
-        check(value == 32'h0000_001e,
-              "feed status reports rebuild readiness, timeout, and rejection history");
+        check(value == 32'h0000_003e,
+              "feed status reports rebuild, timeout, activation, and session history");
         axi_read(REG_STATUS, value);
-        check(value[8] && value[9],
-              "aggregate status reports rebuild and activation rejection");
+        check(value[8] && value[9] && value[10],
+              "aggregate status reports rebuild, activation, and session history");
         axi_read(REG_FEED_GAP_COUNT, value);
         check(value == 32'd2, "feed gap counter readable");
         axi_read(REG_FEED_SUPPRESSED, value);
         check(value == 32'd7, "suppressed-event counter readable");
         axi_read(REG_FEED_ACT_REJECT, value);
         check(value == 32'd2, "activation rejection counter readable");
+        axi_read(REG_FEED_SESSION_CHANGE, value);
+        check(value == 32'd3, "session-change counter readable");
         axi_write(REG_CONTROL, 32'h0000_0005);
         repeat (2) @(posedge clk);
         check(feed_recover_seen_r, "control bit 2 emits feed recovery pulse");
@@ -434,6 +442,8 @@ module market_parser_512_system_tb #(
         check(value == 32'd0, "feed timeout counter clears via baseline");
         axi_read(REG_FEED_ACT_REJECT, value);
         check(value == 32'd0, "activation rejection counter clears via baseline");
+        axi_read(REG_FEED_SESSION_CHANGE, value);
+        check(value == 32'd0, "session-change counter clears via baseline");
         axi_read(REG_CMAC_AXIS_ACCEPT, value);
         check(value == 32'd0, "CMAC AXIS accepted counter clears via baseline");
         axi_read(REG_CMAC_AXIS_OVFL, value);

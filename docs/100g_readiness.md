@@ -101,6 +101,8 @@ checks that the ingress side accepts the burst without stalls.
   requires explicit activation before the feed becomes tradable.
 - Recovery-driven MoldUDP64 sequence re-baselining for snapshot or replay
   traffic that starts independently of the failed live-feed sequence.
+- MoldUDP64 session-continuity tracking that invalidates the feed even when a
+  restarted session presents a numerically contiguous sequence.
 - Qualified feed activation that requires applied rebuild traffic and exposes
   premature activation attempts through status and counter telemetry.
 - Same normalized parser output checked against generated reference vectors.

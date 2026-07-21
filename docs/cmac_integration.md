@@ -85,8 +85,8 @@ a compact board-like IO surface; it is implementation evidence for the RTL
 path, not a replacement for actual CMAC IP and board constraints.
 
 The expanded source-only CMAC AXIS routed harness closes the same target
-post-route with WNS `0.072 ns`, TNS `0.000 ns`, WHS `0.010 ns`, 22645 LUTs,
-29289 registers, and no BRAM/DSP usage. This result includes the guarded
+post-route with WNS `0.060 ns`, TNS `0.000 ns`, WHS `0.012 ns`, 22742 LUTs,
+29389 registers, and no BRAM/DSP usage. This result includes the guarded
 four-symbol boundary and is the current routed source-level evidence before
 inserting generated vendor IP.
 
@@ -379,7 +379,8 @@ path. The default bridge depth is 16 beats to match the current
 once the board traffic profile and acceptable overflow policy are fixed.
 
 `market_parser_100g_cmac_axis_multi_strategy_top` uses the same packet bridge
-for the guarded multi-symbol book bank. It exposes feed health, sequence-gap,
+for the guarded multi-symbol book bank. It exposes feed health, session-change,
+sequence-gap,
 packet-loss, liveness-timeout, ingress, and book telemetry while keeping
 generated CMAC IP out of the source-level boundary.
 `market_parser_100g_cmac_axis_impl_harness` retains this hierarchy for routed
@@ -399,10 +400,11 @@ diagnosis. Software must explicitly rearm the feed after correcting or
 accepting the loss condition.
 
 Rearming is a two-phase operation performed after the CMAC and event buffers
-drain. Recovery first clears the books and parser sequence expectation. The
-first replay packet establishes a new MoldUDP64 baseline, and contiguous replay
+drain. Recovery first clears the books and parser session/sequence expectations.
+The first replay packet establishes new MoldUDP64 baselines, and contiguous replay
 traffic rebuilds the books with quote output suppressed. Software activates
-the feed only after that rebuild is complete. Any bridge loss, sequence gap, or
+the feed only after that rebuild is complete. Any bridge loss, session change,
+sequence gap, or
 liveness timeout during rebuild returns the guard to the faulted state.
 
 The guarded path also monitors cycles since the last complete CMAC packet. A
@@ -423,8 +425,8 @@ wrapper closes OOC on the school U50-class target at the 3.102 ns / 322 MHz
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.750 ns` | `0.097 ns` | `0.000 ns` | `24146 / 871680 (2.77%)` | `23709 / 1743360 (1.36%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.500 ns` | `-0.153 ns` | `-399.967 ns` | `24150 / 871680 (2.77%)` | `23713 / 1743360 (1.36%)` | Stress miss |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.350 ns` | `-0.303 ns` | `-1015.845 ns` | `24150 / 871680 (2.77%)` | `23713 / 1743360 (1.36%)` | Stress miss |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | `0.701 ns` | `0.000 ns` | `29763 / 871680 (3.41%)` | `34115 / 1743360 (1.96%)` | Meets |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | `0.099 ns` | `0.000 ns` | `29972 / 871680 (3.44%)` | `34112 / 1743360 (1.96%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | `0.701 ns` | `0.000 ns` | `29824 / 871680 (3.42%)` | `34204 / 1743360 (1.96%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | `0.099 ns` | `0.000 ns` | `30017 / 871680 (3.44%)` | `34204 / 1743360 (1.96%)` | Meets |
 
 This pass covers the source-only CMAC AXIS RX bridge, UDP strip/realignment,
 MoldUDP64/ITCH parser pipeline, event buffering, and top-of-book strategy path.
@@ -434,7 +436,7 @@ board design, but it is the right source-level boundary for the generated
 `cmac_usplus` AXIS template.
 
 The guarded four-symbol boundary includes the same no-`tready` packet bridge,
-plus sequence-gap and packet-inactivity invalidation, AXI-Lite feed
+plus session-change, sequence-gap, and packet-inactivity invalidation, AXI-Lite feed
 rebuild/activation, four independent bounded books, ordered quote arbitration,
 and AXI-Lite bridge-health telemetry.
 It closes through 2.500 ns / 400 MHz with 99 ps of setup margin and uses zero

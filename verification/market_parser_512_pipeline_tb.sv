@@ -74,7 +74,8 @@ module market_parser_512_pipeline_tb #(
         .descriptor_count          (descriptor_count),
         .event_count               (event_count),
         .extractor_error_count     (extractor_error_count),
-        .bad_frame_count           (bad_frame_count)
+        .bad_frame_count           (bad_frame_count),
+        .session_change_pulse      ()
     );
 
     initial begin : generate_clock

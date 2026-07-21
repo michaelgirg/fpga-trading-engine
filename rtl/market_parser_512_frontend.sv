@@ -35,7 +35,8 @@ module market_parser_512_frontend #(
 
     output logic [31:0]       packet_count,
     output logic [31:0]       descriptor_count,
-    output logic [31:0]       error_count
+    output logic [31:0]       error_count,
+    output logic              session_change_pulse
 );
     localparam int DESC_IDX_WIDTH = (DESC_QUEUE_DEPTH <= 1) ? 1 : $clog2(DESC_QUEUE_DEPTH);
 
@@ -71,6 +72,8 @@ module market_parser_512_frontend #(
     logic [15:0] packet_message_count_r;
     logic [63:0] expected_sequence_r;
     logic        expected_sequence_valid_r;
+    logic [79:0] expected_session_r;
+    logic        expected_session_valid_r;
     logic        packet_gap_r;
     logic [15:0] message_index_r;
     logic [15:0] next_length_offset_r;
@@ -174,6 +177,7 @@ module market_parser_512_frontend #(
         logic local_pending_len_hi_valid;
         logic [7:0] local_pending_len_hi;
         logic [63:0] local_packet_sequence;
+        logic [79:0] local_packet_session;
         logic [15:0] local_message_count;
         logic [15:0] accepted_base_offset;
         int accepted_valid_lanes;
@@ -191,6 +195,8 @@ module market_parser_512_frontend #(
             packet_message_count_r <= '0;
             expected_sequence_r    <= '0;
             expected_sequence_valid_r <= 1'b0;
+            expected_session_r     <= '0;
+            expected_session_valid_r <= 1'b0;
             packet_gap_r           <= 1'b0;
             message_index_r        <= '0;
             next_length_offset_r   <= '0;
@@ -226,9 +232,12 @@ module market_parser_512_frontend #(
             packet_count_pending_r <= 1'b0;
             descriptor_count_pending_r <= 1'b0;
             error_count_pending_r  <= 1'b0;
+            session_change_pulse   <= 1'b0;
         end else if (sequence_rearm) begin
             expected_sequence_valid_r <= 1'b0;
+            expected_session_valid_r  <= 1'b0;
             packet_gap_r              <= 1'b0;
+            session_change_pulse      <= 1'b0;
         end else begin
             q_tail_next  = int'(q_tail_r);
             q_count_next = int'(q_count_r);
@@ -238,6 +247,7 @@ module market_parser_512_frontend #(
             packet_count_pending_r     <= 1'b0;
             descriptor_count_pending_r <= 1'b0;
             error_count_pending_r      <= 1'b0;
+            session_change_pulse       <= 1'b0;
 
             if (desc_valid && desc_ready) begin
                 q_head_r     <= q_head_r + 1'b1;
@@ -305,11 +315,25 @@ module market_parser_512_frontend #(
                             get_byte(beat_data_r, 14), get_byte(beat_data_r, 15),
                             get_byte(beat_data_r, 16), get_byte(beat_data_r, 17)
                         };
+                        local_packet_session = {
+                            get_byte(beat_data_r, 0), get_byte(beat_data_r, 1),
+                            get_byte(beat_data_r, 2), get_byte(beat_data_r, 3),
+                            get_byte(beat_data_r, 4), get_byte(beat_data_r, 5),
+                            get_byte(beat_data_r, 6), get_byte(beat_data_r, 7),
+                            get_byte(beat_data_r, 8), get_byte(beat_data_r, 9)
+                        };
                         local_message_count = {get_byte(beat_data_r, 18), get_byte(beat_data_r, 19)};
                         packet_sequence_r      <= local_packet_sequence;
                         packet_message_count_r <= local_message_count;
                         packet_count_pending_r <= 1'b1;
                         packet_gap_r           <= 1'b0;
+                        if (expected_session_valid_r &&
+                            local_packet_session != expected_session_r) begin
+                            session_change_pulse  <= 1'b1;
+                            error_count_pending_r <= 1'b1;
+                        end
+                        expected_session_r       <= local_packet_session;
+                        expected_session_valid_r <= 1'b1;
                         if (local_message_count == 16'd0) begin
                             expected_sequence_r <= local_packet_sequence;
                         end else if (local_message_count != 16'hffff) begin

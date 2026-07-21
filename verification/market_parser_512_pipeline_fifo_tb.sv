@@ -74,6 +74,7 @@ module market_parser_512_pipeline_fifo_tb #(
         .event_count                    (event_count),
         .extractor_error_count          (extractor_error_count),
         .bad_frame_count                (bad_frame_count),
+        .session_change_pulse           (),
         .event_fifo_level               (event_fifo_level),
         .event_fifo_write_count         (event_fifo_write_count),
         .event_fifo_read_count          (event_fifo_read_count),

@@ -46,6 +46,8 @@ module market_parser_512_frontend_tb #(
     logic [31:0] packet_count;
     logic [31:0] descriptor_count;
     logic [31:0] error_count;
+    logic        session_change_pulse;
+    logic        session_change_seen_r;
 
     int passed;
     int failed;
@@ -83,8 +85,17 @@ module market_parser_512_frontend_tb #(
         .desc_flags                (desc_flags),
         .packet_count              (packet_count),
         .descriptor_count          (descriptor_count),
-        .error_count               (error_count)
+        .error_count               (error_count),
+        .session_change_pulse      (session_change_pulse)
     );
+
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            session_change_seen_r <= 1'b0;
+        end else if (session_change_pulse) begin
+            session_change_seen_r <= 1'b1;
+        end
+    end
 
     initial begin : generate_clock
         forever #HALF_CLK_PERIOD clk <= ~clk;
@@ -362,6 +373,24 @@ module market_parser_512_frontend_tb #(
         check(packet_count == 32'd3, "rearmed packet count");
         check(descriptor_count == 32'd24, "rearmed descriptor count");
         check(error_count == 32'd1, "sequence rearm does not add a gap error");
+        check(!session_change_seen_r,
+              "sequence rearm also establishes a new session baseline");
+
+        mixed_packet_mem[0]  = mixed_packet_mem[0] ^ 8'h01;
+        mixed_packet_mem[17] = 8'h90;
+        fork
+            send_packet(MIXED_PACKET_BYTES, mixed_packet_mem, 1'b0);
+            begin
+                for (int i = 0; i < EXPECTED_MIXED_DESCS; i++) begin
+                    check_mixed_desc(i, 64'h1122_3344_5566_7790, 8'h00);
+                end
+            end
+        join
+        check(session_change_seen_r,
+              "unexpected MoldUDP64 session change raises a pulse");
+        check(packet_count == 32'd4, "session-change packet count");
+        check(descriptor_count == 32'd32, "session-change descriptor count");
+        check(error_count == 32'd2, "session change increments error count once");
 
         reset_dut();
         build_split_length_packet();

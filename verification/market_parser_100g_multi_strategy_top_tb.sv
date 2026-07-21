@@ -25,6 +25,7 @@ module market_parser_100g_multi_strategy_top_tb #(
     localparam logic [11:0] REG_FEED_TIMEOUT_CFG = 12'h0d0;
     localparam logic [11:0] REG_FEED_TIMEOUT_CNT = 12'h0d4;
     localparam logic [11:0] REG_FEED_ACT_REJECT  = 12'h0d8;
+    localparam logic [11:0] REG_FEED_SESSION_CHANGE = 12'h0dc;
 
 `include "verification/vectors/multi_symbol_meta.svh"
 
@@ -83,6 +84,7 @@ module market_parser_100g_multi_strategy_top_tb #(
     logic [31:0] feed_idle_cycles;
     logic [31:0] feed_timeout_count;
     logic [31:0] feed_activation_reject_count;
+    logic [31:0] feed_session_change_count;
     logic [31:0] cmac_axis_accepted_packet_count;
     logic [31:0] cmac_axis_overflow_packet_count;
     logic [31:0] cmac_axis_dropped_beat_count;
@@ -94,6 +96,7 @@ module market_parser_100g_multi_strategy_top_tb #(
     byte_t raw_1_mem[MULTI_SYMBOL_RAW_1_BYTES];
     byte_t raw_2_mem[MULTI_SYMBOL_RAW_2_BYTES];
     byte_t recovery_raw_mem[MULTI_SYMBOL_RAW_0_BYTES];
+    byte_t session_change_raw_mem[MULTI_SYMBOL_RAW_0_BYTES];
     logic [191:0] expected_quote_mem[MULTI_SYMBOL_EXPECTED_QUOTES];
 
     int passed;
@@ -166,7 +169,8 @@ module market_parser_100g_multi_strategy_top_tb #(
         .feed_suppressed_event_count    (feed_suppressed_event_count),
         .feed_idle_cycles               (feed_idle_cycles),
         .feed_timeout_count             (feed_timeout_count),
-        .feed_activation_reject_count   (feed_activation_reject_count)
+        .feed_activation_reject_count   (feed_activation_reject_count),
+        .feed_session_change_count      (feed_session_change_count)
     );
 
     initial begin : generate_clock
@@ -214,6 +218,7 @@ module market_parser_100g_multi_strategy_top_tb #(
         $readmemh({VECTOR_DIR, "/multi_symbol_expected_quotes.hex"}, expected_quote_mem);
         for (int idx = 0; idx < MULTI_SYMBOL_RAW_0_BYTES; idx++) begin
             recovery_raw_mem[idx] = raw_0_mem[idx];
+            session_change_raw_mem[idx] = raw_0_mem[idx];
         end
         recovery_raw_mem[52] = 8'h11;
         recovery_raw_mem[53] = 8'h22;
@@ -223,6 +228,15 @@ module market_parser_100g_multi_strategy_top_tb #(
         recovery_raw_mem[57] = 8'h66;
         recovery_raw_mem[58] = 8'h77;
         recovery_raw_mem[59] = 8'h88;
+        session_change_raw_mem[42] = raw_0_mem[42] ^ 8'h01;
+        session_change_raw_mem[52] = 8'h00;
+        session_change_raw_mem[53] = 8'h00;
+        session_change_raw_mem[54] = 8'h00;
+        session_change_raw_mem[55] = 8'h00;
+        session_change_raw_mem[56] = 8'h00;
+        session_change_raw_mem[57] = 8'h00;
+        session_change_raw_mem[58] = 8'h07;
+        session_change_raw_mem[59] = 8'hdb;
     endtask
 
     task automatic expect_no_quote(input int cycles, input string msg);
@@ -441,12 +455,38 @@ module market_parser_100g_multi_strategy_top_tb #(
         check(feed_activation_reject_count == 32'd1,
               "activation outside rebuild is counted as rejected");
 
+        send_packet(MULTI_SYMBOL_RAW_0_BYTES, session_change_raw_mem);
+        expect_no_quote(500, "session-change packet emits no quote");
+        check(!feed_healthy && !feed_rebuilding,
+              "unexpected MoldUDP64 session change invalidates feed");
+        check(feed_session_change_count == 32'd1,
+              "session change has distinct fault telemetry");
+        check(feed_suppressed_event_count == 32'd3,
+              "session-change packet events are suppressed");
+        check(feed_gap_count == 32'd0,
+              "session change does not masquerade as a sequence gap");
+        axi_read(REG_STATUS, reg_value);
+        check(reg_value[10] && !reg_value[5],
+              "aggregate status identifies session fault and unhealthy feed");
+        axi_read(REG_FEED_STATUS, reg_value);
+        check(reg_value[5] && !reg_value[0],
+              "feed status retains session-change history");
+        axi_read(REG_FEED_SESSION_CHANGE, reg_value);
+        check(reg_value == 32'd1, "AXI-Lite exposes session-change count");
+        recover_feed();
+        send_packet(MULTI_SYMBOL_RAW_0_BYTES, recovery_raw_mem);
+        expect_no_quote(800, "session recovery rebuild suppresses quotes");
+        check(feed_rebuild_ready, "session recovery becomes activation-ready");
+        activate_feed();
+        check(feed_healthy && !feed_rebuilding,
+              "qualified activation completes session recovery");
+
         send_packet(MULTI_SYMBOL_RAW_0_BYTES, raw_0_mem);
         expect_no_quote(500, "sequence-gap packet emits no quote");
         check(!feed_healthy, "sequence gap marks feed unhealthy");
         check(feed_gap_count == 32'd1, "sequence gap counted once per packet");
-        check(feed_suppressed_event_count == 32'd3,
-              "all events from the gap packet are suppressed");
+        check(feed_suppressed_event_count == 32'd6,
+              "session-change and gap packet events are suppressed");
         axi_read(REG_STATUS, reg_value);
         check(!reg_value[5], "aggregate status reports feed unhealthy");
         axi_read(REG_FEED_STATUS, reg_value);
@@ -455,7 +495,7 @@ module market_parser_100g_multi_strategy_top_tb #(
         axi_read(REG_FEED_GAP_COUNT, reg_value);
         check(reg_value == 32'd1, "AXI-Lite exposes sequence-gap count");
         axi_read(REG_FEED_SUPPRESSED, reg_value);
-        check(reg_value == 32'd3, "AXI-Lite exposes suppressed-event count");
+        check(reg_value == 32'd6, "AXI-Lite exposes cumulative suppressed-event count");
         check(book_accepted_event_count == 32'd0,
               "sequence gap clears aggregate book state and counters");
         check(book_quote_update_count == 32'd0,
@@ -498,7 +538,7 @@ module market_parser_100g_multi_strategy_top_tb #(
         check(reg_value[5] && !reg_value[8],
               "aggregate status reports activated feed");
         check(feed_gap_count == 32'd1, "recovery does not erase fault history");
-        check(feed_suppressed_event_count == 32'd3,
+        check(feed_suppressed_event_count == 32'd6,
               "rebuild does not count applied events as suppressed");
 
         axi_write(REG_FEED_TIMEOUT_CFG, 32'd32);

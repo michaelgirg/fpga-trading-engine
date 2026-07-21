@@ -37,6 +37,7 @@ module market_parser_512_pipeline_fifo #(
     output logic [31:0]       event_count,
     output logic [31:0]       extractor_error_count,
     output logic [31:0]       bad_frame_count,
+    output logic              session_change_pulse,
 
     output logic [15:0]       event_fifo_level,
     output logic [31:0]       event_fifo_write_count,
@@ -78,7 +79,8 @@ module market_parser_512_pipeline_fifo #(
         .descriptor_count     (descriptor_count),
         .event_count          (event_count),
         .extractor_error_count(extractor_error_count),
-        .bad_frame_count      (bad_frame_count)
+        .bad_frame_count      (bad_frame_count),
+        .session_change_pulse (session_change_pulse)
     );
 
     market_parser_event_fifo #(
