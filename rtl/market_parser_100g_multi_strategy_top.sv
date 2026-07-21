@@ -12,7 +12,7 @@ module market_parser_100g_multi_strategy_top #(
         16'h4444, 16'h3333, 16'h2222, 16'h1111
     },
     parameter int          STRIP_FIFO_DEPTH         = 8,
-    parameter int          PACKET_BEATS_MAX         = 16,
+    parameter int          PACKET_BEATS_MAX         = 32,
     parameter int          DESC_FIFO_DEPTH          = 32,
     parameter int          EXTRACTION_WINDOW_BYTES  = 256,
     parameter int          EVENT_FIFO_DEPTH         = 16,

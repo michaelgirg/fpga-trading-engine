@@ -13,6 +13,14 @@ module market_parser_100g_multi_strategy_top_tb #(
     localparam logic [47:0] SYMBOL_LOCATES = {16'h3333, 16'h2222, 16'h1111};
     localparam int RX_BYTES_PER_BEAT = 64;
     localparam int END_OF_SESSION_RAW_BYTES = 62;
+    localparam int MTU_MESSAGE_COUNT = 100;
+    localparam int MTU_MESSAGE_BYTES = 12;
+    localparam int MTU_MOLD_PAYLOAD_BYTES = 20 + MTU_MESSAGE_COUNT * (2 + MTU_MESSAGE_BYTES);
+    localparam int MTU_UDP_LENGTH = 8 + MTU_MOLD_PAYLOAD_BYTES;
+    localparam int MTU_IP_TOTAL_LENGTH = 20 + MTU_UDP_LENGTH;
+    localparam int MTU_RAW_BYTES = 14 + MTU_IP_TOTAL_LENGTH;
+    localparam int MTU_RAW_BEATS = (MTU_RAW_BYTES + RX_BYTES_PER_BEAT - 1) /
+                                   RX_BYTES_PER_BEAT;
     localparam logic [11:0] REG_CONTROL         = 12'h000;
     localparam logic [11:0] REG_STATUS          = 12'h004;
     localparam logic [11:0] REG_FEED_STATUS     = 12'h0b0;
@@ -101,6 +109,8 @@ module market_parser_100g_multi_strategy_top_tb #(
     byte_t recovery_raw_mem[MULTI_SYMBOL_RAW_0_BYTES];
     byte_t session_change_raw_mem[MULTI_SYMBOL_RAW_0_BYTES];
     byte_t end_of_session_raw_mem[END_OF_SESSION_RAW_BYTES];
+    byte_t mtu_raw_0_mem[MTU_RAW_BYTES];
+    byte_t mtu_raw_1_mem[MTU_RAW_BYTES];
     logic [191:0] expected_quote_mem[MULTI_SYMBOL_EXPECTED_QUOTES];
 
     int passed;
@@ -112,7 +122,7 @@ module market_parser_100g_multi_strategy_top_tb #(
         .FEED_UDP_PORT      (FEED_UDP_PORT),
         .NUM_SYMBOLS        (3),
         .SYMBOL_LOCATES     (SYMBOL_LOCATES),
-        .CMAC_RX_FIFO_DEPTH (16),
+        .CMAC_RX_FIFO_DEPTH (64),
         .ORDER_TABLE_DEPTH  (8)
     ) DUT (
         .clk                            (clk),
@@ -261,6 +271,58 @@ module market_parser_100g_multi_strategy_top_tb #(
         end_of_session_raw_mem[39] = 8'h1c;
     endtask
 
+    task automatic build_mtu_system_packet();
+        int len_offset;
+        int msg_start;
+
+        for (int idx = 0; idx < MTU_RAW_BYTES; idx++) begin
+            mtu_raw_0_mem[idx] = 8'h00;
+            mtu_raw_1_mem[idx] = 8'h00;
+        end
+        for (int idx = 0; idx < 62; idx++) begin
+            mtu_raw_0_mem[idx] = raw_0_mem[idx];
+        end
+
+        mtu_raw_0_mem[16] = 8'(MTU_IP_TOTAL_LENGTH >> 8);
+        mtu_raw_0_mem[17] = 8'(MTU_IP_TOTAL_LENGTH);
+        mtu_raw_0_mem[38] = 8'(MTU_UDP_LENGTH >> 8);
+        mtu_raw_0_mem[39] = 8'(MTU_UDP_LENGTH);
+        mtu_raw_0_mem[52] = 8'h00;
+        mtu_raw_0_mem[53] = 8'h00;
+        mtu_raw_0_mem[54] = 8'h00;
+        mtu_raw_0_mem[55] = 8'h00;
+        mtu_raw_0_mem[56] = 8'h00;
+        mtu_raw_0_mem[57] = 8'h00;
+        mtu_raw_0_mem[58] = 8'h00;
+        mtu_raw_0_mem[59] = 8'h01;
+        mtu_raw_0_mem[60] = 8'(MTU_MESSAGE_COUNT >> 8);
+        mtu_raw_0_mem[61] = 8'(MTU_MESSAGE_COUNT);
+
+        for (int idx = 0; idx < MTU_MESSAGE_COUNT; idx++) begin
+            len_offset = 62 + idx * (2 + MTU_MESSAGE_BYTES);
+            msg_start = len_offset + 2;
+            mtu_raw_0_mem[len_offset] = 8'h00;
+            mtu_raw_0_mem[len_offset + 1] = 8'(MTU_MESSAGE_BYTES);
+            mtu_raw_0_mem[msg_start] = "S";
+            mtu_raw_0_mem[msg_start + 1] = 8'h77;
+            mtu_raw_0_mem[msg_start + 2] = 8'h77;
+            mtu_raw_0_mem[msg_start + 3] = 8'(idx >> 8);
+            mtu_raw_0_mem[msg_start + 4] = 8'(idx);
+            mtu_raw_0_mem[msg_start + 5] = 8'h00;
+            mtu_raw_0_mem[msg_start + 6] = 8'h00;
+            mtu_raw_0_mem[msg_start + 7] = 8'h00;
+            mtu_raw_0_mem[msg_start + 8] = 8'h00;
+            mtu_raw_0_mem[msg_start + 9] = 8'h00;
+            mtu_raw_0_mem[msg_start + 10] = 8'(idx);
+            mtu_raw_0_mem[msg_start + 11] = "O";
+        end
+
+        for (int idx = 0; idx < MTU_RAW_BYTES; idx++) begin
+            mtu_raw_1_mem[idx] = mtu_raw_0_mem[idx];
+        end
+        mtu_raw_1_mem[59] = 8'(1 + MTU_MESSAGE_COUNT);
+    endtask
+
     task automatic expect_no_quote(input int cycles, input string msg);
         bit saw_quote;
 
@@ -350,6 +412,52 @@ module market_parser_100g_multi_strategy_top_tb #(
         s_axis_cmac_rx_tlast  = 1'b0;
     endtask
 
+    task automatic send_packet_pair_contiguous(input int packet_bytes,
+                                                input byte_t packet_0_mem[],
+                                                input byte_t packet_1_mem[]);
+        int packet_idx;
+        int offset;
+        int beat_bytes;
+        logic [511:0] beat_data;
+        logic [63:0] beat_keep;
+
+        packet_idx = 0;
+        offset = 0;
+        @(negedge clk);
+        while (packet_idx < 2) begin
+            beat_bytes = ((packet_bytes - offset) >= RX_BYTES_PER_BEAT) ?
+                         RX_BYTES_PER_BEAT : packet_bytes - offset;
+            beat_data = '0;
+            beat_keep = '0;
+            for (int lane = 0; lane < beat_bytes; lane++) begin
+                if (packet_idx == 0) begin
+                    beat_data[lane*8 +: 8] = packet_0_mem[offset + lane];
+                end else begin
+                    beat_data[lane*8 +: 8] = packet_1_mem[offset + lane];
+                end
+                beat_keep[lane] = 1'b1;
+            end
+
+            s_axis_cmac_rx_tvalid          = 1'b1;
+            s_axis_cmac_rx_tdata           = beat_data;
+            s_axis_cmac_rx_tkeep           = beat_keep;
+            s_axis_cmac_rx_tlast           = (offset + beat_bytes >= packet_bytes);
+            s_axis_cmac_rx_tuser_bad_frame = 1'b0;
+            @(negedge clk);
+            offset += beat_bytes;
+            raw_beat_count++;
+            if (offset >= packet_bytes) begin
+                packet_idx++;
+                offset = 0;
+            end
+        end
+
+        s_axis_cmac_rx_tvalid = 1'b0;
+        s_axis_cmac_rx_tdata  = '0;
+        s_axis_cmac_rx_tkeep  = '0;
+        s_axis_cmac_rx_tlast  = 1'b0;
+    endtask
+
     task automatic send_oversize_packet(input int beats);
         @(negedge clk);
         for (int idx = 0; idx < beats; idx++) begin
@@ -403,10 +511,37 @@ module market_parser_100g_multi_strategy_top_tb #(
         raw_beat_count = 0;
         reset_dut();
         load_vectors();
+        build_mtu_system_packet();
 
         $display("\n========================================================");
         $display("MARKET PARSER 100G MULTI-SYMBOL STRATEGY TESTS");
         $display("========================================================");
+
+        send_packet_pair_contiguous(MTU_RAW_BYTES, mtu_raw_0_mem, mtu_raw_1_mem);
+        expect_no_quote(6000, "back-to-back near-MTU system-event packets emit no quote");
+        check(MTU_IP_TOTAL_LENGTH <= 1500 && MTU_RAW_BYTES <= 1514,
+              "near-MTU frames remain within the standard Ethernet envelope");
+        check(raw_beat_count == 2 * MTU_RAW_BEATS,
+              "near-MTU frames arrive as contiguous 512-bit beats");
+        check(cmac_axis_accepted_packet_count == 32'd2,
+              "CMAC bridge accepts both near-MTU packets atomically");
+        check(cmac_axis_overflow_packet_count == 32'd0 &&
+              cmac_axis_dropped_beat_count == 32'd0,
+              "back-to-back near-MTU packets cause no bridge loss");
+        check(cmac_axis_fifo_high_watermark >= 16'(MTU_RAW_BEATS) &&
+              cmac_axis_fifo_high_watermark <= 16'(2 * MTU_RAW_BEATS),
+              "CMAC bridge absorbs the back-to-back near-MTU burst");
+        check(cmac_accepted_frame_count == 32'd2 && cmac_payload_packet_count == 32'd2,
+              "UDP ingress accepts both near-MTU feed frames");
+        check(book_accepted_event_count == 32'(2 * MTU_MESSAGE_COUNT),
+              "parser emits every near-MTU ITCH message");
+        check(book_ignored_event_count == 32'(2 * MTU_MESSAGE_COUNT),
+              "book path accounts for every near-MTU system event");
+        check(feed_healthy && feed_gap_count == 32'd0,
+              "near-MTU packet preserves feed continuity");
+
+        reset_dut();
+        raw_beat_count = 0;
 
         quote_base = 0;
         send_packet(MULTI_SYMBOL_RAW_0_BYTES, raw_0_mem);
@@ -632,12 +767,12 @@ module market_parser_100g_multi_strategy_top_tb #(
         check(reg_value[5] && !reg_value[6] && reg_value[7] && !reg_value[8],
               "timeout recovery preserves timeout history");
 
-        send_oversize_packet(17);
+        send_oversize_packet(65);
         repeat (4) @(posedge clk);
         check(!feed_healthy, "CMAC bridge overflow invalidates feed immediately");
         check(cmac_axis_overflow_packet_count == 32'd1,
               "CMAC bridge overflow reason is retained");
-        check(cmac_axis_dropped_beat_count == 32'd17,
+        check(cmac_axis_dropped_beat_count == 32'd65,
               "CMAC bridge reports every beat in the lost packet");
         check(cmac_axis_fifo_level == 16'd0,
               "overflow rollback removes the incomplete packet");

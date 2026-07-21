@@ -11,9 +11,9 @@
 module market_parser_100g_cmac_ip_strategy_top #(
     parameter logic [15:0] FEED_UDP_PORT           = 16'd5000,
     parameter logic [15:0] TARGET_STOCK_LOCATE     = 16'h1234,
-    parameter int          CMAC_RX_FIFO_DEPTH      = 16,
+    parameter int          CMAC_RX_FIFO_DEPTH      = 64,
     parameter int          STRIP_FIFO_DEPTH        = 8,
-    parameter int          PACKET_BEATS_MAX        = 16,
+    parameter int          PACKET_BEATS_MAX        = 32,
     parameter int          DESC_FIFO_DEPTH         = 32,
     parameter int          EXTRACTION_WINDOW_BYTES = 256,
     parameter int          EVENT_FIFO_DEPTH        = 16,

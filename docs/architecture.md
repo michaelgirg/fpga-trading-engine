@@ -58,6 +58,11 @@ boundary and FIFO that a 100G-capable board would need before the parser. It is
 the correct place to attach a 100G MAC RX stream, while the backend parser
 remains the part that must be parallelized for sustained worst-case line rate.
 
+The source-only CMAC strategy wrappers use a 64-beat packet burst buffer because
+CMAC RX AXIS has no `tready`, followed by a 32-beat per-packet parser store. This
+supports standard-MTU-class frames without widening the 256-byte field
+extraction window on the timing-critical parser path.
+
 The `market_parser_512_boundary_scan` block is the first building block for
 that parallel parser path. It inspects a 512-bit first beat in parallel, decodes
 MoldUDP64 sequence/message count fields, and identifies early ITCH message

@@ -21,7 +21,9 @@ pipeline intended for 100G-class FPGA Ethernet user clocks.
   end-of-session markers, sequence gaps, CMAC
   packet-buffer loss, and packet inactivity, with event suppression,
   configurable AXI-Lite liveness monitoring, fault counters, two-phase book
-rebuild, session/sequence re-baselining, and explicit feed activation.
+  rebuild, session/sequence re-baselining, and explicit feed activation.
+- A 64-beat no-backpressure CMAC burst buffer and 32-beat parser packet
+  envelope sized for back-to-back standard-MTU-class feed frames.
 - Hardware-qualified feed activation that requires applied rebuild traffic and
   records rejected premature activation commands through AXI-Lite.
 - CMAC-facing UDP payload stripping and AXI stream buffering for a generated
@@ -67,8 +69,11 @@ randomized backpressure, dense messages, FIFO pressure, AXI-Lite status, and
 single- and multi-symbol golden-model top-of-book replay. It also verifies
 contiguous no-`tready` CMAC bursts, packet-atomic overflow rollback, immediate
 feed invalidation on bridge loss, bridge-health telemetry, session-change,
-end-of-session, and sequence-gap handling, packet-inactivity timeout, distinct fault causes, and AXI-Lite
-rebuild/activation from an independent replay sequence. The current checked-in
+end-of-session, and sequence-gap handling, packet-inactivity timeout, distinct
+fault causes, and AXI-Lite rebuild/activation from an independent replay
+sequence. A contiguous pair of 1462-byte Ethernet frames additionally proves
+lossless parsing and accounting of 200 ITCH messages without an idle CMAC
+cycle. The current checked-in
 baseline passes with zero compile errors, zero compile warnings, and zero
 failed tests.
 
@@ -118,8 +123,8 @@ in U50-class UltraScale+ OOC synthesis with positive slack. The full strategy
 path is a larger packet-to-book design and is intentionally evaluated at the
 native 100G CMAC user-clock class rather than presented as a 500 MHz claim.
 
-The source-only CMAC AXIS four-symbol packet-to-quote top closes 2.500 ns /
-400 MHz with `+0.049 ns` WNS, using 30126 LUTs and 34359 registers
+The end-of-session-guarded source-only CMAC AXIS four-symbol packet-to-quote top
+closes 2.500 ns / 400 MHz with `+0.049 ns` WNS, using 30199 LUTs and 34413 registers
 on the same U50-class part. This boundary includes Ethernet/IP/UDP stripping,
 MoldUDP64/ITCH parsing, event buffering, four independent order tables,
 fail-closed session, sequence, packet-loss, and liveness protection, and ordered quote
@@ -128,9 +133,10 @@ arbitration. These source-level OOC results do not require CMAC IP.
 The source-only CMAC AXIS implementation harness, including packet buffering,
 UDP realignment, parser, feed guard, AXI-Lite rebuild/activation, and four
 bounded books, also closes post-route at the native 3.102 ns / 322 MHz target
-with `+0.004 ns` WNS and `+0.013 ns` WHS. This routed result includes the
-session-continuity guard; the subsequent end-of-session guard awaits refreshed
-timing. The harness excludes the
+with `+0.176 ns` WNS and `+0.011 ns` WHS, using 23156 LUTs and 29607 registers.
+This routed result includes the end-of-session guard. The subsequent 64-beat
+CMAC burst-buffer and 32-beat packet-envelope expansion is locally verified and
+awaits refreshed timing. The harness excludes the
 generated encrypted CMAC IP and is not a bitstream or hardware-programming
 claim.
 

@@ -129,7 +129,7 @@ module market_parser_100g_cmac_axis_impl_harness (
         .FEED_UDP_PORT     (16'd5000),
         .NUM_SYMBOLS       (4),
         .SYMBOL_LOCATES    ({16'h4444, 16'h3333, 16'h2222, 16'h1234}),
-        .CMAC_RX_FIFO_DEPTH(16),
+        .CMAC_RX_FIFO_DEPTH(64),
         .ORDER_TABLE_DEPTH (8)
     ) cmac_axis_multi_strategy_top_i (
         .clk                            (clk),

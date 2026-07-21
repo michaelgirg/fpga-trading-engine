@@ -85,10 +85,11 @@ a compact board-like IO surface; it is implementation evidence for the RTL
 path, not a replacement for actual CMAC IP and board constraints.
 
 The expanded source-only CMAC AXIS routed harness closes the same target
-post-route with WNS `0.004 ns`, TNS `0.000 ns`, WHS `0.013 ns`, 22948 LUTs,
-29537 registers, and no BRAM/DSP usage. This result includes the guarded
+post-route with WNS `0.176 ns`, TNS `0.000 ns`, WHS `0.011 ns`, 23156 LUTs,
+29607 registers, and no BRAM/DSP usage. This result includes the guarded
 four-symbol boundary and is the current routed source-level evidence before
-inserting generated vendor IP.
+inserting generated vendor IP. The later 64-beat burst-buffer expansion awaits
+refreshed timing.
 
 The school Vivado 2024.2 IP catalog for `xcu50-fsvh2104-2-e` includes the
 UltraScale+ CMAC IP needed for a real board shell:
@@ -425,8 +426,8 @@ wrapper closes OOC on the school U50-class target at the 3.102 ns / 322 MHz
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.750 ns` | `0.097 ns` | `0.000 ns` | `24146 / 871680 (2.77%)` | `23709 / 1743360 (1.36%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.500 ns` | `-0.153 ns` | `-399.967 ns` | `24150 / 871680 (2.77%)` | `23713 / 1743360 (1.36%)` | Stress miss |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.350 ns` | `-0.303 ns` | `-1015.845 ns` | `24150 / 871680 (2.77%)` | `23713 / 1743360 (1.36%)` | Stress miss |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | `0.651 ns` | `0.000 ns` | `29949 / 871680 (3.44%)` | `34363 / 1743360 (1.97%)` | Meets |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | `0.049 ns` | `0.000 ns` | `30126 / 871680 (3.46%)` | `34359 / 1743360 (1.97%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | `0.651 ns` | `0.000 ns` | `30019 / 871680 (3.44%)` | `34427 / 1743360 (1.97%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | `0.049 ns` | `0.000 ns` | `30199 / 871680 (3.46%)` | `34413 / 1743360 (1.97%)` | Meets |
 
 This pass covers the source-only CMAC AXIS RX bridge, UDP strip/realignment,
 MoldUDP64/ITCH parser pipeline, event buffering, and top-of-book strategy path.
@@ -442,6 +443,12 @@ and AXI-Lite bridge-health telemetry.
 It closes through 2.500 ns / 400 MHz with 49 ps of setup margin and uses zero
 BRAM tiles and DSPs. This measured revision includes the programmable
 feed-liveness watchdog and its registered fail-closed timing boundary.
+
+The production source boundary now uses a 64-beat CMAC packet burst buffer and
+a 32-beat per-packet parser store. Local regression drives two contiguous
+1462-byte frames carrying 200 total ITCH messages with no idle CMAC cycle and
+observes zero overflow or dropped beats. This buffer expansion is not included
+in the timing rows above until the school Vivado flow is rerun.
 
 ## Minimum Board Shell
 

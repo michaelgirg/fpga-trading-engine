@@ -9,7 +9,7 @@
 module market_parser_100g_cmac_system #(
     parameter logic [15:0] FEED_UDP_PORT          = 16'd5000,
     parameter int          STRIP_FIFO_DEPTH       = 8,
-    parameter int          PACKET_BEATS_MAX       = 16,
+    parameter int          PACKET_BEATS_MAX       = 32,
     parameter int          DESC_FIFO_DEPTH        = 32,
     parameter int          EXTRACTION_WINDOW_BYTES = 256,
     parameter int          EVENT_FIFO_DEPTH       = 16,

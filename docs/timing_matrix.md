@@ -123,8 +123,8 @@ both close the native 3.102 ns / 322 MHz U50-class target.
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.098 ns` | `0.000 ns` | `29760 / 871680 (3.41%)` | `33591 / 1743360 (1.93%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_multi_strategy_top` | `2.400 ns` | 417 MHz | `-0.002 ns` | `-0.012 ns` | `29773 / 871680 (3.42%)` | `33591 / 1743360 (1.93%)` | Near miss |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_multi_strategy_top` | `2.350 ns` | 426 MHz | `-0.052 ns` | `-0.262 ns` | `29764 / 871680 (3.41%)` | `33590 / 1743360 (1.93%)` | Does not close |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | 322 MHz | `0.651 ns` | `0.000 ns` | `29949 / 871680 (3.44%)` | `34363 / 1743360 (1.97%)` | Meets |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.049 ns` | `0.000 ns` | `30126 / 871680 (3.46%)` | `34359 / 1743360 (1.97%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | 322 MHz | `0.651 ns` | `0.000 ns` | `30019 / 871680 (3.44%)` | `34427 / 1743360 (1.97%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.049 ns` | `0.000 ns` | `30199 / 871680 (3.46%)` | `34413 / 1743360 (1.97%)` | Meets |
 
 The result includes Ethernet/IP/UDP stripping, MoldUDP64/ITCH parsing, event
 buffering, exact Replace reference handling, four independent order tables,
@@ -152,8 +152,8 @@ the guarded four-symbol strategy path.
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.750 ns` | 364 MHz | `0.097 ns` | `0.000 ns` | `24146 / 871680 (2.77%)` | `23709 / 1743360 (1.36%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.500 ns` | 400 MHz | `-0.153 ns` | `-399.967 ns` | `24150 / 871680 (2.77%)` | `23713 / 1743360 (1.36%)` | Stress miss |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.350 ns` | 426 MHz | `-0.303 ns` | `-1015.845 ns` | `24150 / 871680 (2.77%)` | `23713 / 1743360 (1.36%)` | Stress miss |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | 322 MHz | `0.651 ns` | `0.000 ns` | `29949 / 871680 (3.44%)` | `34363 / 1743360 (1.97%)` | Meets |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.049 ns` | `0.000 ns` | `30126 / 871680 (3.46%)` | `34359 / 1743360 (1.97%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | 322 MHz | `0.651 ns` | `0.000 ns` | `30019 / 871680 (3.44%)` | `34427 / 1743360 (1.97%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.049 ns` | `0.000 ns` | `30199 / 871680 (3.46%)` | `34413 / 1743360 (1.97%)` | Meets |
 
 The first CMAC AXIS wrapper build missed this target with a long path from RX
 `tkeep` through UDP header/payload realignment into the payload FIFO controls.
@@ -173,15 +173,17 @@ packet-to-book datapath.
 | Part | Top | Period | Approx. frequency | WNS | TNS | LUTs | Registers | Status |
 | :--- | :--- | ---: | ---: | ---: | ---: | :--- | :--- | :--- |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_impl_harness` | `3.102 ns` | 322 MHz | `0.000 ns` | `0.000 ns` | `18492 / 871680 (2.12%)` | `21194 / 1743360 (1.22%)` | Meets |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_impl_harness` | `3.102 ns` | 322 MHz | `0.004 ns` | `0.000 ns` | `22948 / 871680 (2.63%)` | `29537 / 1743360 (1.69%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_impl_harness` | `3.102 ns` | 322 MHz | `0.176 ns` | `0.000 ns` | `23156 / 871680 (2.66%)` | `29607 / 1743360 (1.70%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_impl_harness` | `2.500 ns` | 400 MHz | `-0.826 ns` | `-4858.989 ns` | `18620 / 871680 (2.14%)` | `21169 / 1743360 (1.21%)` | Stress miss |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_impl_harness` | `2.350 ns` | 426 MHz | `-0.957 ns` | `-8524.854 ns` | `18632 / 871680 (2.14%)` | `21181 / 1743360 (1.21%)` | Stress miss |
 
 This is the current routed implementation milestone for the HFT path. It uses
 checked-in implementation harnesses and closes the 100G user-clock class for
 both the original ready/valid strategy path and the source-only CMAC AXIS
-four-symbol guarded boundary. The expanded harness has 4 ps of setup margin,
+four-symbol guarded boundary. The expanded harness has 176 ps of setup margin,
 so it is recorded as a native-clock pass rather than a higher-frequency claim.
+The subsequent 64-beat CMAC burst-buffer and 32-beat packet-envelope expansion
+is locally verified and awaits refreshed timing.
 
 ## School Vivado Matrix Command
 

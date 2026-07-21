@@ -105,6 +105,9 @@ checks that the ingress side accepts the burst without stalls.
   restarted session presents a numerically contiguous sequence.
 - Explicit MoldUDP64 end-of-session handling that makes the feed non-tradable,
   clears bounded books, and records a distinct management-plane cause.
+- A 64-beat no-backpressure CMAC burst buffer feeding a 32-beat per-packet
+  parser store, verified with two contiguous 1462-byte Ethernet frames and 200
+  total ITCH messages without overflow or dropped beats.
 - Qualified feed activation that requires applied rebuild traffic and exposes
   premature activation attempts through status and counter telemetry.
 - Same normalized parser output checked against generated reference vectors.
@@ -169,8 +172,8 @@ checks:
 1. Keep the U50/U55-class OOC result as the HFT reference timing target and use
    the 1.950 ns near miss as the next optional timing cleanup target.
 2. Run the school Vivado matrix across U50/U55/Virtex UltraScale+ style parts.
-3. Add event FIFO depth sweeps, sustained back-to-back maximum-size traffic,
-   and 512-byte long-payload stress cases.
+3. Extend the two-frame near-MTU proof into randomized long-burst and FIFO-depth
+   sweeps, including overload/recovery characterization.
 4. Integrate against a concrete 100G MAC/CMAC shell and board clocking model.
 5. Repeat routed implementation timing with the actual CMAC IP boundary and
    board constraints.
