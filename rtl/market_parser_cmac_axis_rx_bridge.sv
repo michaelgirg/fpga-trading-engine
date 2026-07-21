@@ -173,8 +173,11 @@ module market_parser_cmac_axis_rx_bridge #(
             count_r                 <= count_next;
             partial_count_r         <= partial_next;
             complete_packet_count_r <= complete_next;
-            if (count_next > high_watermark_r) begin
-                high_watermark_r <= count_next;
+            // Sample registered occupancy so downstream tready/pop logic does
+            // not sit on the high-watermark telemetry timing path. A peak is
+            // retained in count_r for the following cycle even if a pop occurs.
+            if (count_r > high_watermark_r) begin
+                high_watermark_r <= count_r;
             end
             dropping_packet_r       <= dropping_next;
         end
