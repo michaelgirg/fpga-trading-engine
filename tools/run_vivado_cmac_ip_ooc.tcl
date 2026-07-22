@@ -1,5 +1,6 @@
 set script_dir [file dirname [file normalize [info script]]]
 set repo_root [file normalize [file join $script_dir ".."]]
+source [file join $script_dir "load_rtl_filelist.tcl"]
 
 if {$argc >= 1} {
     set top_name [lindex $argv 0]
@@ -83,33 +84,8 @@ proc try_set_config {fh obj prop value} {
     emit $fh "Applied $prop=$value"
 }
 
-set rtl_files [list \
-    rtl/market_parser_pkg.sv \
-    rtl/market_parser.sv \
-    rtl/market_parser_axis_adapter.sv \
-    rtl/market_parser_64.sv \
-    rtl/market_parser_axis_register_slice.sv \
-    rtl/market_parser_100g_ingress.sv \
-    rtl/market_parser_udp_payload_strip.sv \
-    rtl/market_parser_512_boundary_scan.sv \
-    rtl/market_parser_512_frontend.sv \
-    rtl/market_parser_512_event_extract.sv \
-    rtl/market_parser_512_window_buffer.sv \
-    rtl/market_parser_512_pipeline.sv \
-    rtl/market_parser_event_fifo.sv \
-    rtl/market_parser_512_pipeline_fifo.sv \
-    rtl/market_parser_axi_lite_regs.sv \
-    rtl/market_parser_512_system.sv \
-    rtl/market_parser_100g_cmac_system.sv \
-    rtl/market_parser_top_of_book.sv \
-    rtl/market_parser_multi_symbol_top_of_book.sv \
-    rtl/market_parser_100g_strategy_top.sv \
-    rtl/market_parser_100g_multi_strategy_top.sv \
-    rtl/market_parser_cmac_axis_rx_bridge.sv \
-    rtl/market_parser_100g_cmac_axis_strategy_top.sv \
-    rtl/market_parser_100g_cmac_axis_multi_strategy_top.sv \
-    rtl/market_parser_100g_cmac_ip_strategy_top.sv \
-]
+set rtl_files [market_parser_read_rtl_filelist $repo_root]
+lappend rtl_files rtl/market_parser_100g_cmac_ip_strategy_top.sv
 
 puts "Market Parser CMAC IP OOC synthesis"
 puts "Repo: $repo_root"

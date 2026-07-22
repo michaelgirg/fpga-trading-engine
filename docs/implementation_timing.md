@@ -26,6 +26,18 @@ which drives the source-only CMAC AXIS RX boundary used by the generated
 
 ## Measured Routed Result
 
+The strongest vendor-IP result is the board-constrained generated-CMAC
+single-symbol harness:
+
+| Part | Top | Period | Frequency | WNS | WHS | LUTs | Registers | BRAM | Status |
+| :--- | :--- | ---: | ---: | ---: | ---: | :--- | :--- | ---: | :--- |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_ip_impl_harness` | `3.102 ns` | 322.4 MHz | `0.071 ns` | `0.011 ns` | `17074 / 871680 (1.96%)` | `18502 / 1743360 (1.06%)` | `8.5 / 1344 (0.63%)` | Fully routed, timing met |
+
+The implementation has zero unrouted nets, zero routing errors, and a clean
+DRC summary. Bitstream generation is a separate failed step: the encrypted
+CMAC cell remains limited to `Design_Linking`, including after fresh output
+product and netlist generation under the updated server license.
+
 Vivado 2024.2 post-route implementation on the school U50-class target closes
 the 100G user-clock class after adding a CMAC RX register slice before payload
 stripping:

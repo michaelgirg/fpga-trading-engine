@@ -123,8 +123,8 @@ both close the native 3.102 ns / 322 MHz U50-class target.
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.098 ns` | `0.000 ns` | `29760 / 871680 (3.41%)` | `33591 / 1743360 (1.93%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_multi_strategy_top` | `2.400 ns` | 417 MHz | `-0.002 ns` | `-0.012 ns` | `29773 / 871680 (3.42%)` | `33591 / 1743360 (1.93%)` | Near miss |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_multi_strategy_top` | `2.350 ns` | 426 MHz | `-0.052 ns` | `-0.262 ns` | `29764 / 871680 (3.41%)` | `33590 / 1743360 (1.93%)` | Does not close |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | 322 MHz | `0.651 ns` | `0.000 ns` | `30019 / 871680 (3.44%)` | `34427 / 1743360 (1.97%)` | Meets |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.049 ns` | `0.000 ns` | `30199 / 871680 (3.46%)` | `34413 / 1743360 (1.97%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | 322 MHz | `0.613 ns` | `0.000 ns` | `26465 / 871680 (3.04%)` | `26690 / 1743360 (1.53%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.011 ns` | `0.000 ns` | `26652 / 871680 (3.06%)` | `26689 / 1743360 (1.53%)` | Meets |
 
 The result includes Ethernet/IP/UDP stripping, MoldUDP64/ITCH parsing, event
 buffering, exact Replace reference handling, four independent order tables,
@@ -132,8 +132,28 @@ fail-closed session-change, sequence-gap, packet-loss, and liveness protection, 
 quote arbitration. Registering balanced UDP `tkeep` counts removes the prior
 payload-strip timing wall, while registering watchdog detection separates its
 wide comparison from book control. The source-only CMAC AXIS full top closes
-2.500 ns / 400 MHz with 49 ps of setup margin. All builds use zero BRAM tiles
-and DSPs and do not depend on a CMAC IP license.
+2.500 ns / 400 MHz with 11 ps of setup margin. Its CMAC burst FIFO uses 8.5
+BRAM tiles, its packet window uses 1,000 distributed-memory LUTs, and it uses
+zero DSPs. These builds do not depend on a CMAC IP license.
+
+## Packet-To-Intent Decision Top
+
+`market_parser_100g_cmac_axis_decision_top` extends the complete source-only
+four-symbol feed path through deterministic quote analysis, signed position
+risk, and a backpressured order-intent boundary. A registered quote FIFO keeps
+risk and intent backpressure out of the upstream book/feed control path.
+
+| Part | Period | Approx. frequency | WNS | TNS | LUTs | Registers | BRAM | Status |
+| :--- | ---: | ---: | ---: | ---: | :--- | :--- | :--- | :--- |
+| `xcu50-fsvh2104-2-e` | `3.102 ns` | 322 MHz | `0.616 ns` | `0.000 ns` | `27288 / 871680 (3.13%)` | `27321 / 1743360 (1.57%)` | `8.5 / 1344 (0.63%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `2.750 ns` | 364 MHz | `0.264 ns` | `0.000 ns` | `27468 / 871680 (3.15%)` | `27309 / 1743360 (1.57%)` | `8.5 / 1344 (0.63%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `2.500 ns` | 400 MHz | `0.014 ns` | `0.000 ns` | `27474 / 871680 (3.15%)` | `27307 / 1743360 (1.57%)` | `8.5 / 1344 (0.63%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `2.450 ns` | 408 MHz | `-0.036 ns` | `-0.369 ns` | `27475 / 871680 (3.15%)` | `27307 / 1743360 (1.57%)` | `8.5 / 1344 (0.63%)` | Near miss |
+| `xcu50-fsvh2104-2-e` | `2.400 ns` | 417 MHz | `-0.086 ns` | `-2.610 ns` | `27476 / 871680 (3.15%)` | `27307 / 1743360 (1.57%)` | `8.5 / 1344 (0.63%)` | Does not close |
+
+The full packet-to-intent integration therefore closes the 400 MHz OOC
+stretch target. The 408 MHz result is a 36 ps near miss; further frequency
+work is lower priority than routing a compact-I/O decision harness.
 
 ## CMAC AXIS Strategy Boundaries
 
@@ -152,8 +172,8 @@ the guarded four-symbol strategy path.
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.750 ns` | 364 MHz | `0.097 ns` | `0.000 ns` | `24146 / 871680 (2.77%)` | `23709 / 1743360 (1.36%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.500 ns` | 400 MHz | `-0.153 ns` | `-399.967 ns` | `24150 / 871680 (2.77%)` | `23713 / 1743360 (1.36%)` | Stress miss |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.350 ns` | 426 MHz | `-0.303 ns` | `-1015.845 ns` | `24150 / 871680 (2.77%)` | `23713 / 1743360 (1.36%)` | Stress miss |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | 322 MHz | `0.651 ns` | `0.000 ns` | `30019 / 871680 (3.44%)` | `34427 / 1743360 (1.97%)` | Meets |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.049 ns` | `0.000 ns` | `30199 / 871680 (3.46%)` | `34413 / 1743360 (1.97%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | 322 MHz | `0.613 ns` | `0.000 ns` | `26465 / 871680 (3.04%)` | `26690 / 1743360 (1.53%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.011 ns` | `0.000 ns` | `26652 / 871680 (3.06%)` | `26689 / 1743360 (1.53%)` | Meets |
 
 The first CMAC AXIS wrapper build missed this target with a long path from RX
 `tkeep` through UDP header/payload realignment into the payload FIFO controls.
@@ -182,8 +202,17 @@ checked-in implementation harnesses and closes the 100G user-clock class for
 both the original ready/valid strategy path and the source-only CMAC AXIS
 four-symbol guarded boundary. The expanded harness has 176 ps of setup margin,
 so it is recorded as a native-clock pass rather than a higher-frequency claim.
-The subsequent 64-beat CMAC burst-buffer and 32-beat packet-envelope expansion
-is locally verified and awaits refreshed timing.
+The expanded 64-beat CMAC burst buffer and 32-beat packet envelope are included
+in the updated OOC rows above. A source-only routed refresh after the BRAM and
+distributed-RAM changes remains pending.
+
+The generated-CMAC board harness is a separate single-symbol integration
+measurement. With the actual encrypted AXIS CAUI-4 CMAC checkpoint and board
+constraints linked, `market_parser_100g_cmac_ip_impl_harness` fully routes at
+3.102 ns with WNS `0.071 ns`, TNS `0.000 ns`, WHS `0.011 ns`, and zero routing
+errors. It uses 17,074 LUTs, 18,502 registers, 8.5 BRAM tiles, and zero DSPs.
+The final DRC summary is clean; only `write_bitstream` remains blocked by the
+CMAC IP's `Design_Linking` license level.
 
 ## School Vivado Matrix Command
 

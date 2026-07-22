@@ -54,9 +54,20 @@ a source-only CMAC AXIS RX bridge and wrapper; that boundary now closes OOC at
 3.102 ns with WNS `0.449 ns`, stress-closes 2.750 ns / 364 MHz, and closes a
 post-route CMAC AXIS implementation harness at the 3.102 ns target.
 
-That does not pretend to be a finished 100G trading NIC; it shows the right
-interface boundary, buffering, observability, and parallel parsing stages needed
-for one.
+I then generated the real AXIS CAUI-4 `cmac_usplus` checkpoint, applied U50
+hard-block, GT, reference-clock, reset, and board-I/O constraints, and routed
+the combined CMAC plus single-symbol parser/book harness. It meets 3.102 ns
+post-route with WNS `0.071 ns`, zero routing errors, and a clean DRC summary.
+Bitstream output remains blocked specifically by the CMAC encrypted-IP
+`Design_Linking` license level.
+
+The latest boundary is a deterministic quote-to-order-intent engine. It applies
+spread, liquidity, imbalance, feed-health, kill-switch, signed position, and
+maximum-exposure checks and has an independent Python model. A registered quote
+FIFO prevents risk backpressure from reaching feed control. The complete
+source-only packet-to-intent top closes OOC at 2.500 ns / 400 MHz with positive
+slack on the U50-class target. It emits venue-neutral intents rather than
+claiming a finished order gateway.
 
 ## Strong Resume Bullet
 
@@ -68,11 +79,14 @@ cycle-level latency reports, AXI-Lite control/status registers, and 512-bit
 cut-through parallel event pipeline with queued normalized-event output,
 back-to-back packet stress, FIFO-pressure accounting, 128/256/512-byte
 extraction-window sweeps, cocotb randomized checks, a CMAC-facing packet shell,
-source-only CMAC AXIS RX buffering, and a top-of-book quote path. Vivado OOC
+source-only CMAC AXIS RX buffering, a top-of-book quote path, and a risk-checked
+quote-to-order-intent boundary. Vivado OOC
 synthesis meets a 3.102 ns target on a U50-class UltraScale+ reference part for
-the full packet-to-book strategy top and CMAC AXIS strategy boundary, the routed
-implementation harness closes that same 100G target post-route, and the parser
-pipeline closes through `2.000 ns` / 500 MHz on the same reference target.
+the full packet-to-book strategy top and CMAC AXIS strategy boundary; the
+complete packet-to-intent top closes `2.500 ns` / 400 MHz OOC, the routed
+packet-to-book implementation harness closes the native 100G target, and the
+parser pipeline closes through `2.000 ns` / 500 MHz on the same reference
+target.
 
 ## What To Emphasize
 
@@ -94,8 +108,10 @@ parallel path is now cut-through within a packet and uses a four-beat/256-byte
 default packet-local extraction window with 128/256/512-byte sweep coverage,
 and OOC synthesis meets a 3.102 ns target on a U50-class UltraScale+ reference
 part, with sweep headroom through 2.100 ns. The routed implementation harness
-also closes the 3.102 ns / 322 MHz target, and the source-only CMAC AXIS
-strategy boundary closes that same OOC target. It is still not a completed 100G
-MAC integration. The next production steps are actual AMD CMAC IP integration,
-board-level clock/reset constraints, larger replay-style book tests, broader
-school-target timing comparison, and optional 1.950 ns parser timing cleanup.
+also closes the 3.102 ns / 322 MHz target, and the generated AXIS CAUI-4 CMAC
+integration closes that same target post-route. The design is not yet
+programmed onto hardware because the available CMAC entitlement blocks
+bitstream generation. The next production steps are routed decision-path
+integration, management-plane configuration, intent/fill reconciliation, and
+a separately specified venue gateway; optional 1.950 ns parser cleanup is
+lower priority.

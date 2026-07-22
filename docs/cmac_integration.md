@@ -227,7 +227,8 @@ as intended: `CMACE4_X0Y4`, `GTYE4_CHANNEL_X0Y28` through `X0Y31`, and
 `GTYE4_COMMON_X0Y7` for the reference-clock buffer. The complete generated
 CMAC plus parser design linked zero black boxes, placed and routed fully, and
 met the 3.102 ns / 322 MHz target with WNS `0.071 ns`, TNS `0.000 ns`, WHS
-`0.010 ns`, and THS `0.000 ns`.
+`0.011 ns`, and THS `0.000 ns`. Post-route utilization was 17,074 LUTs,
+18,502 registers, 8.5 BRAM tiles, 1,312 LUTs as memory, and zero DSPs.
 
 The board shell uses the 100 MHz CMC differential clock on `G17/G16`, PCIe
 reset on `AW27`, a one-bit status LED on `E18`, grounded HBM `CATTRIP` on
@@ -235,19 +236,21 @@ reset on `AW27`, a one-bit status LED on `E18`, grounded HBM `CATTRIP` on
 user clock drives the parser at the native 322 MHz rate, DRP is tied off, and
 the RS-FEC controls select correction and IEEE error indication. This removed
 the earlier `AVAL-326`, `PPURQ-1`, `NSTD-1`, and `UCIO-1` findings. The final
-DRC report contains no errors or critical warnings; its only finding is one
-non-blocking `PDRC-146` slice-packing warning at `SLICE_X30Y396`.
+route report contains zero routing errors, and the final DRC summary contains
+no errors, critical warnings, or warnings.
 
 With `MARKET_PARSER_WRITE_BITSTREAM=1`, Vivado proceeded through that complete
 implementation and then stopped at the encrypted CMAC bitstream-license gate:
 `i_cmac_usplus_0_top (<encrypted cellview>)` was not permitted for bitstream
 generation. The U50 implementation/device license was acquired, and
-`report_ip_status -license_status` showed `Design_Linking` as both the
-generated and available level for `cmac_usplus@2020.05`. This is not a
-synthesis, placement, routing, timing, pin, or DRC failure; the school
-installation needs a bitstream-authorized CMAC entitlement before the same
-run can emit `market_parser_100g_cmac_ip_impl_harness_au50.bit` and move to
-hardware programming.
+`report_ip_status -license_status` showed `Design_Linking` for `cmac_usplus`.
+The same failure remained after a fresh source directory regenerated the CMAC
+output products, synthesis checkpoint, and integrated netlist under the newly
+installed partial license. This is not a synthesis, placement, routing,
+timing, pin, stale-netlist, or DRC failure; the installation needs a
+bitstream-authorized CMAC entitlement before the same run can emit
+`market_parser_100g_cmac_ip_impl_harness_au50.bit` and move to hardware
+programming.
 
 Use this command shape when moving from a probe to actual generated vendor IP
 artifacts:
