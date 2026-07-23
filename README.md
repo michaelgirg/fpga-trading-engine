@@ -30,8 +30,21 @@ pipeline intended for 100G-class FPGA Ethernet user clocks.
   AMD/Xilinx UltraScale+ CMAC interface.
 - A venue-neutral quote-to-order-intent engine with spread, liquidity,
   imbalance, signed position, exposure-limit, feed-health, and kill-switch
-  checks. It emits intents for downstream gateway work; it does not encode or
-  transmit exchange orders.
+  checks.
+- A protocol-independent order lifecycle manager with monotonic client IDs,
+  ready/valid command backpressure, pending/live/cancel state, partial-fill
+  reconciliation, and fail-closed cancellation.
+- An independent final egress risk guard with quantity, price, outstanding,
+  rate, session, and kill checks; classified local rejects; and cancel bypass
+  for fail-closed exposure withdrawal.
+- A Nasdaq OUCH 5.0 gateway for byte-exact Enter and Cancel encoding plus
+  Accepted, Rejected, Executed, and Canceled response handling.
+- A SoupBinTCP logical-packet boundary with AXI backpressure, client login,
+  heartbeat and logout generation, reconnect sequence tracking, one- and
+  two-beat response deframing, and a fail-closed watchdog. TCP transport and
+  credentials remain external.
+- A registered two-entry order-command FIFO that isolates lifecycle timing
+  from exchange-gateway backpressure while preserving command order.
 - Self-checking Questa/SystemVerilog tests, deterministic packet vectors,
   optional cocotb tests, and optional Verilator lint.
 - Vivado OOC and routed implementation scripts. Generated reports and vendor
@@ -55,6 +68,15 @@ The most useful entry points are:
 - `rtl/market_parser_100g_cmac_axis_multi_strategy_top.sv`: source-only CMAC AXIS to guarded multi-symbol strategy path.
 - `rtl/market_parser_signal_engine.sv`: deterministic quote-to-intent and risk boundary.
 - `rtl/market_parser_100g_cmac_axis_decision_top.sv`: complete source-only packet-to-intent integration.
+- `rtl/market_parser_100g_cmac_axis_decision_impl_harness.sv`: compact routed packet-to-intent harness with fill feedback.
+- `rtl/market_parser_100g_cmac_axis_order_top.sv`: complete packet-to-order lifecycle and position-reconciliation path.
+- `rtl/market_parser_100g_cmac_axis_order_impl_harness.sv`: compact closed-loop order implementation harness.
+- `rtl/market_parser_100g_cmac_axis_egress_top.sv`: packet-to-command path with final independent risk checks.
+- `rtl/market_parser_100g_cmac_axis_egress_impl_harness.sv`: compact routed egress-risk harness.
+- `rtl/market_parser_100g_ouch5_top.sv`: packet-to-Soup/OUCH integration with venue-response feedback.
+- `rtl/market_parser_ouch5_gateway.sv`: command-level OUCH codec and Soup session boundary.
+- `rtl/market_parser_100g_ouch5_impl_harness.sv`: compact routed packet-to-OUCH closed-loop harness.
+- `tools/exchange_simulator.py`: deterministic Python exchange-response model.
 - `rtl/market_parser_100g_cmac_ip_strategy_top.sv`: generated CMAC AXIS boundary.
 - `rtl/market_parser_100g_cmac_ip_impl_harness.sv`: board-oriented U50 shell.
 - `verification/run_questa.do`: complete Questa regression.
@@ -81,8 +103,20 @@ sequence. A contiguous pair of 1462-byte Ethernet frames additionally proves
 lossless parsing and accounting of 200 ITCH messages without an idle CMAC
 cycle. The signal-engine regression adds output backpressure, feed/kill gating,
 market filters, signed fill accounting, long/short exposure limits, and exact
-suppression counters. The checked-in baseline passes with zero compile errors,
-zero compile warnings, and zero failed tests.
+suppression counters. The order-lifecycle regression adds command
+backpressure, client-ID assignment, acknowledgments, rejects, partial fills,
+cancellation, kill-switch behavior, and closed-loop position updates. The
+egress-risk regression adds independent quantity, price, outstanding-order,
+rate, session, and kill checks, local-reject lifecycle reconciliation, cancel
+bypass during session loss, and exact rejection counters. The OUCH/Soup
+regression adds byte-exact order encoding, 64-byte two-beat response
+reconstruction, logical-session watchdogs, transport rejects, and a closed-loop
+market-packet-to-fill replay. The
+Soup session regression additionally checks exact login bytes, ASCII sequence
+parsing, reconnect state, client/server heartbeats, logout, and transport loss.
+The
+checked-in baseline passes with zero compile errors, zero compile warnings,
+and zero failed tests.
 
 Generate or refresh deterministic packet vectors with Python 3:
 
@@ -146,6 +180,36 @@ book path with a registered quote FIFO, deterministic imbalance policy, signed
 position tracking, exposure limits, kill/feed gating, and a backpressured
 venue-neutral order-intent stream.
 
+The compact decision implementation harness replays a deterministic 512-bit
+packet stream and acknowledges accepted intents as fills one cycle later. Its
+self-checking test proves packet acceptance, quote evaluation, intent
+generation, tracked position updates, and lossless replay. It closes post-route
+at 3.102 ns / 322.4 MHz on the U50-class target with `+0.103 ns` WNS and
+`+0.011 ns` WHS, using 20,142 LUTs, 22,515 registers, 8.5 BRAM tiles, and zero
+DSPs.
+
+The complete source-only packet-to-order top adds monotonic client IDs,
+pending/live/cancel state, exchange-event reconciliation, partial-fill leaves,
+fail-closed cancellation, and signed position feedback. It closes OOC at
+3.102 ns / 322.4 MHz with `+0.490 ns` WNS; 2.500 ns / 400 MHz is a `0.112 ns`
+stress near miss. Its compact closed-loop implementation harness closes
+post-route at 3.102 ns with `+0.110 ns` WNS, zero TNS, and `+0.011 ns` WHS,
+using 21,300 LUTs, 23,721 registers, 8.5 BRAM tiles, and zero DSPs.
+
+The final source-only packet-to-command boundary adds independent quantity,
+price, outstanding-order, rate, session, and kill checks after lifecycle state.
+It closes OOC at 3.102 ns / 322.4 MHz with `+0.154 ns` WNS. Its compact
+implementation harness closes post-route at the same clock with `+0.047 ns`
+WNS, zero TNS, and `+0.010 ns` WHS, using 21,171 LUTs, 24,172 registers, 8.5
+BRAM tiles, and zero DSPs.
+
+The complete packet-to-Soup/OUCH implementation harness also closes post-route
+at 3.102 ns / 322.4 MHz with `+0.019 ns` WNS, zero TNS, and `+0.011 ns` WHS,
+using 22,440 LUTs, 24,603 registers, 8.5 BRAM tiles, and zero DSPs. This measured
+baseline includes byte-exact OUCH transmission and acceptance/fill feedback.
+The subsequent client-generated login, heartbeat, logout, and reconnect logic
+is regression-clean and awaits refreshed U50 timing.
+
 The source-only CMAC AXIS implementation harness, including packet buffering,
 UDP realignment, parser, feed guard, AXI-Lite rebuild/activation, and four
 bounded books, also closes post-route at the native 3.102 ns / 322 MHz target
@@ -184,7 +248,9 @@ See `docs/cmac_integration.md` for the generated-IP flow and board-shell
 details, `docs/timing_matrix.md` for measured timing, and
 `docs/implementation_timing.md` for routed-report conventions. The
 quote-to-intent policy and safety boundary are documented in
-`docs/decision_engine.md`.
+`docs/decision_engine.md`; the protocol-neutral command and reconciliation
+boundary is documented in `docs/order_lifecycle.md`; the final independent
+command checks are documented in `docs/egress_risk.md`.
 
 ## License And Data Handling
 

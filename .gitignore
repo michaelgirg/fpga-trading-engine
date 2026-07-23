@@ -1,5 +1,6 @@
 # Simulation/build artifacts
 work/
+work_*/
 build/
 xsim.dir/
 .Xil/

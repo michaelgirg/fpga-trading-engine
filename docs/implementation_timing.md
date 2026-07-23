@@ -23,6 +23,11 @@ trying to assign every debug counter and 512-bit stream lane to package pins.
 The follow-up routed target is `market_parser_100g_cmac_axis_impl_harness`,
 which drives the source-only CMAC AXIS RX boundary used by the generated
 `cmac_usplus` AXIS template before the packet-to-book strategy path.
+The current routed target is
+`market_parser_100g_cmac_axis_egress_impl_harness`, which extends that compact
+boundary through quote analysis, client-order lifecycle state, deterministic
+exchange acknowledgment/fill handling, signed position feedback, and an
+independent final risk stage.
 
 ## Measured Routed Result
 
@@ -46,6 +51,10 @@ stripping:
 | :--- | :--- | ---: | ---: | ---: | ---: | :--- | :--- | :--- |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_impl_harness` | `3.102 ns` | 322.4 MHz | `0.000 ns` | `0.000 ns` | `18492 / 871680 (2.12%)` | `21194 / 1743360 (1.22%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_impl_harness` | `3.102 ns` | 322.4 MHz | `0.176 ns` | `0.000 ns` | `23156 / 871680 (2.66%)` | `29607 / 1743360 (1.70%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_decision_impl_harness` | `3.102 ns` | 322.4 MHz | `0.103 ns` | `0.000 ns` | `20142 / 871680 (2.31%)` | `22515 / 1743360 (1.29%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_order_impl_harness` | `3.102 ns` | 322.4 MHz | `0.110 ns` | `0.000 ns` | `21300 / 871680 (2.44%)` | `23721 / 1743360 (1.36%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_egress_impl_harness` | `3.102 ns` | 322.4 MHz | `0.047 ns` | `0.000 ns` | `21171 / 871680 (2.43%)` | `24172 / 1743360 (1.39%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_ouch5_impl_harness` | `3.102 ns` | 322.4 MHz | `0.019 ns` | `0.000 ns` | `22440 / 871680 (2.57%)` | `24603 / 1743360 (1.41%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_impl_harness` | `2.500 ns` | 400.0 MHz | `-0.826 ns` | `-4858.989 ns` | `18620 / 871680 (2.14%)` | `21169 / 1743360 (1.21%)` | Stress miss |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_impl_harness` | `2.350 ns` | 425.5 MHz | `-0.957 ns` | `-8524.854 ns` | `18632 / 871680 (2.14%)` | `21181 / 1743360 (1.21%)` | Stress miss |
 
@@ -69,6 +78,26 @@ debug buses. Its 176 ps setup margin is a valid native-clock pass, but is not
 evidence for a higher routed frequency. This measured revision includes the
 end-of-session guard; the later 64-beat CMAC burst buffer and 32-beat parser
 packet envelope await refreshed implementation timing.
+
+The order harness is the current complete source-only routed boundary. It
+extends the same packet/feed/book path through quote analysis, a backpressured
+intent stream, monotonic client IDs, pending/live/cancel state, deterministic
+exchange acknowledgment and fill reconciliation, and signed position risk
+feedback. It meets the native 100G clock with 110 ps of setup margin and 11 ps
+of hold margin, with zero total negative slack.
+
+The egress harness adds the independent final risk boundary after lifecycle
+state. A registered elastic input stage removes lifecycle-state feedback from
+the risk decision and ready path. The complete harness meets the native clock
+post-route with 47 ps of setup margin and 10 ps of hold margin, with zero total
+negative slack.
+
+The OUCH implementation harness extends that boundary through byte-exact order
+encoding, Soup logical framing, two-beat venue response reconstruction, and
+acceptance/fill feedback. Its measured baseline meets 3.102 ns post-route with
+19 ps setup margin, 11 ps hold margin, and zero total negative slack. The later
+client-side login, heartbeat, logout, and reconnect logic is locally verified
+but is not included in that routed measurement.
 
 This is still an RTL implementation flow, not a finished Alveo shell. The CMAC
 probe is intentionally separate because the actual IP wrapper depends on the

@@ -80,13 +80,19 @@ TNS `0.000 ns`, WHS `+0.036 ns`, and THS `0.000 ns`. Utilization is 27,474
 LUTs, 27,307 registers, 8.5 BRAM tiles, and zero DSPs. The same top misses
 2.450 ns / 408 MHz by 0.036 ns.
 
-This is an OOC source-level timing result, not a routed-frequency or hardware
+The compact packet-to-intent-and-fill implementation harness also closes
+post-route at 3.102 ns / 322.4 MHz with WNS `+0.103 ns`, TNS `0.000 ns`, WHS
+`+0.011 ns`, and THS `0.000 ns`. It uses 20,142 LUTs, 22,515 registers, 8.5
+BRAM tiles, and zero DSPs. This is a routed source-only result, not a hardware
 deployment claim.
 
-## Next Integration Step
+## Lifecycle Integration
 
-A routed compact-I/O harness should include the decision and intent path at the
-native 3.102 ns CMAC user clock. A management register bank can then replace
-the direct configuration ports. Actual venue order encoding remains a separate
-module and should not be added until intent/fill reconciliation and final
-gateway-side risk behavior are specified.
+`market_parser_100g_cmac_axis_order_top` now connects this intent stream to the
+protocol-independent lifecycle manager documented in `order_lifecycle.md`.
+That boundary assigns client order IDs, tracks pending and live orders,
+reconciles acknowledgments, rejects, partial fills, and cancel acknowledgments,
+and cancels working exposure when feed or strategy controls fail closed.
+
+Actual venue encoding, session transport, and network transmission remain
+separate gateway responsibilities.

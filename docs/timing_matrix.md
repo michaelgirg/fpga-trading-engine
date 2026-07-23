@@ -155,6 +155,49 @@ The full packet-to-intent integration therefore closes the 400 MHz OOC
 stretch target. The 408 MHz result is a 36 ps near miss; further frequency
 work is lower priority than routing a compact-I/O decision harness.
 
+`market_parser_100g_cmac_axis_decision_impl_harness` is the corresponding
+compact routed target. It drives a deterministic 512-bit replay through the
+complete source-only ingress and loops accepted intents back as fills, keeping
+the signed position and risk feedback path live. It closes post-route at
+3.102 ns / 322.4 MHz with WNS `+0.103 ns`, TNS `0.000 ns`, WHS `+0.011 ns`,
+and THS `0.000 ns`. Utilization is 20,142 LUTs, 22,515 registers, 8.5 BRAM
+tiles, and zero DSPs.
+
+## Packet-To-Order Lifecycle Top
+
+`market_parser_100g_cmac_axis_order_top` extends packet-to-intent processing
+through monotonic client-order IDs, pending/live/cancel state, partial-fill
+leaves tracking, exchange-event reconciliation, fail-closed cancellation, and
+signed position feedback. Registering a one-hot 64-bit ID-match stage separates
+event matching from fill arithmetic and lifecycle updates.
+
+| Part | Period | Approx. frequency | WNS | TNS | LUTs | Registers | BRAM | Status |
+| :--- | ---: | ---: | ---: | ---: | :--- | :--- | :--- | :--- |
+| `xcu50-fsvh2104-2-e` | `3.102 ns` | 322 MHz | `0.490 ns` | `0.000 ns` | `28415 / 871680 (3.26%)` | `28303 / 1743360 (1.62%)` | `8.5 / 1344 (0.63%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `2.500 ns` | 400 MHz | `-0.112 ns` | `-23.830 ns` | `28603 / 871680 (3.28%)` | `28293 / 1743360 (1.62%)` | `8.5 / 1344 (0.63%)` | Stress near miss |
+
+The corresponding compact
+`market_parser_100g_cmac_axis_order_impl_harness` closes post-route at
+3.102 ns / 322.4 MHz with WNS `+0.110 ns`, TNS `0.000 ns`, WHS `+0.011 ns`,
+and THS `0.000 ns`. It uses 21,300 LUTs, 23,721 registers, 8.5 BRAM tiles,
+and zero DSPs.
+
+## Packet-To-Command Egress Risk Top
+
+`market_parser_100g_cmac_axis_egress_top` adds an independent final risk stage
+after lifecycle state. Its elastic input register breaks the outstanding-count
+and risk-decision feedback path while preserving one command per clock.
+
+| Part | Period | Approx. frequency | WNS | TNS | LUTs | Registers | BRAM | Status |
+| :--- | ---: | ---: | ---: | ---: | :--- | :--- | :--- | :--- |
+| `xcu50-fsvh2104-2-e` | `3.102 ns` | 322 MHz | `0.154 ns` | `0.000 ns` | `28618 / 871680 (3.28%)` | `28806 / 1743360 (1.65%)` | `8.5 / 1344 (0.63%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `2.500 ns` | 400 MHz | `-0.448 ns` | `-307.726 ns` | `28806 / 871680 (3.30%)` | `28796 / 1743360 (1.65%)` | `8.5 / 1344 (0.63%)` | Stress miss |
+
+The compact `market_parser_100g_cmac_axis_egress_impl_harness` closes
+post-route at 3.102 ns with WNS `+0.047 ns`, TNS `0.000 ns`, WHS `+0.010 ns`,
+and THS `0.000 ns`. It uses 21,171 LUTs, 24,172 registers, 8.5 BRAM tiles,
+and zero DSPs.
+
 ## CMAC AXIS Strategy Boundaries
 
 `market_parser_100g_cmac_axis_strategy_top` wraps the packet-to-book strategy
@@ -194,14 +237,23 @@ packet-to-book datapath.
 | :--- | :--- | ---: | ---: | ---: | ---: | :--- | :--- | :--- |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_impl_harness` | `3.102 ns` | 322 MHz | `0.000 ns` | `0.000 ns` | `18492 / 871680 (2.12%)` | `21194 / 1743360 (1.22%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_impl_harness` | `3.102 ns` | 322 MHz | `0.176 ns` | `0.000 ns` | `23156 / 871680 (2.66%)` | `29607 / 1743360 (1.70%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_decision_impl_harness` | `3.102 ns` | 322 MHz | `0.103 ns` | `0.000 ns` | `20142 / 871680 (2.31%)` | `22515 / 1743360 (1.29%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_order_impl_harness` | `3.102 ns` | 322 MHz | `0.110 ns` | `0.000 ns` | `21300 / 871680 (2.44%)` | `23721 / 1743360 (1.36%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_egress_impl_harness` | `3.102 ns` | 322 MHz | `0.047 ns` | `0.000 ns` | `21171 / 871680 (2.43%)` | `24172 / 1743360 (1.39%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_ouch5_impl_harness` | `3.102 ns` | 322 MHz | `0.019 ns` | `0.000 ns` | `22440 / 871680 (2.57%)` | `24603 / 1743360 (1.41%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_impl_harness` | `2.500 ns` | 400 MHz | `-0.826 ns` | `-4858.989 ns` | `18620 / 871680 (2.14%)` | `21169 / 1743360 (1.21%)` | Stress miss |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_impl_harness` | `2.350 ns` | 426 MHz | `-0.957 ns` | `-8524.854 ns` | `18632 / 871680 (2.14%)` | `21181 / 1743360 (1.21%)` | Stress miss |
 
 This is the current routed implementation milestone for the HFT path. It uses
 checked-in implementation harnesses and closes the 100G user-clock class for
 both the original ready/valid strategy path and the source-only CMAC AXIS
-four-symbol guarded boundary. The expanded harness has 176 ps of setup margin,
-so it is recorded as a native-clock pass rather than a higher-frequency claim.
+four-symbol guarded boundary. The latest egress harness additionally routes
+client-order lifecycle, exchange reconciliation, and independent final risk
+checks with 47 ps of setup margin. The full OUCH/Soup closed-loop harness also
+routes at the native clock with 19 ps setup margin and 11 ps hold margin. These
+are native-clock passes rather than higher-frequency claims. The subsequent
+client-generated login, heartbeat, logout, and reconnect extension awaits a
+refreshed implementation measurement.
 The expanded 64-beat CMAC burst buffer and 32-beat packet envelope are included
 in the updated OOC rows above. A source-only routed refresh after the BRAM and
 distributed-RAM changes remains pending.
