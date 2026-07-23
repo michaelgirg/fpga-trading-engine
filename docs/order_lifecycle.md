@@ -43,8 +43,9 @@ Supported response handling includes:
 Trading is enabled only while the feed is healthy, the strategy is enabled,
 and the kill switch is clear. If any condition fails, an unsent new command is
 withdrawn and every transmitted or live order is marked for deterministic
-cancellation. This does not claim wire-level venue connectivity; the lifecycle
-boundary emits protocol-neutral commands for a future gateway.
+cancellation. This does not claim wire-level venue connectivity. The lifecycle
+boundary remains protocol-neutral, while `market_parser_ouch5_gateway` is the
+implemented downstream OUCH/Soup adapter.
 
 ## Verification
 

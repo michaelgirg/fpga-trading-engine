@@ -21,7 +21,7 @@ captures the stronger post-route harness result at the 100G user-clock target.
 | U50-class HFT reference | `xcu50-fsvh2104-2-e` | `market_parser_512_pipeline` | `3.102 ns` | 322 MHz | `1.091 ns` | `0.000 ns` | Meets |
 | U50-class HFT reference | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_top` | `3.102 ns` | 322 MHz | `0.776 ns` | `0.000 ns` | Meets |
 | U50-class HFT reference | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `3.102 ns` | 322 MHz | `0.449 ns` | `0.000 ns` | Meets |
-| U50-class HFT reference | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | 322 MHz | `0.651 ns` | `0.000 ns` | Meets |
+| U50-class HFT reference | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | 322 MHz | `0.613 ns` | `0.000 ns` | Meets |
 
 ## U50 Frontend Clock Sweep
 
@@ -198,6 +198,22 @@ post-route at 3.102 ns with WNS `+0.047 ns`, TNS `0.000 ns`, WHS `+0.010 ns`,
 and THS `0.000 ns`. It uses 21,171 LUTs, 24,172 registers, 8.5 BRAM tiles,
 and zero DSPs.
 
+## Packet-To-Soup/OUCH Gateway
+
+`market_parser_100g_ouch5_top` extends the guarded packet-to-command path
+through a two-entry command FIFO, byte-exact OUCH 5.0 encoding/decoding, and a
+SoupBinTCP logical-session client. The client generates Login Request, Client
+Heartbeat, Logout Request, and Unsequenced Data packets; parses Login Accepted,
+Login Rejected, Server Heartbeat, End Of Session, and Sequenced Data packets;
+and preserves reconnect session/sequence state.
+
+| Part | Period | Approx. frequency | WNS | TNS | LUTs | Registers | BRAM | Status |
+| :--- | ---: | ---: | ---: | ---: | :--- | :--- | :--- | :--- |
+| `xcu50-fsvh2104-2-e` | `3.102 ns` | 322 MHz | `0.055 ns` | `0.000 ns` | `30203 / 871680 (3.46%)` | `30675 / 1743360 (1.76%)` | `8.5 / 1344 (0.63%)` | Meets |
+
+The Soup interface carries complete logical packets above TCP; it does not
+implement Ethernet/TCP reliability or socket establishment.
+
 ## CMAC AXIS Strategy Boundaries
 
 `market_parser_100g_cmac_axis_strategy_top` wraps the packet-to-book strategy
@@ -240,7 +256,7 @@ packet-to-book datapath.
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_decision_impl_harness` | `3.102 ns` | 322 MHz | `0.103 ns` | `0.000 ns` | `20142 / 871680 (2.31%)` | `22515 / 1743360 (1.29%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_order_impl_harness` | `3.102 ns` | 322 MHz | `0.110 ns` | `0.000 ns` | `21300 / 871680 (2.44%)` | `23721 / 1743360 (1.36%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_egress_impl_harness` | `3.102 ns` | 322 MHz | `0.047 ns` | `0.000 ns` | `21171 / 871680 (2.43%)` | `24172 / 1743360 (1.39%)` | Meets |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_ouch5_impl_harness` | `3.102 ns` | 322 MHz | `0.019 ns` | `0.000 ns` | `22440 / 871680 (2.57%)` | `24603 / 1743360 (1.41%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_ouch5_impl_harness` | `3.102 ns` | 322 MHz | `0.020 ns` | `0.000 ns` | `23470 / 871680 (2.69%)` | `25801 / 1743360 (1.48%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_impl_harness` | `2.500 ns` | 400 MHz | `-0.826 ns` | `-4858.989 ns` | `18620 / 871680 (2.14%)` | `21169 / 1743360 (1.21%)` | Stress miss |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_impl_harness` | `2.350 ns` | 426 MHz | `-0.957 ns` | `-8524.854 ns` | `18632 / 871680 (2.14%)` | `21181 / 1743360 (1.21%)` | Stress miss |
 
@@ -249,14 +265,13 @@ checked-in implementation harnesses and closes the 100G user-clock class for
 both the original ready/valid strategy path and the source-only CMAC AXIS
 four-symbol guarded boundary. The latest egress harness additionally routes
 client-order lifecycle, exchange reconciliation, and independent final risk
-checks with 47 ps of setup margin. The full OUCH/Soup closed-loop harness also
-routes at the native clock with 19 ps setup margin and 11 ps hold margin. These
-are native-clock passes rather than higher-frequency claims. The subsequent
-client-generated login, heartbeat, logout, and reconnect extension awaits a
-refreshed implementation measurement.
-The expanded 64-beat CMAC burst buffer and 32-beat packet envelope are included
-in the updated OOC rows above. A source-only routed refresh after the BRAM and
-distributed-RAM changes remains pending.
+checks with 47 ps of setup margin. The full OUCH/Soup closed-loop harness is the
+current source-only routed milestone: it routes at the native clock with 20 ps
+setup margin and 10 ps hold margin. That measured build includes the expanded
+64-beat CMAC burst buffer, 32-beat packet envelope, client-generated login,
+heartbeat, logout, reconnect state, byte-exact OUCH, and deterministic
+acceptance/fill feedback. These are native-clock passes rather than
+higher-frequency claims.
 
 The generated-CMAC board harness is a separate single-symbol integration
 measurement. With the actual encrypted AXIS CAUI-4 CMAC checkpoint and board
@@ -289,17 +304,11 @@ The script writes each run under `build/hft_ooc_matrix/<timestamp>/` and writes
 a tab-separated `summary.tsv` with timing, utilization, status, and report
 directory columns.
 
-## Next Matrix Targets
+## Next Timing Targets
 
-The next useful comparison is not more ZedBoard synthesis. It is the same OOC
-matrix across the school-installed 100G-class parts:
-
-| Family or card class | Example part | Why it matters |
-| :--- | :--- | :--- |
-| Alveo U50-class | `xcu50-fsvh2104-2-e` | Current reference result and internship-friendly headline. |
-| Alveo U55N/U55C-class | `xcu55n-fsvh2892-2L-e`, `xcu55c-fsvh2892-2L-e` | More realistic high-end network accelerator comparison. |
-| Virtex UltraScale+ | `xcvu45p-fsvh2104-2-e` | Larger FPGA fabric target with the same parser architecture. |
-
-Once a board target is selected, the next step is replacing the harness boundary
-with the actual CMAC IP, clocking, resets, packet-header strip logic, and
-floorplan constraints.
+The next useful timing work is workload-driven rather than another ZedBoard or
+part-number sweep. Preserve the 500 MHz parser-core and 322.4 MHz complete
+gateway regressions, then rerun routed implementation when functional changes
+touch the ingress buffer, Soup/OUCH boundaries, lifecycle state, or risk path.
+The generated CAUI-4 CMAC board harness already routes at the native clock;
+bitstream generation remains a separate license-entitlement issue.

@@ -2,116 +2,60 @@
 
 ## One-Sentence Summary
 
-This project is a SystemVerilog FPGA market-data parser for Nasdaq
-MoldUDP64/ITCH, built as a simulation-first feed-handler core with a U50-class
-100G-capable frontend architecture and optional ZedBoard demo path.
+This project is a 512-bit SystemVerilog market-data and order gateway that
+turns 100G-style Nasdaq MoldUDP64/ITCH traffic into guarded top-of-book state,
+risk-checked orders, and byte-exact OUCH/Soup messages on a U50-class FPGA.
 
 ## Interview Pitch
 
-I built a production-shaped FPGA market parser rather than a toy decoder. The
-core accepts MoldUDP64 packet frames, tracks sequence numbers, detects gaps and
-malformed packets, splits ITCH messages by length, and emits normalized 256-bit
-events. I verified it with generated protocol vectors, randomized output
-backpressure, malformed/truncated packet tests, and Questa regression reports.
+I built the project as a closed-loop trading datapath rather than an isolated
+message decoder. A no-`tready` CMAC-facing receive bridge buffers complete
+packets, the Ethernet/IPv4/UDP shell extracts MoldUDP64, and a parallel 512-bit
+pipeline tracks message boundaries and emits normalized ITCH events. Four
+bounded books consume add, execute, cancel, delete, and replace activity while
+feed guards invalidate state on packet loss, sequence gaps, session changes,
+end-of-session markers, or inactivity.
 
-To make it relevant to low-latency trading hardware, I kept the parser core
-transport-independent and added wider frontend profiles. The repo now includes
-a 512-bit MAC-facing ingress shell, a multi-beat 512-bit descriptor frontend
-that tracks ITCH message boundaries across packet beats, and a parallel
-extractor that packs descriptor-selected fields into normalized events. I then
-wired those blocks into a cut-through 512-bit event pipeline and verified it
-against the same golden event vectors, including a test where the first event
-appears before packet end while later beats continue arriving. I also added an
-event FIFO boundary and an AXI-Lite control/status block so software can enable
-the parser, read counters, clear sticky error flags, and observe FIFO state.
-The verification suite now includes no-idle back-to-back packet stress,
-FIFO-pressure checks, 128/256/512-byte extraction-window sweeps, cocotb
-randomized repeated-packet and malformed-frame tests, and a Vivado
-out-of-context synthesis hook.
+The order side converts actionable quotes into venue-neutral intents, assigns
+monotonic client IDs, tracks pending/live/cancel state and partial fills, and
+applies an independent final risk stage. A two-entry command FIFO isolates
+backpressure before byte-exact OUCH 5.0 Enter/Cancel encoding. The SoupBinTCP
+logical client generates login, heartbeat, logout, and unsequenced packets;
+parses session and sequence state; reconstructs two-beat responses; and fails
+closed on transport or watchdog faults. Ethernet/TCP reliability and socket
+establishment remain external.
 
-For timing, I separate the accessible demo target from the HFT reference
-target. The 512-bit path does not close at 322 MHz on Zynq-7020, so ZedBoard is
-positioned as a functional hardware demo only. On a school Vivado 2024.2
-U50-class UltraScale+ target (`xcu50-fsvh2104-2-e`), OOC synthesis meets the
-same 3.102 ns target with positive slack: WNS `0.872 ns` for the 512-bit
-frontend and WNS `1.091 ns` for the integrated 512-bit pipeline. A clock sweep
-of the integrated pipeline meets through `2.000 ns` / 500 MHz and misses
-`1.950 ns` / ~513 MHz by only `0.020 ns`.
-After a lane-offset retiming cleanup, the standalone 512-bit frontend also
-meets `2.100 ns` and misses `2.000 ns` by only `0.018 ns`.
+Verification combines Python reference models with self-checking SystemVerilog
+testbenches, randomized AXI backpressure, malformed/truncated traffic, dense
+messages, no-idle MTU bursts, FIFO pressure, feed recovery, lifecycle races,
+risk rejects, exact protocol-byte checks, assertions, scoreboards, and telemetry
+accounting. The checked-in Questa regression compiles with zero errors and zero
+warnings and reports zero failed testbenches.
 
-The repo also includes a CMAC-facing packet shell and a strategy-facing
-top-of-book integration path. The combined `market_parser_100g_strategy_top`
-takes raw 100G-style Ethernet/IP/UDP feed frames through payload stripping,
-MoldUDP64/ITCH parsing, normalized event buffering, and single-symbol
-top-of-book quote generation. On the same U50-class target it meets the 3.102
-ns / 322 MHz target with WNS `0.776 ns` and closes 2.350 ns / 426 MHz, while
-2.300 ns / 435 MHz misses by only `0.026 ns`. A routed implementation harness
-for that full strategy path also closes the 3.102 ns target post-route after
-adding a CMAC RX register slice before payload stripping. The school
-`cmac_usplus` probe confirmed an AXIS RX template with no `tready`, so I added
-a source-only CMAC AXIS RX bridge and wrapper; that boundary now closes OOC at
-3.102 ns with WNS `0.449 ns`, stress-closes 2.750 ns / 364 MHz, and closes a
-post-route CMAC AXIS implementation harness at the 3.102 ns target.
-
-I then generated the real AXIS CAUI-4 `cmac_usplus` checkpoint, applied U50
-hard-block, GT, reference-clock, reset, and board-I/O constraints, and routed
-the combined CMAC plus single-symbol parser/book harness. It meets 3.102 ns
-post-route with WNS `0.071 ns`, zero routing errors, and a clean DRC summary.
-Bitstream output remains blocked specifically by the CMAC encrypted-IP
-`Design_Linking` license level.
-
-The latest boundary is a deterministic quote-to-order-intent engine. It applies
-spread, liquidity, imbalance, feed-health, kill-switch, signed position, and
-maximum-exposure checks and has an independent Python model. A registered quote
-FIFO prevents risk backpressure from reaching feed control. The complete
-source-only packet-to-intent top closes OOC at 2.500 ns / 400 MHz with positive
-slack on the U50-class target. It emits venue-neutral intents rather than
-claiming a finished order gateway.
-
-## Strong Resume Bullet
-
-Built a SystemVerilog FPGA market-data parser for Nasdaq MoldUDP64/ITCH with
-sequence tracking, gap/error detection, normalized event output, AXI-stream-style
-interfaces, generated reference vectors, randomized backpressure verification,
-cycle-level latency reports, AXI-Lite control/status registers, and 512-bit
-100G-facing descriptor/event-extraction frontend blocks integrated into a
-cut-through parallel event pipeline with queued normalized-event output,
-back-to-back packet stress, FIFO-pressure accounting, 128/256/512-byte
-extraction-window sweeps, cocotb randomized checks, a CMAC-facing packet shell,
-source-only CMAC AXIS RX buffering, a top-of-book quote path, and a risk-checked
-quote-to-order-intent boundary. Vivado OOC
-synthesis meets a 3.102 ns target on a U50-class UltraScale+ reference part for
-the full packet-to-book strategy top and CMAC AXIS strategy boundary; the
-complete packet-to-intent top closes `2.500 ns` / 400 MHz OOC, the routed
-packet-to-book implementation harness closes the native 100G target, and the
-parser pipeline closes through `2.000 ns` / 500 MHz on the same reference
-target.
+On `xcu50-fsvh2104-2-e`, the parser pipeline closes 2.000 ns / 500 MHz OOC.
+The complete packet-to-Soup/OUCH compact harness closes post-route at 3.102 ns
+/ 322.4 MHz with WNS `+0.020 ns`, TNS `0.000 ns`, WHS `+0.010 ns`, 23,470
+LUTs, 25,801 registers, 8.5 BRAM tiles, and zero DSPs. A separately generated,
+board-constrained AXIS CAUI-4 CMAC plus parser harness also routes at the native
+clock with zero black boxes and clean DRC; bitstream output remains blocked by
+the CMAC encrypted-IP entitlement.
 
 ## What To Emphasize
 
-- Clean hardware interfaces: valid/ready input and output paths.
-- Protocol awareness: MoldUDP64 sequence/message count and ITCH message lengths.
-- Verification discipline: self-checking testbenches, generated vectors,
-  randomized backpressure, FIFO pressure, bad packet cases, cocotb checks, and
-  zero-warning Questa regressions.
-- Production mindset: counters, sticky error flags, implemented AXI-Lite
-  register map, and honest documentation of what is and is not line-rate.
-- Growth path: byte-serial golden parser first, then wide frontend descriptors,
-  then parallel field extraction, then integrated cut-through event pipeline,
-  then sustained-line-rate timing and burst proof.
+- Low-latency streaming RTL with explicit elastic boundaries and backpressure.
+- Market-data correctness across packet, feed, book, order, and session state.
+- Fail-closed controls for loss, stale feeds, risk violations, and transport
+  faults.
+- Verification through independent models, adversarial traffic, and exact
+  counter reconciliation.
+- Honest separation between OOC timing, routed timing, generated vendor IP,
+  and hardware-programming claims.
 
 ## Honest Limits
 
-The byte-serial parser remains the mature golden correctness path. The 512-bit
-parallel path is now cut-through within a packet and uses a four-beat/256-byte
-default packet-local extraction window with 128/256/512-byte sweep coverage,
-and OOC synthesis meets a 3.102 ns target on a U50-class UltraScale+ reference
-part, with sweep headroom through 2.100 ns. The routed implementation harness
-also closes the 3.102 ns / 322 MHz target, and the generated AXIS CAUI-4 CMAC
-integration closes that same target post-route. The design is not yet
-programmed onto hardware because the available CMAC entitlement blocks
-bitstream generation. The next production steps are routed decision-path
-integration, management-plane configuration, intent/fill reconciliation, and
-a separately specified venue gateway; optional 1.950 ns parser cleanup is
-lower priority.
+The Soup boundary consumes complete logical packets above TCP; the project does
+not implement a TCP stack or live exchange connectivity. Routed results use a
+compact deterministic harness, and no bitstream has been loaded onto hardware.
+The next realism work is longer randomized multi-session replay, latency
+histograms from market packet to order emission and fill reconciliation, and
+host/transport integration once suitable hardware and licensing are available.

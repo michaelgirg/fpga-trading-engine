@@ -1,11 +1,11 @@
 # Market Parser
 
-SystemVerilog implementation of a low-latency NASDAQ TotalView-ITCH 5.0
-parser. The design accepts MoldUDP64 frames, tracks session and sequence
-continuity, decodes
-ITCH messages into normalized events, and maintains bounded single- or
-multi-symbol top of book. The main datapath is a 512-bit AXI4-Stream-style
-pipeline intended for 100G-class FPGA Ethernet user clocks.
+SystemVerilog implementation of a low-latency FPGA market-data and order
+gateway. The design accepts 512-bit Ethernet/IPv4/UDP traffic, parses Nasdaq
+MoldUDP64/TotalView-ITCH 5.0, maintains a guarded multi-symbol top of book,
+generates risk-checked orders, and closes the loop through OUCH 5.0 and a
+SoupBinTCP logical-session boundary. The datapath targets 100G-class FPGA
+Ethernet user clocks.
 
 ## What Is Included
 
@@ -203,22 +203,22 @@ implementation harness closes post-route at the same clock with `+0.047 ns`
 WNS, zero TNS, and `+0.010 ns` WHS, using 21,171 LUTs, 24,172 registers, 8.5
 BRAM tiles, and zero DSPs.
 
-The complete packet-to-Soup/OUCH implementation harness also closes post-route
-at 3.102 ns / 322.4 MHz with `+0.019 ns` WNS, zero TNS, and `+0.011 ns` WHS,
-using 22,440 LUTs, 24,603 registers, 8.5 BRAM tiles, and zero DSPs. This measured
-baseline includes byte-exact OUCH transmission and acceptance/fill feedback.
-The subsequent client-generated login, heartbeat, logout, and reconnect logic
-is regression-clean and awaits refreshed U50 timing.
+The complete packet-to-Soup/OUCH implementation harness closes post-route at
+3.102 ns / 322.4 MHz with `+0.020 ns` WNS, zero TNS, and `+0.010 ns` WHS,
+using 23,470 LUTs, 25,801 registers, 8.5 BRAM tiles, and zero DSPs. This measured
+result includes the 64-beat CMAC receive buffer, packet parsing, guarded
+multi-symbol book, decision and lifecycle engines, final risk checks,
+byte-exact OUCH transmission, Soup login/heartbeat/logout/reconnect state, and
+two-beat acceptance/fill feedback. A registered synthetic exchange boundary
+keeps harness response logic out of the Soup receive timing path.
 
-The source-only CMAC AXIS implementation harness, including packet buffering,
-UDP realignment, parser, feed guard, AXI-Lite rebuild/activation, and four
-bounded books, also closes post-route at the native 3.102 ns / 322 MHz target
-with `+0.176 ns` WNS and `+0.011 ns` WHS, using 23156 LUTs and 29607 registers.
-This routed result includes the end-of-session guard. The subsequent 64-beat
-CMAC burst-buffer and 32-beat packet-envelope expansion is locally verified and
-awaits refreshed timing. The harness excludes the
-generated encrypted CMAC IP and is not a bitstream or hardware-programming
-claim.
+An earlier source-only CMAC AXIS implementation harness, including packet
+buffering, UDP realignment, parser, feed guard, AXI-Lite rebuild/activation,
+and four bounded books, closes post-route at the native 3.102 ns / 322 MHz
+target with `+0.176 ns` WNS and `+0.011 ns` WHS. The newer complete OUCH/Soup
+harness above is the current source-level routed milestone. These harnesses
+exclude the generated encrypted CMAC IP and are not bitstream or
+hardware-programming claims.
 
 The generated AXIS CAUI-4 CMAC integration has also been routed on the
 U50-class target. This harness contains the real encrypted CMAC IP and the
@@ -250,7 +250,9 @@ details, `docs/timing_matrix.md` for measured timing, and
 quote-to-intent policy and safety boundary are documented in
 `docs/decision_engine.md`; the protocol-neutral command and reconciliation
 boundary is documented in `docs/order_lifecycle.md`; the final independent
-command checks are documented in `docs/egress_risk.md`.
+command checks are documented in `docs/egress_risk.md`; and the complete
+logical session and order-gateway boundary is documented in
+`docs/ouch5_gateway.md`.
 
 ## License And Data Handling
 

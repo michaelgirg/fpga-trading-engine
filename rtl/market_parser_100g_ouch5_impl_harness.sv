@@ -30,6 +30,11 @@ module market_parser_100g_ouch5_impl_harness (
     logic [511:0] soup_rx_data;
     logic [63:0] soup_rx_keep;
     logic soup_rx_last;
+    logic response_tx_valid_i;
+    logic response_tx_ready_i;
+    logic [511:0] response_tx_data_i;
+    logic [63:0] response_tx_keep_i;
+    logic response_tx_last_i;
     logic [2:0] response_state_r;
     logic [31:0] response_order_id_r;
     logic [31:0] response_price_r;
@@ -101,75 +106,90 @@ module market_parser_100g_ouch5_impl_harness (
     end
 
     always_comb begin
-        soup_rx_valid = 1'b0;
-        soup_rx_data = '0;
-        soup_rx_keep = '0;
-        soup_rx_last = 1'b1;
+        response_tx_valid_i = 1'b0;
+        response_tx_data_i = '0;
+        response_tx_keep_i = '0;
+        response_tx_last_i = 1'b1;
         case (response_state_r)
             RESP_LOGIN: begin
-                soup_rx_valid = 1'b1;
-                soup_rx_data[15:8] = 8'd31;
-                soup_rx_data[23:16] = 8'h41;
+                response_tx_valid_i = 1'b1;
+                response_tx_data_i[15:8] = 8'd31;
+                response_tx_data_i[23:16] = 8'h41;
                 for (int i = 0; i < 10; i++) begin
-                    soup_rx_data[(3+i)*8 +: 8] = 8'h53;
-                    soup_rx_data[(13+i)*8 +: 8] = 8'h20;
-                    soup_rx_data[(23+i)*8 +: 8] = 8'h20;
+                    response_tx_data_i[(3+i)*8 +: 8] = 8'h53;
+                    response_tx_data_i[(13+i)*8 +: 8] = 8'h20;
+                    response_tx_data_i[(23+i)*8 +: 8] = 8'h20;
                 end
-                soup_rx_data[32*8 +: 8] = 8'h31;
-                soup_rx_keep = 64'h00000001ffffffff;
+                response_tx_data_i[32*8 +: 8] = 8'h31;
+                response_tx_keep_i = 64'h00000001ffffffff;
             end
             RESP_ACK_0: begin
-                soup_rx_valid = 1'b1;
-                soup_rx_data[15:8] = 8'd65;
-                soup_rx_data[23:16] = 8'h53;
-                soup_rx_data[31:24] = 8'h41;
-                soup_rx_data[12*8 +: 8] = response_order_id_r[31:24];
-                soup_rx_data[13*8 +: 8] = response_order_id_r[23:16];
-                soup_rx_data[14*8 +: 8] = response_order_id_r[15:8];
-                soup_rx_data[15*8 +: 8] = response_order_id_r[7:0];
-                soup_rx_data[50*8 +: 8] = 8'h4c;
-                soup_rx_keep = 64'hffffffffffffffff;
-                soup_rx_last = 1'b0;
+                response_tx_valid_i = 1'b1;
+                response_tx_data_i[15:8] = 8'd65;
+                response_tx_data_i[23:16] = 8'h53;
+                response_tx_data_i[31:24] = 8'h41;
+                response_tx_data_i[12*8 +: 8] = response_order_id_r[31:24];
+                response_tx_data_i[13*8 +: 8] = response_order_id_r[23:16];
+                response_tx_data_i[14*8 +: 8] = response_order_id_r[15:8];
+                response_tx_data_i[15*8 +: 8] = response_order_id_r[7:0];
+                response_tx_data_i[50*8 +: 8] = 8'h4c;
+                response_tx_keep_i = 64'hffffffffffffffff;
+                response_tx_last_i = 1'b0;
             end
             RESP_ACK_1: begin
-                soup_rx_valid = 1'b1;
-                soup_rx_keep = 64'h7;
+                response_tx_valid_i = 1'b1;
+                response_tx_keep_i = 64'h7;
             end
             RESP_FILL: begin
-                soup_rx_valid = 1'b1;
-                soup_rx_data[15:8] = 8'd37;
-                soup_rx_data[23:16] = 8'h53;
-                soup_rx_data[31:24] = 8'h45;
-                soup_rx_data[12*8 +: 8] = response_order_id_r[31:24];
-                soup_rx_data[13*8 +: 8] = response_order_id_r[23:16];
-                soup_rx_data[14*8 +: 8] = response_order_id_r[15:8];
-                soup_rx_data[15*8 +: 8] = response_order_id_r[7:0];
-                soup_rx_data[16*8 +: 8] = response_quantity_r[31:24];
-                soup_rx_data[17*8 +: 8] = response_quantity_r[23:16];
-                soup_rx_data[18*8 +: 8] = response_quantity_r[15:8];
-                soup_rx_data[19*8 +: 8] = response_quantity_r[7:0];
-                soup_rx_data[24*8 +: 8] = response_price_r[31:24];
-                soup_rx_data[25*8 +: 8] = response_price_r[23:16];
-                soup_rx_data[26*8 +: 8] = response_price_r[15:8];
-                soup_rx_data[27*8 +: 8] = response_price_r[7:0];
-                soup_rx_keep = 64'h0000007fffffffff;
+                response_tx_valid_i = 1'b1;
+                response_tx_data_i[15:8] = 8'd37;
+                response_tx_data_i[23:16] = 8'h53;
+                response_tx_data_i[31:24] = 8'h45;
+                response_tx_data_i[12*8 +: 8] = response_order_id_r[31:24];
+                response_tx_data_i[13*8 +: 8] = response_order_id_r[23:16];
+                response_tx_data_i[14*8 +: 8] = response_order_id_r[15:8];
+                response_tx_data_i[15*8 +: 8] = response_order_id_r[7:0];
+                response_tx_data_i[16*8 +: 8] = response_quantity_r[31:24];
+                response_tx_data_i[17*8 +: 8] = response_quantity_r[23:16];
+                response_tx_data_i[18*8 +: 8] = response_quantity_r[15:8];
+                response_tx_data_i[19*8 +: 8] = response_quantity_r[7:0];
+                response_tx_data_i[24*8 +: 8] = response_price_r[31:24];
+                response_tx_data_i[25*8 +: 8] = response_price_r[23:16];
+                response_tx_data_i[26*8 +: 8] = response_price_r[15:8];
+                response_tx_data_i[27*8 +: 8] = response_price_r[7:0];
+                response_tx_keep_i = 64'h0000007fffffffff;
             end
             RESP_CANCEL: begin
-                soup_rx_valid = 1'b1;
-                soup_rx_data[15:8] = 8'd21;
-                soup_rx_data[23:16] = 8'h53;
-                soup_rx_data[31:24] = 8'h43;
-                soup_rx_data[12*8 +: 8] = response_order_id_r[31:24];
-                soup_rx_data[13*8 +: 8] = response_order_id_r[23:16];
-                soup_rx_data[14*8 +: 8] = response_order_id_r[15:8];
-                soup_rx_data[15*8 +: 8] = response_order_id_r[7:0];
-                soup_rx_keep = 64'h00000000007fffff;
+                response_tx_valid_i = 1'b1;
+                response_tx_data_i[15:8] = 8'd21;
+                response_tx_data_i[23:16] = 8'h53;
+                response_tx_data_i[31:24] = 8'h43;
+                response_tx_data_i[12*8 +: 8] = response_order_id_r[31:24];
+                response_tx_data_i[13*8 +: 8] = response_order_id_r[23:16];
+                response_tx_data_i[14*8 +: 8] = response_order_id_r[15:8];
+                response_tx_data_i[15*8 +: 8] = response_order_id_r[7:0];
+                response_tx_keep_i = 64'h00000000007fffff;
             end
             default: begin
-                soup_rx_valid = 1'b0;
+                response_tx_valid_i = 1'b0;
             end
         endcase
     end
+
+    market_parser_axis_register_slice #(
+        .DATA_WIDTH(512), .KEEP_WIDTH(64)
+    ) exchange_response_slice_i (
+        .clk(clk), .rst(rst),
+        .s_axis_tvalid(response_tx_valid_i),
+        .s_axis_tready(response_tx_ready_i),
+        .s_axis_tdata(response_tx_data_i),
+        .s_axis_tkeep(response_tx_keep_i),
+        .s_axis_tlast(response_tx_last_i),
+        .s_axis_tuser_bad_frame(1'b0),
+        .m_axis_tvalid(soup_rx_valid), .m_axis_tready(soup_rx_ready),
+        .m_axis_tdata(soup_rx_data), .m_axis_tkeep(soup_rx_keep),
+        .m_axis_tlast(soup_rx_last), .m_axis_tuser_bad_frame()
+    );
 
     always_ff @(posedge clk) begin
         if (rst) begin
@@ -184,7 +204,8 @@ module market_parser_100g_ouch5_impl_harness (
                         response_state_r <= RESP_LOGIN;
                 end
                 RESP_LOGIN: begin
-                    if (soup_rx_ready) response_state_r <= RESP_WAIT;
+                    if (response_tx_valid_i && response_tx_ready_i)
+                        response_state_r <= RESP_WAIT;
                 end
                 RESP_WAIT: begin
                     if (soup_tx_valid && soup_tx_data[23:16] == 8'h55) begin
@@ -206,16 +227,20 @@ module market_parser_100g_ouch5_impl_harness (
                     end
                 end
                 RESP_ACK_0: begin
-                    if (soup_rx_ready) response_state_r <= RESP_ACK_1;
+                    if (response_tx_valid_i && response_tx_ready_i)
+                        response_state_r <= RESP_ACK_1;
                 end
                 RESP_ACK_1: begin
-                    if (soup_rx_ready) response_state_r <= RESP_FILL;
+                    if (response_tx_valid_i && response_tx_ready_i)
+                        response_state_r <= RESP_FILL;
                 end
                 RESP_FILL: begin
-                    if (soup_rx_ready) response_state_r <= RESP_WAIT;
+                    if (response_tx_valid_i && response_tx_ready_i)
+                        response_state_r <= RESP_WAIT;
                 end
                 default: begin
-                    if (soup_rx_ready) response_state_r <= RESP_WAIT;
+                    if (response_tx_valid_i && response_tx_ready_i)
+                        response_state_r <= RESP_WAIT;
                 end
             endcase
         end

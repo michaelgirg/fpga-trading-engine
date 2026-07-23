@@ -70,8 +70,8 @@ length boundaries without walking the beat one byte per cycle.
 
 The `market_parser_512_frontend` block extends that idea across packet beats. It
 tracks packet-relative byte offsets, handles length fields split at beat
-boundaries, and emits one descriptor per ITCH message for a future parallel
-field extractor.
+boundaries, and emits one descriptor per ITCH message for the parallel field
+extractor.
 
 The `market_parser_512_event_extract` block consumes those descriptor fields
 plus a parameterized packet-local extraction window and packs the same 256-bit
@@ -86,9 +86,10 @@ event before the packet has ended while later packet beats continue arriving.
 OOC synthesis meets a 3.102 ns target on a U50-class UltraScale+ reference part
 and sweeps cleanly through 2.100 ns, while the same 512-bit path does not close
 at the 3.102 ns target on Zynq-7020. It is the bridge between the
-correctness-first parser and a future sustained line-rate parser with deeper
-windows, 100G MAC integration, and full implementation timing closure. The
-current timing matrix is tracked in `docs/timing_matrix.md`.
+correctness-first parser and the current 100G-facing packet-to-order pipeline.
+The complete source-only design now extends through guarded books, decisions,
+order lifecycle, risk, OUCH, and Soup logical-session handling. The current
+timing matrix is tracked in `docs/timing_matrix.md`.
 
 The `market_parser_512_pipeline_fifo` block adds a normalized event FIFO after
 the parallel parser. That makes the downstream boundary more production-like:

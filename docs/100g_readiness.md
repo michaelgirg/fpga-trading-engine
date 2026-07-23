@@ -38,6 +38,13 @@ implementation harness result for the full packet-to-book strategy path at the
 same 3.102 ns / 322 MHz target: WNS `0.000 ns`, TNS `0.000 ns`, 18492 LUTs, and
 21194 registers on `xcu50-fsvh2104-2-e`.
 
+The current complete source-level milestone goes beyond the book path. The
+compact packet-to-Soup/OUCH harness includes the 64-beat CMAC RX buffer,
+Ethernet/IPv4/UDP and MoldUDP64/ITCH parsing, four guarded books, decision and
+order lifecycle state, final risk, OUCH encoding/decoding, Soup session control,
+and deterministic acceptance/fill feedback. It closes post-route at 3.102 ns /
+322.4 MHz with WNS `+0.020 ns`, TNS `0.000 ns`, and WHS `+0.010 ns`.
+
 A U50-class OOC clock sweep for `market_parser_512_pipeline` shows useful
 headroom beyond the 100G-facing 322 MHz target:
 
@@ -154,38 +161,32 @@ checks that the ingress side accepts the burst without stalls.
 - Routed Vivado implementation harness for the full strategy path, closing the
   3.102 ns / 322 MHz U50-class 100G target.
 
-## What Still Blocks True Sustained 100G Parsing
+## Remaining Production Qualification
 
-The byte-serial parser still remains the mature golden correctness path. The
-new 512-bit parallel path is integrated, has an output event FIFO, and now emits
-eligible events before packet end. That is a real cut-through architecture
-milestone, and the repo now has back-to-back/FIFO-pressure stress coverage.
-It is still not a proven sustained-worst-case 100G parser: it uses a
-packet-local window store with a four-beat/256-byte default extraction window,
-and the routed result is an implementation harness rather than a complete board
-design with real CMAC IP and board constraints.
+The byte-serial parser remains the golden correctness model, while the 512-bit
+parallel path is the implementation datapath. The repository proves cut-through
+events, no-idle MTU bursts, packet-atomic overflow handling, backpressure, and
+routed native-clock closure. It does not yet prove indefinite worst-case live
+feed operation or exchange connectivity.
 
-To make the parser itself sustained-line-rate capable, the next architecture
-step is proving the integrated parallel path through implementation-style
-checks:
+The next realism steps are:
 
-1. Keep the U50/U55-class OOC result as the HFT reference timing target and use
-   the 1.950 ns near miss as the next optional timing cleanup target.
-2. Run the school Vivado matrix across U50/U55/Virtex UltraScale+ style parts.
-3. Extend the two-frame near-MTU proof into randomized long-burst and FIFO-depth
-   sweeps, including overload/recovery characterization.
-4. Integrate against a concrete 100G MAC/CMAC shell and board clocking model.
-5. Repeat routed implementation timing with the actual CMAC IP boundary and
-   board constraints.
+1. Extend the two-frame MTU test into long randomized bursts with occupancy,
+   overflow, recovery, and loss-injection coverage.
+2. Add cycle-accurate latency histograms from packet acceptance to book update,
+   order emission, acknowledgment, and fill reconciliation.
+3. Run randomized multi-session Soup replay with reconnects, malformed sequence
+   text, heartbeat jitter, and transport interruptions.
+4. Connect the logical Soup packet interface to a host or TCP-offload boundary
+   and validate software-visible session and risk controls.
+5. Generate and load a board bitstream once the CMAC encrypted-IP entitlement
+   permits bitstream output.
 
 ## Honest Interview Summary
 
-This repository is now ready to discuss as a 100G-facing parser architecture:
-the interface boundary, buffering, counters, verification profile, multi-beat
-descriptor frontend, parallel event extraction block, and integrated
-cut-through 512-bit event pipeline are in place. The project also has a
-pre-hardware AXI-Lite management wrapper, which makes it easier to explain how
-software would control and observe the parser. The remaining production steps
-are broader school-target timing comparison, deeper burst/payload stress, real
-100G MAC integration, board-constrained implementation timing, and a separate
-optional ZedBoard functional demo.
+This repository is ready to discuss as a closed-loop 100G-facing FPGA trading
+datapath: packet buffering, parallel ITCH parsing, feed protection, multi-symbol
+books, decisions, lifecycle state, independent risk, OUCH/Soup framing,
+management telemetry, model-based verification, and routed timing evidence are
+all present. The remaining gap is production qualification and deployment, not
+basic parser or gateway architecture.

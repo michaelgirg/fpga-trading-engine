@@ -114,13 +114,11 @@ fail-closed feed-integrity handling also closes 2.500 ns / 400 MHz:
 | `market_parser_100g_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.098 ns` | `0.000 ns` | `29760 / 871680 (3.41%)` | `33591 / 1743360 (1.93%)` | Meets |
 | `market_parser_100g_multi_strategy_top` | `2.400 ns` | 417 MHz | `-0.002 ns` | `-0.012 ns` | `29773 / 871680 (3.42%)` | `33591 / 1743360 (1.93%)` | Near miss |
 | `market_parser_100g_multi_strategy_top` | `2.350 ns` | 426 MHz | `-0.052 ns` | `-0.262 ns` | `29764 / 871680 (3.41%)` | `33590 / 1743360 (1.93%)` | Does not close |
-| `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | 322 MHz | `0.651 ns` | `0.000 ns` | `30019 / 871680 (3.44%)` | `34427 / 1743360 (1.97%)` | Meets |
-| `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.049 ns` | `0.000 ns` | `30199 / 871680 (3.46%)` | `34413 / 1743360 (1.97%)` | Meets |
+| `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | 322 MHz | `0.613 ns` | `0.000 ns` | `26465 / 871680 (3.04%)` | `26690 / 1743360 (1.53%)` | Meets |
+| `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.011 ns` | `0.000 ns` | `26652 / 871680 (3.06%)` | `26689 / 1743360 (1.53%)` | Meets |
 
 The watchdog-enabled source-only CMAC packet bridge and telemetry boundary has
-49 ps of setup margin at 400 MHz with zero BRAM tiles and zero DSPs. This is a
-source-level OOC result and does not depend on generated CMAC IP. The watchdog
-comparison and decoded feed-guard controls are registered before the
-fail-closed book-control fanout.
-The later 64-beat/32-beat buffering profile is locally verified and awaits a
-fresh timing measurement.
+11 ps of setup margin at 400 MHz with 8.5 BRAM tiles and zero DSPs. This is a
+source-level OOC result and does not depend on generated CMAC IP. The measured
+build includes the 64-beat CMAC burst buffer, 32-beat packet store, registered
+watchdog comparison, and decoded feed-guard control boundary.

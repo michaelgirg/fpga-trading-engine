@@ -3,9 +3,9 @@
 ## Scope
 
 `market_parser_order_risk_guard` is an independent final check between the
-order lifecycle manager and a future venue gateway. It does not depend on the
-strategy's earlier controls, so a bad command cannot bypass limits merely
-because it originated inside the FPGA.
+order lifecycle manager and the downstream venue gateway. It does not depend
+on the strategy's earlier controls, so a bad command cannot bypass limits
+merely because it originated inside the FPGA.
 
 `market_parser_100g_cmac_axis_egress_top` connects the complete source-only
 path:

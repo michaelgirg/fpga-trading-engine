@@ -47,6 +47,9 @@ The logical Soup layer generates Login Request, Client Heartbeat, Logout
 Request, and Unsequenced Data packets. It consumes Login Accepted, Login
 Rejected, Server Heartbeat, End Of Session, and Sequenced Data packets. Login
 credentials, requested session, and requested sequence are supplied at runtime.
+The compact routed harness registers its synthetic exchange-response stream
+before the Soup client. This models a registered transport handoff and prevents
+the responder FSM from becoming part of the session parser's timing path.
 The 20-byte ASCII sequence field is formatted and parsed iteratively outside
 the order datapath; every accepted Sequenced Data packet advances the stored
 next sequence for reconnect. Trading remains disabled until login parsing
@@ -83,19 +86,20 @@ a compact clock/reset/status boundary for routed implementation. Its internal
 exchange responder emits a two-beat Accepted packet and an Executed packet, so
 implementation cannot optimize away the Soup deframer or lifecycle feedback.
 
-## U50 OOC timing
+## U50 OOC Timing
 
-The complete `market_parser_100g_ouch5_top` closes the 3.102 ns constraint on
-`xcu50-fsvh2104-2-e` with WNS +0.170 ns and TNS 0.000 ns. The 2.500 ns stress
-constraint misses by 0.432 ns. The passing 322.4 MHz result includes the
-packet parser, multi-symbol book, decision engine, lifecycle manager, final
+The complete `market_parser_100g_ouch5_top` with client-generated session
+control closes the 3.102 ns constraint on `xcu50-fsvh2104-2-e` with WNS
+`+0.055 ns` and TNS `0.000 ns`. The passing 322.4 MHz result includes the packet
+parser, guarded multi-symbol book, decision engine, lifecycle manager, final
 risk guard, command FIFO, OUCH codec, and Soup logical-packet boundary.
 
-## Routed implementation baseline
+## Routed Implementation
 
-Before the client-generated login/reconnect extension, the compact
-`market_parser_100g_ouch5_impl_harness` closed post-route at 3.102 ns / 322.4
-MHz with WNS `+0.019 ns`, TNS `0.000 ns`, WHS `+0.011 ns`, and THS `0.000 ns`.
-It used 22,440 LUTs, 24,603 registers, 8.5 BRAM tiles, and zero DSPs. That run
-proved the complete packet-to-Soup/OUCH acceptance-and-fill loop. Refreshed OOC
-and routed measurements are required for the newly added client session logic.
+The compact `market_parser_100g_ouch5_impl_harness` closes post-route at 3.102
+ns / 322.4 MHz with WNS `+0.020 ns`, TNS `0.000 ns`, WHS `+0.010 ns`, and THS
+`0.000 ns`. It uses 23,470 LUTs, 25,801 registers, 8.5 BRAM tiles, and zero
+DSPs. This run includes client-generated login, heartbeat, logout, reconnect
+sequence state, the full packet-to-OUCH path, and acceptance/fill feedback.
+The harness is a deterministic logical exchange model above TCP, not a live
+venue certification or hardware-traffic result.

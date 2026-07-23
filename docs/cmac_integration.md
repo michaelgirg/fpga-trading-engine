@@ -84,12 +84,12 @@ The routed implementation harness for the full strategy path also closes this
 a compact board-like IO surface; it is implementation evidence for the RTL
 path, not a replacement for actual CMAC IP and board constraints.
 
-The expanded source-only CMAC AXIS routed harness closes the same target
-post-route with WNS `0.176 ns`, TNS `0.000 ns`, WHS `0.011 ns`, 23156 LUTs,
-29607 registers, and no BRAM/DSP usage. This result includes the guarded
-four-symbol boundary and is the current routed source-level evidence before
-inserting generated vendor IP. The later 64-beat burst-buffer expansion awaits
-refreshed timing.
+An earlier source-only CMAC AXIS routed harness closes the same target
+post-route with WNS `0.176 ns`, TNS `0.000 ns`, WHS `0.011 ns`, 23,156 LUTs,
+and 29,607 registers. The current complete source-level routed proof is the
+packet-to-Soup/OUCH harness: it includes the 64-beat CMAC burst buffer and
+closes 3.102 ns with WNS `0.020 ns`. Generated vendor-IP implementation is
+reported separately below.
 
 The school Vivado 2024.2 IP catalog for `xcu50-fsvh2104-2-e` includes the
 UltraScale+ CMAC IP needed for a real board shell:
@@ -429,8 +429,8 @@ wrapper closes OOC on the school U50-class target at the 3.102 ns / 322 MHz
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.750 ns` | `0.097 ns` | `0.000 ns` | `24146 / 871680 (2.77%)` | `23709 / 1743360 (1.36%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.500 ns` | `-0.153 ns` | `-399.967 ns` | `24150 / 871680 (2.77%)` | `23713 / 1743360 (1.36%)` | Stress miss |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_strategy_top` | `2.350 ns` | `-0.303 ns` | `-1015.845 ns` | `24150 / 871680 (2.77%)` | `23713 / 1743360 (1.36%)` | Stress miss |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | `0.651 ns` | `0.000 ns` | `30019 / 871680 (3.44%)` | `34427 / 1743360 (1.97%)` | Meets |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | `0.049 ns` | `0.000 ns` | `30199 / 871680 (3.46%)` | `34413 / 1743360 (1.97%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | `0.613 ns` | `0.000 ns` | `26465 / 871680 (3.04%)` | `26690 / 1743360 (1.53%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | `0.011 ns` | `0.000 ns` | `26652 / 871680 (3.06%)` | `26689 / 1743360 (1.53%)` | Meets |
 
 This pass covers the source-only CMAC AXIS RX bridge, UDP strip/realignment,
 MoldUDP64/ITCH parser pipeline, event buffering, and top-of-book strategy path.
@@ -443,15 +443,16 @@ The guarded four-symbol boundary includes the same no-`tready` packet bridge,
 plus session-change, sequence-gap, and packet-inactivity invalidation, AXI-Lite feed
 rebuild/activation, four independent bounded books, ordered quote arbitration,
 and AXI-Lite bridge-health telemetry.
-It closes through 2.500 ns / 400 MHz with 49 ps of setup margin and uses zero
-BRAM tiles and DSPs. This measured revision includes the programmable
-feed-liveness watchdog and its registered fail-closed timing boundary.
+It closes through 2.500 ns / 400 MHz with 11 ps of setup margin, 8.5 BRAM
+tiles, and zero DSPs. This measured revision includes the programmable
+feed-liveness watchdog, registered fail-closed timing boundary, BRAM-backed
+CMAC burst storage, and distributed-RAM parser window.
 
 The production source boundary now uses a 64-beat CMAC packet burst buffer and
 a 32-beat per-packet parser store. Local regression drives two contiguous
 1462-byte frames carrying 200 total ITCH messages with no idle CMAC cycle and
-observes zero overflow or dropped beats. This buffer expansion is not included
-in the timing rows above until the school Vivado flow is rerun.
+observes zero overflow or dropped beats. The timing rows above include this
+buffer expansion.
 
 ## Minimum Board Shell
 
@@ -470,36 +471,20 @@ A first real hardware integration should include:
 - XDC constraints for the CMAC user clock, parser clock, resets, and any CDC
   paths.
 
-## Validation Plan
+## Validation And Deployment
 
-1. Loop generated MoldUDP64/ITCH packets through the header-strip block in
-   simulation and compare parser events against `verification/vectors`.
-2. Run `market_parser_100g_cmac_system_tb` to verify valid UDP feed traffic
-   reaches the parser and wrong-port UDP frames are dropped before parsing.
-3. Run Vivado OOC synthesis for `market_parser_100g_cmac_system` at the 3.102 ns
-   100G CMAC user-clock target.
-4. Run the dense tiny-message, mixed-message, malformed, and backpressure
-   regressions with the shell attached.
-5. Use `tools/probe_cmac_ip.tcl` to record the CMAC/100G IP definitions visible
-   in the selected Vivado install.
-6. Keep `market_parser_100g_cmac_axis_multi_strategy_top` in the OOC matrix as
-   the no-backpressure, feed-guarded CMAC RX boundary regression before adding
-   the generated vendor IP.
-7. Keep `tools/run_hft_impl_matrix.sh` as the routed RTL harness regression for
-   the selected school-supported part.
-8. Use `tools/build_cmac_usplus_axis_ip.tcl` to generate the real AXIS-mode
-   CMAC IP artifacts and archive the generated manifest with the school run.
-9. Use `tools/run_vivado_cmac_ip_ooc.tcl` to synthesize the generated CMAC IP
-   receive wrapper before moving to board constraints.
-10. Use `tools/run_vivado_cmac_ip_impl.tcl` to link and route the actual CMAC
-    synthesis checkpoint with the parser, checking that no black box remains.
-11. Add the selected board's CMAC location, GT/refclock pins, clocks, resets,
-    and complete board XDC.
-12. Only after board-constrained timing closes, add board traffic tests using
-    replayed UDP payloads and verify counters/events through the management
-    plane.
+Simulation, OOC synthesis, source-only routed harnesses, CMAC IP generation,
+zero-black-box linking, board hard-block placement, full routing, and final DRC
+are complete and reproducible through the checked-in scripts. Keep the OOC and
+routed matrices as regression gates whenever the packet buffer, parser, book,
+order, or session paths change.
 
-The key claim should stay precise: the repo now has a 512-bit parser
-architecture that closes OOC on a realistic U50-class target, a routed RTL
-implementation harness that closes the 100G user-clock class, and a CMAC-facing
-Ethernet/IP/UDP ingress shell. It is not yet a finished trading NIC.
+The remaining deployment work is to obtain a bitstream-authorized CMAC
+entitlement, regenerate the IP output products, emit the board bitstream, and
+run replayed UDP traffic while observing feed, parser, risk, session, and order
+telemetry through the management plane.
+
+The key claim should stay precise: the repo has a 512-bit market-data and order
+pipeline that closes OOC and through compact routed harnesses, plus a generated
+CAUI-4 CMAC board harness that fully routes with clean timing and DRC. It is not
+yet a programmed trading NIC or a live exchange connection.

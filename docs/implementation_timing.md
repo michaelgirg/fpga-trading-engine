@@ -23,11 +23,10 @@ trying to assign every debug counter and 512-bit stream lane to package pins.
 The follow-up routed target is `market_parser_100g_cmac_axis_impl_harness`,
 which drives the source-only CMAC AXIS RX boundary used by the generated
 `cmac_usplus` AXIS template before the packet-to-book strategy path.
-The current routed target is
-`market_parser_100g_cmac_axis_egress_impl_harness`, which extends that compact
-boundary through quote analysis, client-order lifecycle state, deterministic
-exchange acknowledgment/fill handling, signed position feedback, and an
-independent final risk stage.
+The current routed target is `market_parser_100g_ouch5_impl_harness`, which
+extends that compact boundary through quote analysis, client-order lifecycle,
+independent final risk, byte-exact OUCH, Soup logical-session control, and
+deterministic exchange acknowledgment/fill handling.
 
 ## Measured Routed Result
 
@@ -54,7 +53,7 @@ stripping:
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_decision_impl_harness` | `3.102 ns` | 322.4 MHz | `0.103 ns` | `0.000 ns` | `20142 / 871680 (2.31%)` | `22515 / 1743360 (1.29%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_order_impl_harness` | `3.102 ns` | 322.4 MHz | `0.110 ns` | `0.000 ns` | `21300 / 871680 (2.44%)` | `23721 / 1743360 (1.36%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_egress_impl_harness` | `3.102 ns` | 322.4 MHz | `0.047 ns` | `0.000 ns` | `21171 / 871680 (2.43%)` | `24172 / 1743360 (1.39%)` | Meets |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_ouch5_impl_harness` | `3.102 ns` | 322.4 MHz | `0.019 ns` | `0.000 ns` | `22440 / 871680 (2.57%)` | `24603 / 1743360 (1.41%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_ouch5_impl_harness` | `3.102 ns` | 322.4 MHz | `0.020 ns` | `0.000 ns` | `23470 / 871680 (2.69%)` | `25801 / 1743360 (1.48%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_impl_harness` | `2.500 ns` | 400.0 MHz | `-0.826 ns` | `-4858.989 ns` | `18620 / 871680 (2.14%)` | `21169 / 1743360 (1.21%)` | Stress miss |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_impl_harness` | `2.350 ns` | 425.5 MHz | `-0.957 ns` | `-8524.854 ns` | `18632 / 871680 (2.14%)` | `21181 / 1743360 (1.21%)` | Stress miss |
 
@@ -75,9 +74,9 @@ loss, and
 liveness protection, AXI-Lite feed rebuild/activation, and four-symbol
 top-of-book path, while still avoiding unrealistic package-pin pressure from
 debug buses. Its 176 ps setup margin is a valid native-clock pass, but is not
-evidence for a higher routed frequency. This measured revision includes the
-end-of-session guard; the later 64-beat CMAC burst buffer and 32-beat parser
-packet envelope await refreshed implementation timing.
+evidence for a higher routed frequency. The complete OUCH/Soup harness below
+supersedes it as the current source-level routed proof and includes the later
+64-beat CMAC burst buffer and 32-beat parser packet envelope.
 
 The order harness is the current complete source-only routed boundary. It
 extends the same packet/feed/book path through quote analysis, a backpressured
@@ -93,11 +92,12 @@ post-route with 47 ps of setup margin and 10 ps of hold margin, with zero total
 negative slack.
 
 The OUCH implementation harness extends that boundary through byte-exact order
-encoding, Soup logical framing, two-beat venue response reconstruction, and
-acceptance/fill feedback. Its measured baseline meets 3.102 ns post-route with
-19 ps setup margin, 11 ps hold margin, and zero total negative slack. The later
-client-side login, heartbeat, logout, and reconnect logic is locally verified
-but is not included in that routed measurement.
+encoding, Soup logical framing, two-beat venue response reconstruction,
+client-generated login/heartbeat/logout/reconnect state, and acceptance/fill
+feedback. It meets 3.102 ns post-route with 20 ps setup margin, 10 ps hold
+margin, and zero total negative slack. A register slice at the synthetic
+exchange-response boundary isolates the harness responder from the Soup parser
+while preserving valid/ready backpressure.
 
 This is still an RTL implementation flow, not a finished Alveo shell. The CMAC
 probe is intentionally separate because the actual IP wrapper depends on the
@@ -118,10 +118,9 @@ The CMAC AXIS strategy wrapper closes OOC at `3.102 ns` / 322.4 MHz on
 `xcu50-fsvh2104-2-e` with WNS `0.449 ns`, TNS `0.000 ns`, 23965 LUTs, 23709
 registers, and no BRAM/DSP usage after staging the UDP payload-strip predecode
 path. A stress sweep closes the same wrapper at `2.750 ns` / 363.6 MHz with WNS
-`0.097 ns`, then misses `2.500 ns` / 400.0 MHz by `0.153 ns`. The next
-implementation-realism step is replacing the source-only wrapper boundary with
-the generated CMAC IP, board clock/reset wiring, and constraints, then rerunning
-routed implementation.
+`0.097 ns`, then misses `2.500 ns` / 400.0 MHz by `0.153 ns`. A separate flow
+has already generated and routed the actual CAUI-4 CMAC checkpoint with board
+clock/reset and hard-block constraints; see `docs/cmac_integration.md`.
 
 ## Report Files
 
