@@ -261,6 +261,7 @@ module market_parser_ouch5_gateway_tb;
         payload[15:8] = 8'd1;
         payload[23:16] = "Z";
         send_soup(payload, mask(3), 1'b1);
+        @(negedge clk);
         check(!session_active, "End Of Session closes the gateway");
         send_command(1'b1, 64'd3, 16'h1234);
         consume_event(2'd1, 64'd3, 32'd0, 32'd0);

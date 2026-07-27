@@ -91,6 +91,18 @@ The complete source-only design now extends through guarded books, decisions,
 order lifecycle, risk, OUCH, and Soup logical-session handling. The current
 timing matrix is tracked in `docs/timing_matrix.md`.
 
+The OUCH top also contains a passive order-ID scoreboard that timestamps the
+final risk-approved command, logical Soup wire transfer, first ACK, and first
+fill. This telemetry is outside the trading control cone; its outputs cannot
+affect backpressure or order decisions. See `docs/order_latency.md`.
+
+The Soup receive boundary uses a two-entry registered FIFO. Each accepted beat
+stores its AXI `tkeep` count, contiguity result, packet length, payload length,
+and packet type before the receive state machine consumes it. This isolates raw
+stream predecode from OUCH capture while preserving backpressure and packet
+order. Login Accepted sequence parsing also separates final-character parsing
+from session activation and sequence commit with a registered boundary.
+
 The `market_parser_512_pipeline_fifo` block adds a normalized event FIFO after
 the parallel parser. That makes the downstream boundary more production-like:
 events can be queued while software, DMA, or strategy logic temporarily stalls.

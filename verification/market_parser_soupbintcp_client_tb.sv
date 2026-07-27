@@ -59,7 +59,7 @@ module market_parser_soupbintcp_client_tb;
     always #HALF clk = ~clk;
 
     market_parser_soupbintcp_client #(
-        .WATCHDOG_CYCLES(40), .CLIENT_HEARTBEAT_CYCLES(8)
+        .WATCHDOG_CYCLES(80), .CLIENT_HEARTBEAT_CYCLES(8)
     ) dut (.*);
 
     task automatic check(input bit condition, input string message);
@@ -225,6 +225,24 @@ module market_parser_soupbintcp_client_tb;
         check(ouch_rx_data[247:0] == payload[247:0] &&
               ouch_rx_keep == mask(31) && next_sequence == 64'd42,
               "single-beat Sequenced Data advances next sequence");
+
+        held = ouch_rx_data;
+        payload = '0;
+        for (int i = 0; i < 8; i++) payload[i*8 +: 8] = 8'ha0 + i;
+        frame = payload << 24;
+        frame[15:8] = 8'd9;
+        frame[23:16] = "S";
+        send_soup_beat(frame, mask(11), 1'b1);
+        repeat (2) @(negedge clk);
+        check(ouch_rx_valid && ouch_rx_data == held,
+              "predecode FIFO queues a packet behind stalled OUCH output");
+        ouch_rx_ready = 1'b1;
+        @(negedge clk);
+        ouch_rx_ready = 1'b0;
+        while (!ouch_rx_valid) @(negedge clk);
+        check(ouch_rx_data[63:0] == payload[63:0] &&
+              next_sequence == 64'd43,
+              "queued Soup packet drains without loss after backpressure");
         ouch_rx_ready = 1'b1;
         @(negedge clk);
         ouch_rx_ready = 1'b0;
@@ -241,7 +259,7 @@ module market_parser_soupbintcp_client_tb;
         frame[23:16] = payload[63*8 +: 8];
         send_soup_beat(frame, mask(3), 1'b1);
         while (!ouch_rx_valid) @(negedge clk);
-        check(ouch_rx_data == payload && next_sequence == 64'd43,
+        check(ouch_rx_data == payload && next_sequence == 64'd44,
               "two-beat Sequenced Data reconstructs payload and advances once");
         ouch_rx_ready = 1'b1;
         @(negedge clk);
@@ -252,14 +270,13 @@ module market_parser_soupbintcp_client_tb;
         check(soup_tx_data[23:16] == "R" && soup_tx_keep == mask(3) &&
               client_heartbeat_count == 1,
               "idle active session emits a Client Heartbeat");
+
+        // Present logout while the heartbeat is consumed. Logout has
+        // priority for the newly available TX slot.
+        logout_valid = 1'b1;
         soup_tx_ready = 1'b1;
         @(negedge clk);
         soup_tx_ready = 1'b0;
-
-        @(negedge clk);
-        logout_valid = 1'b1;
-        while (!logout_ready) @(negedge clk);
-        @(negedge clk);
         logout_valid = 1'b0;
         check(soup_tx_valid && soup_tx_data[23:16] == "O" &&
               !session_active && logout_request_count == 1,
@@ -278,12 +295,12 @@ module market_parser_soupbintcp_client_tb;
         while (!soup_tx_valid) @(negedge clk);
         check(soup_tx_data[19*8 +: 80] == session_id &&
               soup_tx_data[47*8 +: 8] == "4" &&
-              soup_tx_data[48*8 +: 8] == "3",
+              soup_tx_data[48*8 +: 8] == "4",
               "reconnect Login Request uses stored session and next sequence");
         soup_tx_ready = 1'b1;
         @(negedge clk);
         soup_tx_ready = 1'b0;
-        send_login_accepted(session_id, 64'd43);
+        send_login_accepted(session_id, 64'd44);
         wait_cycles = 0;
         while (!session_active && wait_cycles < 30) begin
             @(negedge clk);
@@ -294,13 +311,15 @@ module market_parser_soupbintcp_client_tb;
               "reconnect handshake restores the session");
 
         send_control("H");
+        repeat (2) @(negedge clk);
         check(heartbeat_count == 1,
               "Server Heartbeat is distinguished from client heartbeat");
         send_control("Q");
+        repeat (2) @(negedge clk);
         check(unsupported_packet_count == 1,
               "unknown Soup packet type is counted and dropped");
 
-        repeat (41) @(negedge clk);
+        repeat (81) @(negedge clk);
         check(!session_active && watchdog_timeout_count == 1,
               "silent receive path expires fail-closed despite TX heartbeats");
 
@@ -310,7 +329,7 @@ module market_parser_soupbintcp_client_tb;
               "transport loss blocks login and trading");
 
         check(tx_unsequenced_count == 1 &&
-              sequenced_packet_count == 2 &&
+              sequenced_packet_count == 3 &&
               sequence_parse_error_count == 0,
               "session, transmit, and sequence counters are exact");
 

@@ -41,10 +41,12 @@ Ethernet user clocks.
   Accepted, Rejected, Executed, and Canceled response handling.
 - A SoupBinTCP logical-packet boundary with AXI backpressure, client login,
   heartbeat and logout generation, reconnect sequence tracking, one- and
-  two-beat response deframing, and a fail-closed watchdog. TCP transport and
-  credentials remain external.
+  two-beat response deframing, a two-entry registered RX predecode FIFO, and a
+  fail-closed watchdog. TCP transport and credentials remain external.
 - A registered two-entry order-command FIFO that isolates lifecycle timing
   from exchange-gateway backpressure while preserving command order.
+- A passive order-ID latency scoreboard with cycle-level new-to-wire,
+  new-to-ACK, and new-to-first-fill extrema plus explicit anomaly counters.
 - Self-checking Questa/SystemVerilog tests, deterministic packet vectors,
   optional cocotb tests, and optional Verilator lint.
 - Vivado OOC and routed implementation scripts. Generated reports and vendor
@@ -76,7 +78,8 @@ The most useful entry points are:
 - `rtl/market_parser_100g_ouch5_top.sv`: packet-to-Soup/OUCH integration with venue-response feedback.
 - `rtl/market_parser_ouch5_gateway.sv`: command-level OUCH codec and Soup session boundary.
 - `rtl/market_parser_100g_ouch5_impl_harness.sv`: compact routed packet-to-OUCH closed-loop harness.
-- `tools/exchange_simulator.py`: deterministic Python exchange-response model.
+- `rtl/market_parser_order_latency_monitor.sv`: passive order-path cycle telemetry.
+- `tools/exchange_simulator.py`: deterministic and seeded-adversarial Python exchange model.
 - `rtl/market_parser_100g_cmac_ip_strategy_top.sv`: generated CMAC AXIS boundary.
 - `rtl/market_parser_100g_cmac_ip_impl_harness.sv`: board-oriented U50 shell.
 - `verification/run_questa.do`: complete Questa regression.
@@ -113,10 +116,19 @@ regression adds byte-exact order encoding, 64-byte two-beat response
 reconstruction, logical-session watchdogs, transport rejects, and a closed-loop
 market-packet-to-fill replay. The
 Soup session regression additionally checks exact login bytes, ASCII sequence
-parsing, reconnect state, client/server heartbeats, logout, and transport loss.
+parsing, reconnect state, client/server heartbeats, logout, transport loss, and
+lossless packet queuing while the OUCH output is backpressured.
 The
 checked-in baseline passes with zero compile errors, zero compile warnings,
 and zero failed tests.
+
+The latency regression also checks Soup output stalls, partial fills, table
+pressure, and malformed event sequences. The Python exchange suite adds
+seeded latency jitter, probabilistic rejects, randomized fill slicing, and
+response backpressure; it conserves every accepted share across 1,500 orders
+and five seeds, while a separate 120-order replay
+checks cancellation under backpressure. See `docs/order_latency.md` for
+measurement semantics and local testbench latency.
 
 Generate or refresh deterministic packet vectors with Python 3:
 
@@ -204,13 +216,14 @@ WNS, zero TNS, and `+0.010 ns` WHS, using 21,171 LUTs, 24,172 registers, 8.5
 BRAM tiles, and zero DSPs.
 
 The complete packet-to-Soup/OUCH implementation harness closes post-route at
-3.102 ns / 322.4 MHz with `+0.020 ns` WNS, zero TNS, and `+0.010 ns` WHS,
-using 23,470 LUTs, 25,801 registers, 8.5 BRAM tiles, and zero DSPs. This measured
+3.102 ns / 322.4 MHz with `+0.075 ns` WNS, zero TNS, and `+0.010 ns` WHS,
+using 26,227 LUTs, 30,185 registers, 8.5 BRAM tiles, and zero DSPs. This measured
 result includes the 64-beat CMAC receive buffer, packet parsing, guarded
 multi-symbol book, decision and lifecycle engines, final risk checks,
 byte-exact OUCH transmission, Soup login/heartbeat/logout/reconnect state, and
-two-beat acceptance/fill feedback. A registered synthetic exchange boundary
-keeps harness response logic out of the Soup receive timing path.
+two-beat acceptance/fill feedback, registered Soup RX predecode, and passive
+order-path latency telemetry. The corresponding full OOC top closes the same
+clock with `+0.012 ns` WNS and zero TNS.
 
 An earlier source-only CMAC AXIS implementation harness, including packet
 buffering, UDP realignment, parser, feed guard, AXI-Lite rebuild/activation,
@@ -219,6 +232,15 @@ target with `+0.176 ns` WNS and `+0.011 ns` WHS. The newer complete OUCH/Soup
 harness above is the current source-level routed milestone. These harnesses
 exclude the generated encrypted CMAC IP and are not bitstream or
 hardware-programming claims.
+
+The routed OUCH result above is the baseline immediately before adding the
+passive order-latency monitor. Direct-indexed tagged telemetry reduced the
+instrumented OOC miss to 18 ps, while routed implementation missed by 105 ps
+on a raw `tkeep`-to-OUCH-capture path. A two-entry registered Soup RX predecode
+FIFO removed that path; the next OOC run remained an 18 ps miss in the final
+ASCII login-sequence commit enable. The current source registers that commit
+as a separate cycle. The resulting full top closes OOC with 12 ps margin and
+the compact harness closes post-route with 75 ps margin at 3.102 ns.
 
 The generated AXIS CAUI-4 CMAC integration has also been routed on the
 U50-class target. This harness contains the real encrypted CMAC IP and the

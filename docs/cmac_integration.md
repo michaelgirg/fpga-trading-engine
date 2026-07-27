@@ -88,7 +88,8 @@ An earlier source-only CMAC AXIS routed harness closes the same target
 post-route with WNS `0.176 ns`, TNS `0.000 ns`, WHS `0.011 ns`, 23,156 LUTs,
 and 29,607 registers. The current complete source-level routed proof is the
 packet-to-Soup/OUCH harness: it includes the 64-beat CMAC burst buffer and
-closes 3.102 ns with WNS `0.020 ns`. Generated vendor-IP implementation is
+closes 3.102 ns with WNS `0.075 ns`, including passive order telemetry and the
+registered Soup receive boundary. Generated vendor-IP implementation is
 reported separately below.
 
 The school Vivado 2024.2 IP catalog for `xcu50-fsvh2104-2-e` includes the

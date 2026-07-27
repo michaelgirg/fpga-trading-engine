@@ -43,7 +43,9 @@ compact packet-to-Soup/OUCH harness includes the 64-beat CMAC RX buffer,
 Ethernet/IPv4/UDP and MoldUDP64/ITCH parsing, four guarded books, decision and
 order lifecycle state, final risk, OUCH encoding/decoding, Soup session control,
 and deterministic acceptance/fill feedback. It closes post-route at 3.102 ns /
-322.4 MHz with WNS `+0.020 ns`, TNS `0.000 ns`, and WHS `+0.010 ns`.
+322.4 MHz with WNS `+0.075 ns`, TNS `0.000 ns`, and WHS `+0.010 ns`. This
+current run includes passive order-path latency telemetry and registered Soup
+RX predecode.
 
 A U50-class OOC clock sweep for `market_parser_512_pipeline` shows useful
 headroom beyond the 100G-facing 322 MHz target:

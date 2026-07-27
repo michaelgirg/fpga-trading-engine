@@ -17,7 +17,7 @@ proc run_test {args} {
     quit -sim
 }
 
-vlog -sv rtl/market_parser_order_command_fifo.sv rtl/market_parser_ouch5_gateway.sv rtl/market_parser_100g_ouch5_top.sv rtl/market_parser_100g_ouch5_impl_harness.sv verification/market_parser_order_command_fifo_tb.sv verification/market_parser_ouch5_gateway_tb.sv verification/market_parser_100g_ouch5_top_tb.sv verification/market_parser_100g_ouch5_impl_harness_tb.sv
+vlog -sv rtl/market_parser_order_command_fifo.sv rtl/market_parser_ouch5_gateway.sv rtl/market_parser_order_latency_monitor.sv rtl/market_parser_100g_ouch5_top.sv rtl/market_parser_100g_ouch5_impl_harness.sv verification/market_parser_order_command_fifo_tb.sv verification/market_parser_ouch5_gateway_tb.sv verification/market_parser_order_latency_monitor_tb.sv verification/market_parser_100g_ouch5_top_tb.sv verification/market_parser_100g_ouch5_impl_harness_tb.sv
 
 run_test market_parser_tb
 run_test market_parser_64_tb
@@ -48,6 +48,7 @@ run_test market_parser_ouch5_codec_tb
 run_test market_parser_soupbintcp_client_tb
 run_test market_parser_order_command_fifo_tb
 run_test market_parser_ouch5_gateway_tb
+run_test market_parser_order_latency_monitor_tb
 run_test market_parser_100g_ouch5_top_tb
 run_test market_parser_100g_ouch5_impl_harness_tb
 run_test market_parser_100g_cmac_axis_order_top_tb

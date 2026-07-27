@@ -53,7 +53,7 @@ stripping:
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_decision_impl_harness` | `3.102 ns` | 322.4 MHz | `0.103 ns` | `0.000 ns` | `20142 / 871680 (2.31%)` | `22515 / 1743360 (1.29%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_order_impl_harness` | `3.102 ns` | 322.4 MHz | `0.110 ns` | `0.000 ns` | `21300 / 871680 (2.44%)` | `23721 / 1743360 (1.36%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_egress_impl_harness` | `3.102 ns` | 322.4 MHz | `0.047 ns` | `0.000 ns` | `21171 / 871680 (2.43%)` | `24172 / 1743360 (1.39%)` | Meets |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_ouch5_impl_harness` | `3.102 ns` | 322.4 MHz | `0.020 ns` | `0.000 ns` | `23470 / 871680 (2.69%)` | `25801 / 1743360 (1.48%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_ouch5_impl_harness` | `3.102 ns` | 322.4 MHz | `0.075 ns` | `0.000 ns` | `26227 / 871680 (3.01%)` | `30185 / 1743360 (1.73%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_impl_harness` | `2.500 ns` | 400.0 MHz | `-0.826 ns` | `-4858.989 ns` | `18620 / 871680 (2.14%)` | `21169 / 1743360 (1.21%)` | Stress miss |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_impl_harness` | `2.350 ns` | 425.5 MHz | `-0.957 ns` | `-8524.854 ns` | `18632 / 871680 (2.14%)` | `21181 / 1743360 (1.21%)` | Stress miss |
 
@@ -94,10 +94,37 @@ negative slack.
 The OUCH implementation harness extends that boundary through byte-exact order
 encoding, Soup logical framing, two-beat venue response reconstruction,
 client-generated login/heartbeat/logout/reconnect state, and acceptance/fill
-feedback. It meets 3.102 ns post-route with 20 ps setup margin, 10 ps hold
-margin, and zero total negative slack. A register slice at the synthetic
-exchange-response boundary isolates the harness responder from the Soup parser
-while preserving valid/ready backpressure.
+feedback. The current instrumented revision meets 3.102 ns post-route with 75
+ps setup margin, 10 ps hold margin, and zero total negative slack. It includes
+the passive order-latency monitor, registered exchange-response boundary, and
+two-entry Soup RX predecode FIFO.
+
+## Soup Timing Closure
+
+`market_parser_order_latency_monitor` passively tracks risk-approved new orders
+through logical Soup transmission, ACK, and first fill without feeding any
+ready or risk path. Registered telemetry stages and a direct-indexed tagged
+table improved the instrumented 3.102 ns OOC result from WNS `-1.973 ns` to
+`-0.018 ns`, TNS `-1.211 ns`. The corresponding routed result reached WNS
+`-0.105 ns`, TNS `-20.289 ns`. Its worst path was not in the monitor: it ran
+from the synthetic exchange response `tkeep` register through Soup length and
+validity decoding to an OUCH receive register clock enable.
+
+The next revision inserted a two-entry registered Soup RX predecode FIFO. It
+captures each beat with precomputed keep count, keep validity, packet length,
+payload length, and packet type, then presents that metadata to the receive
+state machine one stage later. The FIFO accepts a second packet while OUCH
+output is stalled and propagates backpressure only when both entries are full.
+The following OOC run confirmed that the raw `tkeep` path was gone, but still
+reported WNS `-0.018 ns`, TNS `-1.175 ns` from the last ASCII sequence character
+through login-sequence validation to the `next_sequence` clock enable. The
+current source places final-character parsing and session/sequence commit in
+separate registered cycles. The resulting full OUCH top closes 3.102 ns OOC
+with WNS `+0.012 ns`, TNS `0.000 ns`, while the compact routed harness closes
+with WNS `+0.075 ns`, TNS `0.000 ns`, WHS `+0.010 ns`, and THS `0.000 ns`.
+All 36 local Questa testbenches pass with zero compile errors, zero compile
+warnings, and zero failed tests. See `docs/order_latency.md` for exact
+measurement semantics.
 
 This is still an RTL implementation flow, not a finished Alveo shell. The CMAC
 probe is intentionally separate because the actual IP wrapper depends on the

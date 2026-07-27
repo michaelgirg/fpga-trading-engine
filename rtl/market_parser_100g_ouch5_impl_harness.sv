@@ -58,6 +58,21 @@ module market_parser_100g_ouch5_impl_harness (
     (* keep = "true" *) logic [31:0] cmac_axis_accepted_packet_count;
     (* keep = "true" *) logic [31:0] cmac_axis_overflow_packet_count;
     (* keep = "true" *) logic [31:0] cmac_axis_dropped_beat_count;
+    logic [15:0] latency_tracked_order_count;
+    (* keep = "true" *) logic [31:0] latency_activity_hash;
+    logic [31:0] new_to_tx_last_cycles;
+    logic [31:0] new_to_tx_min_cycles;
+    logic [31:0] new_to_tx_max_cycles;
+    logic [31:0] new_to_tx_sample_count;
+    logic [31:0] new_to_ack_last_cycles;
+    logic [31:0] new_to_ack_min_cycles;
+    logic [31:0] new_to_ack_max_cycles;
+    logic [31:0] new_to_ack_sample_count;
+    logic [31:0] new_to_fill_last_cycles;
+    logic [31:0] new_to_fill_min_cycles;
+    logic [31:0] new_to_fill_max_cycles;
+    logic [31:0] new_to_fill_sample_count;
+    logic [31:0] latency_anomaly_count;
     logic [31:0] status_sample_r;
 
     function automatic logic [511:0] replay_data(input logic [3:0] index);
@@ -318,7 +333,22 @@ module market_parser_100g_ouch5_impl_harness (
         .ouch_decoded_event_count(ouch_decoded_event_count),
         .soup_heartbeat_count(),
         .soup_sequenced_packet_count(soup_sequenced_packet_count),
-        .gateway_protocol_error_count(gateway_protocol_error_count)
+        .gateway_protocol_error_count(gateway_protocol_error_count),
+        .latency_tracked_order_count(latency_tracked_order_count),
+        .latency_activity_hash(latency_activity_hash),
+        .new_to_tx_last_cycles(new_to_tx_last_cycles),
+        .new_to_tx_min_cycles(new_to_tx_min_cycles),
+        .new_to_tx_max_cycles(new_to_tx_max_cycles),
+        .new_to_tx_sample_count(new_to_tx_sample_count),
+        .new_to_ack_last_cycles(new_to_ack_last_cycles),
+        .new_to_ack_min_cycles(new_to_ack_min_cycles),
+        .new_to_ack_max_cycles(new_to_ack_max_cycles),
+        .new_to_ack_sample_count(new_to_ack_sample_count),
+        .new_to_fill_last_cycles(new_to_fill_last_cycles),
+        .new_to_fill_min_cycles(new_to_fill_min_cycles),
+        .new_to_fill_max_cycles(new_to_fill_max_cycles),
+        .new_to_fill_sample_count(new_to_fill_sample_count),
+        .latency_anomaly_count(latency_anomaly_count)
     );
 
     always_ff @(posedge clk) begin
@@ -336,7 +366,8 @@ module market_parser_100g_ouch5_impl_harness (
             status <= {status[30:0], status[31]} ^ status_sample_r ^
                 {16'd0, gateway_session_active, soup_tx_valid,
                  response_state_r, working_order_mask, live_order_mask,
-                 outstanding_order_count[1:0]} ^ 32'h4f55_4348;
+                 outstanding_order_count[1:0]} ^ latency_activity_hash ^
+                32'h4f55_4348;
         end
     end
 endmodule

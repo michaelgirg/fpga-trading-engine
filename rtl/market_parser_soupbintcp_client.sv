@@ -91,11 +91,34 @@ module market_parser_soupbintcp_client #(
     logic [511:0] login_data_r;
 
     logic sequence_parse_active_r;
+    logic sequence_parse_commit_r;
     logic [4:0] sequence_parse_index_r;
     logic [159:0] sequence_ascii_r;
     logic [63:0] sequence_parse_value_r;
     logic sequence_parse_seen_digit_r;
     logic sequence_parse_bad_r;
+
+    // Two entries decouple raw AXI keep decoding from the receive state
+    // machine. Metadata is computed on ingress and consumed one stage later.
+    logic [511:0] rx_fifo_data_r [0:1];
+    logic [63:0] rx_fifo_keep_r [0:1];
+    logic rx_fifo_last_r [0:1];
+    logic [6:0] rx_fifo_beat_bytes_r [0:1];
+    logic rx_fifo_keep_valid_r [0:1];
+    logic [15:0] rx_fifo_packet_length_r [0:1];
+    logic [16:0] rx_fifo_total_bytes_r [0:1];
+    logic [15:0] rx_fifo_payload_bytes_r [0:1];
+    logic [7:0] rx_fifo_packet_type_r [0:1];
+    logic rx_fifo_write_pointer_r;
+    logic rx_fifo_read_pointer_r;
+    logic [1:0] rx_fifo_count_r;
+    logic rx_fifo_push_i;
+    logic rx_fifo_pop_i;
+    logic rx_fifo_valid_i;
+    logic rx_parser_ready_i;
+    logic [511:0] rx_data_i;
+    logic [63:0] rx_keep_i;
+    logic rx_last_i;
 
     logic [6:0] tx_payload_bytes_i;
     logic tx_keep_valid_i;
@@ -160,7 +183,8 @@ module market_parser_soupbintcp_client #(
                          !login_build_active_r &&
                          !login_format_active_r &&
                          !login_packet_pending_r &&
-                         !sequence_parse_active_r;
+                         !sequence_parse_active_r &&
+                         !sequence_parse_commit_r;
     assign logout_ready = transport_connected && session_active &&
                           tx_slot_available_i &&
                           !login_packet_pending_r;
@@ -172,42 +196,98 @@ module market_parser_soupbintcp_client #(
     assign login_in_progress = login_build_active_r ||
                                login_format_active_r ||
                                login_packet_pending_r ||
-                               sequence_parse_active_r;
+                               sequence_parse_active_r ||
+                               sequence_parse_commit_r;
 
     assign soup_tx_valid = tx_valid_r;
     assign soup_tx_data = tx_data_r;
     assign soup_tx_keep = tx_keep_r;
     assign soup_tx_last = 1'b1;
 
-    assign rx_beat_bytes_i = count_keep(soup_rx_keep);
-    assign rx_keep_valid_i = keep_is_contiguous(soup_rx_keep) &&
-                             rx_beat_bytes_i != 0;
-    assign rx_packet_length_i = {soup_rx_data[7:0], soup_rx_data[15:8]};
-    assign rx_total_bytes_i = {1'b0, rx_packet_length_i} + 17'd2;
+    assign soup_rx_ready = rx_fifo_count_r != 2'd2;
+    assign rx_fifo_push_i = soup_rx_valid && soup_rx_ready;
+    assign rx_fifo_valid_i = rx_fifo_count_r != 2'd0;
+    assign rx_fifo_pop_i = rx_fifo_valid_i && rx_parser_ready_i;
+    assign rx_data_i = rx_fifo_data_r[rx_fifo_read_pointer_r];
+    assign rx_keep_i = rx_fifo_keep_r[rx_fifo_read_pointer_r];
+    assign rx_last_i = rx_fifo_last_r[rx_fifo_read_pointer_r];
+    assign rx_beat_bytes_i =
+        rx_fifo_beat_bytes_r[rx_fifo_read_pointer_r];
+    assign rx_keep_valid_i =
+        rx_fifo_keep_valid_r[rx_fifo_read_pointer_r];
+    assign rx_packet_length_i =
+        rx_fifo_packet_length_r[rx_fifo_read_pointer_r];
+    assign rx_total_bytes_i =
+        rx_fifo_total_bytes_r[rx_fifo_read_pointer_r];
     assign rx_payload_bytes_i =
-        (rx_packet_length_i == 0) ? 16'd0 : rx_packet_length_i - 1'b1;
-    assign rx_packet_type_i = soup_rx_data[23:16];
+        rx_fifo_payload_bytes_r[rx_fifo_read_pointer_r];
+    assign rx_packet_type_i =
+        rx_fifo_packet_type_r[rx_fifo_read_pointer_r];
     assign ouch_slot_available_i = !ouch_valid_r || ouch_rx_ready;
 
     always_comb begin
         case (rx_state_r)
-            RX_SECOND: soup_rx_ready = ouch_slot_available_i;
+            RX_SECOND: rx_parser_ready_i = ouch_slot_available_i;
             default: begin
                 if (rx_packet_type_i == 8'h53 && session_active &&
-                    soup_rx_last) begin
-                    soup_rx_ready = ouch_slot_available_i;
+                    rx_last_i) begin
+                    rx_parser_ready_i = ouch_slot_available_i;
                 end else begin
-                    soup_rx_ready = 1'b1;
+                    rx_parser_ready_i = 1'b1;
                 end
             end
         endcase
     end
-    assign rx_fire_i = soup_rx_valid && soup_rx_ready;
+    assign rx_fire_i = rx_fifo_pop_i;
 
     assign ouch_rx_valid = ouch_valid_r;
     assign ouch_rx_data = ouch_data_r;
     assign ouch_rx_keep = ouch_keep_r;
     assign ouch_rx_last = 1'b1;
+
+    always_ff @(posedge clk) begin
+        logic [6:0] ingress_beat_bytes;
+        logic [15:0] ingress_packet_length;
+
+        if (rst) begin
+            rx_fifo_write_pointer_r <= 1'b0;
+            rx_fifo_read_pointer_r <= 1'b0;
+            rx_fifo_count_r <= '0;
+        end else begin
+            if (rx_fifo_push_i) begin
+                ingress_beat_bytes = count_keep(soup_rx_keep);
+                ingress_packet_length = {
+                    soup_rx_data[7:0], soup_rx_data[15:8]
+                };
+                rx_fifo_data_r[rx_fifo_write_pointer_r] <= soup_rx_data;
+                rx_fifo_keep_r[rx_fifo_write_pointer_r] <= soup_rx_keep;
+                rx_fifo_last_r[rx_fifo_write_pointer_r] <= soup_rx_last;
+                rx_fifo_beat_bytes_r[rx_fifo_write_pointer_r] <=
+                    ingress_beat_bytes;
+                rx_fifo_keep_valid_r[rx_fifo_write_pointer_r] <=
+                    keep_is_contiguous(soup_rx_keep) &&
+                    ingress_beat_bytes != 0;
+                rx_fifo_packet_length_r[rx_fifo_write_pointer_r] <=
+                    ingress_packet_length;
+                rx_fifo_total_bytes_r[rx_fifo_write_pointer_r] <=
+                    {1'b0, ingress_packet_length} + 17'd2;
+                rx_fifo_payload_bytes_r[rx_fifo_write_pointer_r] <=
+                    (ingress_packet_length == 0) ? 16'd0 :
+                    ingress_packet_length - 1'b1;
+                rx_fifo_packet_type_r[rx_fifo_write_pointer_r] <=
+                    soup_rx_data[23:16];
+                rx_fifo_write_pointer_r <= ~rx_fifo_write_pointer_r;
+            end
+            if (rx_fifo_pop_i)
+                rx_fifo_read_pointer_r <= ~rx_fifo_read_pointer_r;
+
+            case ({rx_fifo_push_i, rx_fifo_pop_i})
+                2'b10: rx_fifo_count_r <= rx_fifo_count_r + 1'b1;
+                2'b01: rx_fifo_count_r <= rx_fifo_count_r - 1'b1;
+                default: rx_fifo_count_r <= rx_fifo_count_r;
+            endcase
+        end
+    end
 
     always_ff @(posedge clk) begin
         logic [511:0] framed_data;
@@ -248,6 +328,7 @@ module market_parser_soupbintcp_client #(
             login_format_seen_nonzero_r <= 1'b0;
             login_data_r               <= '0;
             sequence_parse_active_r    <= 1'b0;
+            sequence_parse_commit_r    <= 1'b0;
             sequence_parse_index_r     <= '0;
             sequence_ascii_r           <= '0;
             sequence_parse_value_r     <= '0;
@@ -290,6 +371,7 @@ module market_parser_soupbintcp_client #(
                 login_format_active_r <= 1'b0;
                 login_packet_pending_r <= 1'b0;
                 sequence_parse_active_r <= 1'b0;
+                sequence_parse_commit_r <= 1'b0;
             end else begin
                 if (session_active && WATCHDOG_CYCLES > 0) begin
                     if (watchdog_r >= WATCHDOG_CYCLES - 1) begin
@@ -407,24 +489,30 @@ module market_parser_soupbintcp_client #(
                     sequence_parse_bad_r <= parse_bad_next;
                     if (sequence_parse_index_r == 5'd19) begin
                         sequence_parse_active_r <= 1'b0;
-                        if (!parse_bad_next && parse_seen_next) begin
-                            next_sequence <= parse_value_next;
-                            session_active <= 1'b1;
-                            watchdog_r <= '0;
-                            tx_idle_r <= '0;
-                            login_accepted_count <= increment_saturating(
-                                login_accepted_count);
-                        end else begin
-                            session_active <= 1'b0;
-                            session_fault <= 1'b1;
-                            malformed_packet_count <= increment_saturating(
-                                malformed_packet_count);
-                            sequence_parse_error_count <= increment_saturating(
-                                sequence_parse_error_count);
-                        end
+                        sequence_parse_commit_r <= 1'b1;
                     end else begin
                         sequence_parse_index_r <=
                             sequence_parse_index_r + 1'b1;
+                    end
+                end
+
+                if (sequence_parse_commit_r) begin
+                    sequence_parse_commit_r <= 1'b0;
+                    if (!sequence_parse_bad_r &&
+                        sequence_parse_seen_digit_r) begin
+                        next_sequence <= sequence_parse_value_r;
+                        session_active <= 1'b1;
+                        watchdog_r <= '0;
+                        tx_idle_r <= '0;
+                        login_accepted_count <= increment_saturating(
+                            login_accepted_count);
+                    end else begin
+                        session_active <= 1'b0;
+                        session_fault <= 1'b1;
+                        malformed_packet_count <= increment_saturating(
+                            malformed_packet_count);
+                        sequence_parse_error_count <= increment_saturating(
+                            sequence_parse_error_count);
                     end
                 end
 
@@ -485,7 +573,7 @@ module market_parser_soupbintcp_client #(
             if (rx_fire_i) begin
                 case (rx_state_r)
                     RX_IDLE: begin
-                        control_well_formed = rx_keep_valid_i && soup_rx_last &&
+                        control_well_formed = rx_keep_valid_i && rx_last_i &&
                             rx_packet_length_i >= 1 &&
                             rx_total_bytes_i <= 64 &&
                             rx_beat_bytes_i == rx_total_bytes_i;
@@ -498,10 +586,10 @@ module market_parser_soupbintcp_client #(
                                     !sequence_parse_active_r) begin
                                     for (int i = 0; i < 10; i++)
                                         current_session[i*8 +: 8] <=
-                                            soup_rx_data[(3+i)*8 +: 8];
+                                            rx_data_i[(3+i)*8 +: 8];
                                     for (int i = 0; i < 20; i++)
                                         sequence_ascii_r[i*8 +: 8] <=
-                                            soup_rx_data[(13+i)*8 +: 8];
+                                            rx_data_i[(13+i)*8 +: 8];
                                     sequence_parse_index_r <= '0;
                                     sequence_parse_value_r <= '0;
                                     sequence_parse_seen_digit_r <= 1'b0;
@@ -511,7 +599,7 @@ module market_parser_soupbintcp_client #(
                                 end else begin
                                     malformed_packet_count <=
                                         increment_saturating(malformed_packet_count);
-                                    if (!soup_rx_last) rx_state_r <= RX_DRAIN;
+                                    if (!rx_last_i) rx_state_r <= RX_DRAIN;
                                 end
                             end
                             8'h4a: begin // Login Rejected
@@ -525,7 +613,7 @@ module market_parser_soupbintcp_client #(
                                 end else begin
                                     malformed_packet_count <=
                                         increment_saturating(malformed_packet_count);
-                                    if (!soup_rx_last) rx_state_r <= RX_DRAIN;
+                                    if (!rx_last_i) rx_state_r <= RX_DRAIN;
                                 end
                             end
                             8'h48: begin // Server Heartbeat
@@ -537,7 +625,7 @@ module market_parser_soupbintcp_client #(
                                 end else begin
                                     malformed_packet_count <=
                                         increment_saturating(malformed_packet_count);
-                                    if (!soup_rx_last) rx_state_r <= RX_DRAIN;
+                                    if (!rx_last_i) rx_state_r <= RX_DRAIN;
                                 end
                             end
                             8'h5a: begin // End Of Session
@@ -551,7 +639,7 @@ module market_parser_soupbintcp_client #(
                                 end else begin
                                     malformed_packet_count <=
                                         increment_saturating(malformed_packet_count);
-                                    if (!soup_rx_last) rx_state_r <= RX_DRAIN;
+                                    if (!rx_last_i) rx_state_r <= RX_DRAIN;
                                 end
                             end
                             8'h53: begin // Sequenced Data
@@ -562,15 +650,15 @@ module market_parser_soupbintcp_client #(
                                     inactive_data_count <= increment_saturating(
                                         inactive_data_count);
                                     session_fault <= 1'b1;
-                                    if (!soup_rx_last) rx_state_r <= RX_DRAIN;
+                                    if (!rx_last_i) rx_state_r <= RX_DRAIN;
                                 end else if (!first_beat_well_formed) begin
                                     malformed_packet_count <= increment_saturating(
                                         malformed_packet_count);
-                                    if (!soup_rx_last) rx_state_r <= RX_DRAIN;
-                                end else if (soup_rx_last) begin
+                                    if (!rx_last_i) rx_state_r <= RX_DRAIN;
+                                end else if (rx_last_i) begin
                                     if (rx_total_bytes_i <= 64 &&
                                         rx_beat_bytes_i == rx_total_bytes_i) begin
-                                        ouch_data_r <= soup_rx_data >> 24;
+                                        ouch_data_r <= rx_data_i >> 24;
                                         ouch_keep_r <= keep_mask(
                                             rx_payload_bytes_i[6:0]);
                                         ouch_valid_r <= 1'b1;
@@ -585,11 +673,11 @@ module market_parser_soupbintcp_client #(
                                             increment_saturating(
                                                 malformed_packet_count);
                                     end
-                                end else if (soup_rx_keep ==
+                                end else if (rx_keep_i ==
                                              64'hffff_ffff_ffff_ffff &&
                                              rx_total_bytes_i > 64 &&
                                              rx_total_bytes_i <= 67) begin
-                                    partial_ouch_data_r <= soup_rx_data >> 24;
+                                    partial_ouch_data_r <= rx_data_i >> 24;
                                     partial_payload_bytes_r <=
                                         rx_payload_bytes_i[6:0];
                                     partial_second_bytes_r <=
@@ -604,13 +692,13 @@ module market_parser_soupbintcp_client #(
                             default: begin
                                 unsupported_packet_count <= increment_saturating(
                                     unsupported_packet_count);
-                                if (!soup_rx_last) rx_state_r <= RX_DRAIN;
+                                if (!rx_last_i) rx_state_r <= RX_DRAIN;
                             end
                         endcase
                     end
 
                     RX_SECOND: begin
-                        second_beat_well_formed = soup_rx_last &&
+                        second_beat_well_formed = rx_last_i &&
                             rx_keep_valid_i &&
                             rx_beat_bytes_i == partial_second_bytes_r;
                         if (second_beat_well_formed) begin
@@ -618,7 +706,7 @@ module market_parser_soupbintcp_client #(
                             for (int i = 0; i < 3; i++) begin
                                 if (i < partial_second_bytes_r)
                                     completed_data[(61+i)*8 +: 8] =
-                                        soup_rx_data[i*8 +: 8];
+                                        rx_data_i[i*8 +: 8];
                             end
                             ouch_data_r <= completed_data;
                             ouch_keep_r <= keep_mask(partial_payload_bytes_r);
@@ -631,13 +719,13 @@ module market_parser_soupbintcp_client #(
                         end else begin
                             malformed_packet_count <= increment_saturating(
                                 malformed_packet_count);
-                            if (soup_rx_last) rx_state_r <= RX_IDLE;
+                            if (rx_last_i) rx_state_r <= RX_IDLE;
                             else rx_state_r <= RX_DRAIN;
                         end
                     end
 
                     default: begin // RX_DRAIN
-                        if (soup_rx_last) rx_state_r <= RX_IDLE;
+                        if (rx_last_i) rx_state_r <= RX_IDLE;
                     end
                 endcase
             end

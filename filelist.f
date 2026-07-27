@@ -30,6 +30,7 @@ rtl/market_parser_order_command_fifo.sv
 rtl/market_parser_ouch5_codec.sv
 rtl/market_parser_soupbintcp_client.sv
 rtl/market_parser_ouch5_gateway.sv
+rtl/market_parser_order_latency_monitor.sv
 rtl/market_parser_100g_cmac_axis_order_top.sv
 rtl/market_parser_100g_cmac_axis_egress_top.sv
 rtl/market_parser_100g_ouch5_top.sv

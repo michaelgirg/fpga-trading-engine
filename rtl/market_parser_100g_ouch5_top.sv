@@ -20,6 +20,7 @@ module market_parser_100g_ouch5_top #(
     parameter int EXTRACTION_WINDOW_BYTES = 256,
     parameter int EVENT_FIFO_DEPTH = 16,
     parameter int ORDER_TABLE_DEPTH = 16,
+    parameter int LATENCY_TABLE_DEPTH = 16,
     parameter int RATE_WINDOW_CYCLES = 1024,
     parameter int SOUP_WATCHDOG_CYCLES = 322_400_000,
     parameter int SOUP_CLIENT_HEARTBEAT_CYCLES = 322_400_000,
@@ -133,7 +134,22 @@ module market_parser_100g_ouch5_top #(
     output logic [31:0]                       ouch_decoded_event_count,
     output logic [31:0]                       soup_heartbeat_count,
     output logic [31:0]                       soup_sequenced_packet_count,
-    output logic [31:0]                       gateway_protocol_error_count
+    output logic [31:0]                       gateway_protocol_error_count,
+    output logic [15:0]                       latency_tracked_order_count,
+    output logic [31:0]                       latency_activity_hash,
+    output logic [31:0]                       new_to_tx_last_cycles,
+    output logic [31:0]                       new_to_tx_min_cycles,
+    output logic [31:0]                       new_to_tx_max_cycles,
+    output logic [31:0]                       new_to_tx_sample_count,
+    output logic [31:0]                       new_to_ack_last_cycles,
+    output logic [31:0]                       new_to_ack_min_cycles,
+    output logic [31:0]                       new_to_ack_max_cycles,
+    output logic [31:0]                       new_to_ack_sample_count,
+    output logic [31:0]                       new_to_fill_last_cycles,
+    output logic [31:0]                       new_to_fill_min_cycles,
+    output logic [31:0]                       new_to_fill_max_cycles,
+    output logic [31:0]                       new_to_fill_sample_count,
+    output logic [31:0]                       latency_anomaly_count
 );
     logic order_cmd_valid;
     logic order_cmd_ready;
@@ -163,6 +179,21 @@ module market_parser_100g_ouch5_top #(
     logic [31:0] gateway_command_price;
     logic [31:0] gateway_command_quantity;
     logic [1:0] command_fifo_occupancy;
+    logic latency_tx_is_new;
+    logic [63:0] latency_tx_order_id;
+    logic [31:0] latency_duplicate_order_count;
+    logic [31:0] latency_duplicate_tx_count;
+    logic [31:0] latency_duplicate_response_count;
+    logic [31:0] latency_unmatched_tx_count;
+    logic [31:0] latency_unmatched_response_count;
+    logic [31:0] latency_table_full_count;
+
+    assign latency_tx_is_new = soup_tx_data[23:16] == 8'h55 &&
+                               soup_tx_data[31:24] == 8'h4f;
+    assign latency_tx_order_id = {
+        32'd0, soup_tx_data[39:32], soup_tx_data[47:40],
+        soup_tx_data[55:48], soup_tx_data[63:56]
+    };
 
     always_ff @(posedge clk) begin
         if (rst) begin
@@ -321,6 +352,43 @@ module market_parser_100g_ouch5_top #(
         .sequenced_packet_count(soup_sequenced_packet_count),
         .malformed_soup_count(malformed_soup_count),
         .watchdog_timeout_count(watchdog_timeout_count)
+    );
+
+    market_parser_order_latency_monitor #(
+        .TABLE_DEPTH(LATENCY_TABLE_DEPTH)
+    ) latency_monitor_i (
+        .clk(clk), .rst(rst), .clear(1'b0),
+        .command_valid(order_cmd_valid), .command_ready(order_cmd_ready),
+        .command_cancel(order_cmd_cancel), .command_id(order_cmd_id),
+        .command_quantity(order_cmd_quantity),
+        .tx_valid(soup_tx_valid), .tx_ready(soup_tx_ready),
+        .tx_is_new(latency_tx_is_new), .tx_order_id(latency_tx_order_id),
+        .response_valid(exchange_event_valid),
+        .response_ready(exchange_event_ready),
+        .response_type(exchange_event_type),
+        .response_order_id(exchange_event_order_id),
+        .response_quantity(exchange_event_quantity),
+        .cycle_count(), .tracked_order_count(latency_tracked_order_count),
+        .activity_hash(latency_activity_hash),
+        .new_to_tx_last_cycles(new_to_tx_last_cycles),
+        .new_to_tx_min_cycles(new_to_tx_min_cycles),
+        .new_to_tx_max_cycles(new_to_tx_max_cycles),
+        .new_to_tx_sample_count(new_to_tx_sample_count),
+        .new_to_ack_last_cycles(new_to_ack_last_cycles),
+        .new_to_ack_min_cycles(new_to_ack_min_cycles),
+        .new_to_ack_max_cycles(new_to_ack_max_cycles),
+        .new_to_ack_sample_count(new_to_ack_sample_count),
+        .new_to_fill_last_cycles(new_to_fill_last_cycles),
+        .new_to_fill_min_cycles(new_to_fill_min_cycles),
+        .new_to_fill_max_cycles(new_to_fill_max_cycles),
+        .new_to_fill_sample_count(new_to_fill_sample_count),
+        .duplicate_order_count(latency_duplicate_order_count),
+        .duplicate_tx_count(latency_duplicate_tx_count),
+        .duplicate_response_count(latency_duplicate_response_count),
+        .unmatched_tx_count(latency_unmatched_tx_count),
+        .unmatched_response_count(latency_unmatched_response_count),
+        .table_full_count(latency_table_full_count),
+        .anomaly_count(latency_anomaly_count)
     );
 endmodule
 `default_nettype wire

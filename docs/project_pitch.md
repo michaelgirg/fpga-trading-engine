@@ -34,8 +34,8 @@ warnings and reports zero failed testbenches.
 
 On `xcu50-fsvh2104-2-e`, the parser pipeline closes 2.000 ns / 500 MHz OOC.
 The complete packet-to-Soup/OUCH compact harness closes post-route at 3.102 ns
-/ 322.4 MHz with WNS `+0.020 ns`, TNS `0.000 ns`, WHS `+0.010 ns`, 23,470
-LUTs, 25,801 registers, 8.5 BRAM tiles, and zero DSPs. A separately generated,
+/ 322.4 MHz with WNS `+0.075 ns`, TNS `0.000 ns`, WHS `+0.010 ns`, 26,227
+LUTs, 30,185 registers, 8.5 BRAM tiles, and zero DSPs. A separately generated,
 board-constrained AXIS CAUI-4 CMAC plus parser harness also routes at the native
 clock with zero black boxes and clean DRC; bitstream output remains blocked by
 the CMAC encrypted-IP entitlement.

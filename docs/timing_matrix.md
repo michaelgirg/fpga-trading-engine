@@ -205,11 +205,12 @@ through a two-entry command FIFO, byte-exact OUCH 5.0 encoding/decoding, and a
 SoupBinTCP logical-session client. The client generates Login Request, Client
 Heartbeat, Logout Request, and Unsequenced Data packets; parses Login Accepted,
 Login Rejected, Server Heartbeat, End Of Session, and Sequenced Data packets;
-and preserves reconnect session/sequence state.
+preserves reconnect session/sequence state; and passively timestamps
+risk-approved orders through wire transfer, acknowledgment, and first fill.
 
 | Part | Period | Approx. frequency | WNS | TNS | LUTs | Registers | BRAM | Status |
 | :--- | ---: | ---: | ---: | ---: | :--- | :--- | :--- | :--- |
-| `xcu50-fsvh2104-2-e` | `3.102 ns` | 322 MHz | `0.055 ns` | `0.000 ns` | `30203 / 871680 (3.46%)` | `30675 / 1743360 (1.76%)` | `8.5 / 1344 (0.63%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `3.102 ns` | 322 MHz | `0.012 ns` | `0.000 ns` | `33210 / 871680 (3.81%)` | `35049 / 1743360 (2.01%)` | `8.5 / 1344 (0.63%)` | Meets |
 
 The Soup interface carries complete logical packets above TCP; it does not
 implement Ethernet/TCP reliability or socket establishment.
@@ -256,7 +257,7 @@ packet-to-book datapath.
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_decision_impl_harness` | `3.102 ns` | 322 MHz | `0.103 ns` | `0.000 ns` | `20142 / 871680 (2.31%)` | `22515 / 1743360 (1.29%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_order_impl_harness` | `3.102 ns` | 322 MHz | `0.110 ns` | `0.000 ns` | `21300 / 871680 (2.44%)` | `23721 / 1743360 (1.36%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_egress_impl_harness` | `3.102 ns` | 322 MHz | `0.047 ns` | `0.000 ns` | `21171 / 871680 (2.43%)` | `24172 / 1743360 (1.39%)` | Meets |
-| `xcu50-fsvh2104-2-e` | `market_parser_100g_ouch5_impl_harness` | `3.102 ns` | 322 MHz | `0.020 ns` | `0.000 ns` | `23470 / 871680 (2.69%)` | `25801 / 1743360 (1.48%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_ouch5_impl_harness` | `3.102 ns` | 322 MHz | `0.075 ns` | `0.000 ns` | `26227 / 871680 (3.01%)` | `30185 / 1743360 (1.73%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_impl_harness` | `2.500 ns` | 400 MHz | `-0.826 ns` | `-4858.989 ns` | `18620 / 871680 (2.14%)` | `21169 / 1743360 (1.21%)` | Stress miss |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_strategy_impl_harness` | `2.350 ns` | 426 MHz | `-0.957 ns` | `-8524.854 ns` | `18632 / 871680 (2.14%)` | `21181 / 1743360 (1.21%)` | Stress miss |
 
@@ -266,11 +267,11 @@ both the original ready/valid strategy path and the source-only CMAC AXIS
 four-symbol guarded boundary. The latest egress harness additionally routes
 client-order lifecycle, exchange reconciliation, and independent final risk
 checks with 47 ps of setup margin. The full OUCH/Soup closed-loop harness is the
-current source-only routed milestone: it routes at the native clock with 20 ps
+current source-only routed milestone: it routes at the native clock with 75 ps
 setup margin and 10 ps hold margin. That measured build includes the expanded
 64-beat CMAC burst buffer, 32-beat packet envelope, client-generated login,
 heartbeat, logout, reconnect state, byte-exact OUCH, and deterministic
-acceptance/fill feedback. These are native-clock passes rather than
+acceptance/fill feedback plus passive order telemetry. These are native-clock passes rather than
 higher-frequency claims.
 
 The generated-CMAC board harness is a separate single-symbol integration
