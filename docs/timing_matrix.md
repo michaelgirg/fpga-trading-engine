@@ -125,6 +125,8 @@ both close the native 3.102 ns / 322 MHz U50-class target.
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_multi_strategy_top` | `2.350 ns` | 426 MHz | `-0.052 ns` | `-0.262 ns` | `29764 / 871680 (3.41%)` | `33590 / 1743360 (1.93%)` | Does not close |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `3.102 ns` | 322 MHz | `0.613 ns` | `0.000 ns` | `26465 / 871680 (3.04%)` | `26690 / 1743360 (1.53%)` | Meets |
 | `xcu50-fsvh2104-2-e` | `market_parser_100g_cmac_axis_multi_strategy_top` | `2.500 ns` | 400 MHz | `0.011 ns` | `0.000 ns` | `26652 / 871680 (3.06%)` | `26689 / 1743360 (1.53%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_ab_multi_strategy_top` | `2.750 ns` | 364 MHz | `0.009 ns` | `0.000 ns` | `28096 / 871680 (3.22%)` | `27625 / 1743360 (1.58%)` | Meets |
+| `xcu50-fsvh2104-2-e` | `market_parser_100g_ab_multi_strategy_top` | `2.500 ns` | 400 MHz | `-0.241 ns` | `-6.674 ns` | `28093 / 871680 (3.22%)` | `27625 / 1743360 (1.58%)` | Stress miss |
 
 The result includes Ethernet/IP/UDP stripping, MoldUDP64/ITCH parsing, event
 buffering, exact Replace reference handling, four independent order tables,
@@ -135,6 +137,12 @@ wide comparison from book control. The source-only CMAC AXIS full top closes
 2.500 ns / 400 MHz with 11 ps of setup margin. Its CMAC burst FIFO uses 8.5
 BRAM tiles, its packet window uses 1,000 distributed-memory LUTs, and it uses
 zero DSPs. These builds do not depend on a CMAC IP license.
+
+The redundant A/B top adds a second complete-packet CMAC buffer, registered
+head beats, sequence-aware packet arbitration, exact duplicate suppression,
+bounded-skew failover, and per-source telemetry. It closes 2.750 ns / 363.6 MHz
+with 9 ps of setup margin, using 17 BRAM tiles and zero DSPs. Its 400 MHz run is
+a measured stress miss rather than a closure claim.
 
 ## Packet-To-Intent Decision Top
 

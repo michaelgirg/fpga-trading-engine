@@ -63,6 +63,17 @@ CMAC RX AXIS has no `tready`, followed by a 32-beat per-packet parser store. Thi
 supports standard-MTU-class frames without widening the 256-byte field
 extraction window on the timing-critical parser path.
 
+The redundant-feed top places one complete-packet CMAC buffer on each A/B
+source, followed by an explicit registered head beat, and merges their raw
+Ethernet streams before UDP stripping. The arbiter can inspect first-beat
+MoldUDP64 sequence metadata while both buffers retain complete packets.
+Selection is packet-atomic: one source owns the output
+through `tlast`, and the other source remains held. Exact replays, including
+zero-count heartbeats and end-of-session markers, are dropped; a future packet
+waits for a bounded skew interval before the merger fails closed. The selected
+packet's session field is normalized so physical feed-session differences do
+not look like a downstream venue-session reset. See `docs/redundant_feeds.md`.
+
 The `market_parser_512_boundary_scan` block is the first building block for
 that parallel parser path. It inspects a 512-bit first beat in parallel, decodes
 MoldUDP64 sequence/message count fields, and identifies early ITCH message

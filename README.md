@@ -47,6 +47,9 @@ Ethernet user clocks.
   from exchange-gateway backpressure while preserving command order.
 - A passive order-ID latency scoreboard with cycle-level new-to-wire,
   new-to-ACK, and new-to-first-fill extrema plus explicit anomaly counters.
+- A packet-atomic redundant MoldUDP64 A/B feed merger with duplicate
+  suppression, bounded skew tolerance, source failover telemetry, session
+  normalization, and fail-closed gap or metadata-divergence handling.
 - Self-checking Questa/SystemVerilog tests, deterministic packet vectors,
   optional cocotb tests, and optional Verilator lint.
 - Vivado OOC and routed implementation scripts. Generated reports and vendor
@@ -68,6 +71,8 @@ The most useful entry points are:
 - `rtl/market_parser_100g_strategy_top.sv`: packet-to-top-of-book strategy path.
 - `rtl/market_parser_100g_multi_strategy_top.sv`: bounded multi-symbol strategy path.
 - `rtl/market_parser_100g_cmac_axis_multi_strategy_top.sv`: source-only CMAC AXIS to guarded multi-symbol strategy path.
+- `rtl/market_parser_100g_ab_multi_strategy_top.sv`: dual-CMAC buffered A/B feed merger and guarded multi-symbol strategy path.
+- `rtl/market_parser_moldudp64_ab_arbiter.sv`: packet-atomic sequence-aware redundant-feed arbiter.
 - `rtl/market_parser_signal_engine.sv`: deterministic quote-to-intent and risk boundary.
 - `rtl/market_parser_100g_cmac_axis_decision_top.sv`: complete source-only packet-to-intent integration.
 - `rtl/market_parser_100g_cmac_axis_decision_impl_harness.sv`: compact routed packet-to-intent harness with fill feedback.
@@ -118,6 +123,11 @@ market-packet-to-fill replay. The
 Soup session regression additionally checks exact login bytes, ASCII sequence
 parsing, reconnect state, client/server heartbeats, logout, transport loss, and
 lossless packet queuing while the OUCH output is backpressured.
+The redundant-feed tests add simultaneous A/B delivery, exact duplicate
+suppression, delayed expected packets, packet-level backpressure, malformed
+headers, heartbeat and end-of-session deduplication, gap timeout, rearm,
+metadata divergence, source failover, and an end-to-end three-packet golden
+quote replay across two distinct physical feed sessions.
 The
 checked-in baseline passes with zero compile errors, zero compile warnings,
 and zero failed tests.
@@ -241,6 +251,15 @@ FIFO removed that path; the next OOC run remained an 18 ps miss in the final
 ASCII login-sequence commit enable. The current source registers that commit
 as a separate cycle. The resulting full top closes OOC with 12 ps margin and
 the compact harness closes post-route with 75 ps margin at 3.102 ns.
+
+The redundant-feed milestone adds two independent no-`tready` CMAC receive
+buffers and a MoldUDP64 sequence-aware A/B merger ahead of the guarded
+multi-symbol path. Local simulation proves that redundant copies produce one
+ordered packet stream and that failover between distinct physical session IDs
+preserves all eight golden top-of-book quotes. On the U50-class target,
+`market_parser_100g_ab_multi_strategy_top` closes OOC at 2.750 ns / 363.6 MHz
+with `+0.009 ns` WNS and zero TNS, using 28,096 LUTs, 27,625 registers, 17 BRAM
+tiles, and zero DSPs. A 2.500 ns / 400 MHz stress build misses by 0.241 ns.
 
 The generated AXIS CAUI-4 CMAC integration has also been routed on the
 U50-class target. This harness contains the real encrypted CMAC IP and the

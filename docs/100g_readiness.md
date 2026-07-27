@@ -163,6 +163,16 @@ checks that the ingress side accepts the burst without stalls.
 - Routed Vivado implementation harness for the full strategy path, closing the
   3.102 ns / 322 MHz U50-class 100G target.
 
+## Redundant Feed Status
+
+The source tree now includes a dual-CMAC-buffered, packet-atomic MoldUDP64 A/B
+merge ahead of the guarded multi-symbol strategy path. Focused and end-to-end
+simulation verify duplicate suppression, bounded skew, failover, session
+normalization, fail-closed gap/divergence behavior, and unchanged golden quote
+results. U50 OOC synthesis closes at 2.750 ns / 363.6 MHz with WNS `+0.009 ns`,
+TNS `0.000 ns`, 28,096 LUTs, 27,625 registers, 17 BRAM tiles, and zero DSPs.
+The 2.500 ns / 400 MHz stress point misses by 0.241 ns.
+
 ## Remaining Production Qualification
 
 The byte-serial parser remains the golden correctness model, while the 512-bit
