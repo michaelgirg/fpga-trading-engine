@@ -38,6 +38,21 @@ module market_parser_100g_ouch5_top_tb;
     logic [31:0] protocol_error_count;
     logic [31:0] cmac_axis_overflow_packet_count;
     logic [31:0] cmac_axis_dropped_beat_count;
+    logic [15:0] latency_tracked_order_count;
+    logic [31:0] latency_activity_hash;
+    logic [31:0] new_to_tx_last_cycles;
+    logic [31:0] new_to_tx_min_cycles;
+    logic [31:0] new_to_tx_max_cycles;
+    logic [31:0] new_to_tx_sample_count;
+    logic [31:0] new_to_ack_last_cycles;
+    logic [31:0] new_to_ack_min_cycles;
+    logic [31:0] new_to_ack_max_cycles;
+    logic [31:0] new_to_ack_sample_count;
+    logic [31:0] new_to_fill_last_cycles;
+    logic [31:0] new_to_fill_min_cycles;
+    logic [31:0] new_to_fill_max_cycles;
+    logic [31:0] new_to_fill_sample_count;
+    logic [31:0] latency_anomaly_count;
     int failed;
 
     always #HALF_CLK_PERIOD clk = ~clk;
@@ -213,7 +228,22 @@ module market_parser_100g_ouch5_top_tb;
         .ouch_decoded_event_count(ouch_decoded_event_count),
         .soup_heartbeat_count(),
         .soup_sequenced_packet_count(soup_sequenced_packet_count),
-        .gateway_protocol_error_count(gateway_protocol_error_count)
+        .gateway_protocol_error_count(gateway_protocol_error_count),
+        .latency_tracked_order_count(latency_tracked_order_count),
+        .latency_activity_hash(latency_activity_hash),
+        .new_to_tx_last_cycles(new_to_tx_last_cycles),
+        .new_to_tx_min_cycles(new_to_tx_min_cycles),
+        .new_to_tx_max_cycles(new_to_tx_max_cycles),
+        .new_to_tx_sample_count(new_to_tx_sample_count),
+        .new_to_ack_last_cycles(new_to_ack_last_cycles),
+        .new_to_ack_min_cycles(new_to_ack_min_cycles),
+        .new_to_ack_max_cycles(new_to_ack_max_cycles),
+        .new_to_ack_sample_count(new_to_ack_sample_count),
+        .new_to_fill_last_cycles(new_to_fill_last_cycles),
+        .new_to_fill_min_cycles(new_to_fill_min_cycles),
+        .new_to_fill_max_cycles(new_to_fill_max_cycles),
+        .new_to_fill_sample_count(new_to_fill_sample_count),
+        .latency_anomaly_count(latency_anomaly_count)
     );
 
     initial begin
@@ -297,6 +327,23 @@ module market_parser_100g_ouch5_top_tb;
               cmac_axis_overflow_packet_count == 0 &&
               cmac_axis_dropped_beat_count == 0,
               "deterministic end-to-end replay is lossless and protocol-clean");
+        repeat (4) @(negedge clk);
+        check(new_to_tx_sample_count == 1 && new_to_ack_sample_count == 1 &&
+              new_to_fill_sample_count == 1 &&
+              new_to_tx_min_cycles == new_to_tx_last_cycles &&
+              new_to_tx_max_cycles == new_to_tx_last_cycles &&
+              new_to_ack_min_cycles == new_to_ack_last_cycles &&
+              new_to_ack_max_cycles == new_to_ack_last_cycles &&
+              new_to_fill_min_cycles == new_to_fill_last_cycles &&
+              new_to_fill_max_cycles == new_to_fill_last_cycles,
+              "cycle telemetry correlates the new order, wire send, ACK, and fill");
+        check(latency_tracked_order_count == 0 && latency_anomaly_count == 0 &&
+              latency_activity_hash != 0,
+              "latency scoreboard retires the filled order without anomalies");
+
+        $display("Order latency: new-to-wire=%0d, new-to-ACK=%0d, new-to-first-fill=%0d cycles",
+                 new_to_tx_last_cycles, new_to_ack_last_cycles,
+                 new_to_fill_last_cycles);
 
         $display("Tests failed: %0d", failed);
         $finish;

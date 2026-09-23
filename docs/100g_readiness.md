@@ -1,192 +1,109 @@
-# 100G Readiness Notes
+# 100G Readiness
 
-## Current Status
+## Implemented Boundary
 
-The project now has a 512-bit AXI-stream-style ingress shell intended to sit
-behind a 100G-capable MAC on appropriate hardware. It also has an integrated
-512-bit cut-through parallel path that connects descriptor generation,
-four-beat/256-byte default packet-window buffering, normalized event extraction, and an output
-event FIFO. The current pre-hardware top level also exposes AXI-Lite
-control/status registers for parser enable, counters, FIFO status, bad-frame
-counting, and sticky error flags. The regression now sweeps 128-, 256-, and
-512-byte extraction windows, and the repo includes a Vivado out-of-context
-synthesis hook for pre-hardware resource and timing reports.
+The source tree implements a 512-bit market-data and order path intended for a
+322.4 MHz-class 100G CMAC user clock:
 
-Latest local Vivado OOC timing at a 3.102 ns target clock on the ZedBoard
-`xc7z020clg484-1` part does not close:
+```text
+CMAC RX AXIS
+  -> packet-atomic burst buffer
+  -> Ethernet / IPv4 / UDP strip
+  -> MoldUDP64 session and sequence handling
+  -> parallel ITCH decode
+  -> guarded multi-symbol books
+  -> decision and position risk
+  -> order lifecycle and final egress risk
+  -> SoupBinTCP / OUCH logical packets
+```
 
-- `market_parser_512_pipeline`: WNS `-3.290 ns`, TNS `-9750.711 ns`,
-  LUTs `19435 / 53200`, registers `12900 / 106400`.
-- `market_parser_512_frontend`: WNS `-3.341 ns`, TNS `-501.212 ns`,
-  LUTs `1171 / 53200`, registers `1049 / 106400`.
+The parser core and source-level integration tops are synthesizable. Generated
+CMAC products, implementation checkpoints, reports, and bitstreams remain
+local build artifacts.
 
-That result is useful for stress-testing the RTL, but it is not the intended
-100G target. Zynq-7020 is a functional demo target.
+## Receive Path
 
-On a school Vivado 2024.2 install targeting the U50-class
-`xcu50-fsvh2104-2-e` part, OOC synthesis at the same 3.102 ns target meets
-timing:
+The CMAC-facing interface carries 512-bit `tdata`, 64-bit `tkeep`, `tvalid`,
+`tlast`, and bad-frame metadata. Because the generated CMAC AXIS RX interface
+has no `tready`, `market_parser_cmac_axis_rx_bridge` buffers complete packets
+before converting to the internal ready/valid stream. Overflow rolls back the
+current packet atomically so a truncated frame never reaches the parser.
 
-- `market_parser_512_frontend`: WNS `0.872 ns`, TNS `0.000 ns`,
-  CLB LUTs `1205 / 871680`, CLB registers `1049 / 1743360`.
-- `market_parser_512_pipeline`: WNS `1.091 ns`, TNS `0.000 ns`,
-  CLB LUTs `12326 / 871680`, CLB registers `12700 / 1743360`.
+The default production source boundary provides:
 
-The U50-class OOC report is strong evidence that the architecture is realistic
-for an UltraScale+ 100G-class target. The repo also now has a routed
-implementation harness result for the full packet-to-book strategy path at the
-same 3.102 ns / 322 MHz target: WNS `0.000 ns`, TNS `0.000 ns`, 18492 LUTs, and
-21194 registers on `xcu50-fsvh2104-2-e`.
+- 64-beat no-backpressure CMAC burst storage.
+- 32-beat per-packet parser storage.
+- Ethernet II, IPv4-without-options, and UDP filtering and realignment.
+- Packet, beat, overflow, drop, occupancy, and high-water telemetry.
+- Immediate feed invalidation after packet loss or malformed traffic.
 
-The current complete source-level milestone goes beyond the book path. The
-compact packet-to-Soup/OUCH harness includes the 64-beat CMAC RX buffer,
-Ethernet/IPv4/UDP and MoldUDP64/ITCH parsing, four guarded books, decision and
-order lifecycle state, final risk, OUCH encoding/decoding, Soup session control,
-and deterministic acceptance/fill feedback. It closes post-route at 3.102 ns /
-322.4 MHz with WNS `+0.020 ns`, TNS `0.000 ns`, and WHS `+0.010 ns`.
+VLAN, IPv6, IPv4 options, fragmented IP, RSS, and TCP transport are outside
+the current receive boundary.
 
-A U50-class OOC clock sweep for `market_parser_512_pipeline` shows useful
-headroom beyond the 100G-facing 322 MHz target:
+## Feed Integrity
 
-| Target period | Approx. frequency | WNS | TNS | Result |
-| :--- | ---: | ---: | ---: | :--- |
-| `3.102 ns` | 322 MHz | `1.091 ns` | `0.000 ns` | Meets |
-| `2.750 ns` | 364 MHz | `0.739 ns` | `0.000 ns` | Meets |
-| `2.500 ns` | 400 MHz | `0.489 ns` | `0.000 ns` | Meets |
-| `2.250 ns` | 444 MHz | `0.239 ns` | `0.000 ns` | Meets |
-| `2.100 ns` | 476 MHz | `0.082 ns` | `0.000 ns` | Meets |
-| `2.000 ns` | 500 MHz | `0.030 ns` | `0.000 ns` | Meets |
-| `1.950 ns` | 513 MHz | `-0.020 ns` | `-0.041 ns` | Near miss |
+The guarded path fails closed on packet loss, bad metadata, MoldUDP64 sequence
+gaps, session changes, end-of-session markers, and configurable inactivity
+timeouts. A two-phase recovery clears bounded state, accepts replay traffic to
+rebuild the books with quote output suppressed, and requires explicit software
+activation before trading resumes.
 
-After a lane-offset retiming cleanup, `market_parser_512_frontend` also closes
-at `2.100 ns`, reporting WNS `0.082 ns` and TNS `0.000 ns`. It now misses
-`2.000 ns` by only `0.018 ns`; the integrated 512-bit pipeline closes the
-`2.000 ns` target with WNS `0.030 ns`.
+The redundant A/B path adds packet-atomic arbitration, exact duplicate
+suppression, bounded-skew failover, normalized session handling, and per-source
+telemetry. Metadata disagreement or a sequence discontinuity invalidates the
+merged feed.
 
-This is the right integration boundary for future hardware such as a board with
-a 100G Ethernet MAC. It is not a claim that the current byte-serial parser can
-sustain worst-case 100G traffic indefinitely.
+## Trading Path
 
-The maintained HFT timing table and school-side matrix command are in
-`docs/timing_matrix.md`. The concrete MAC-facing attachment plan is in
-`docs/cmac_integration.md`.
+Four symbol books maintain exact order-reference state and emit ordered quote
+updates. The downstream pipeline applies deterministic spread, liquidity,
+imbalance, position, exposure, feed-health, and kill-switch checks. It then
+tracks pending/live/cancel state, partial fills, local rejects, and signed
+position before producing byte-exact OUCH Enter or Cancel messages.
 
-## Hardware-Facing Interface
+The SoupBinTCP block implements logical login, heartbeat, logout, reconnect,
+sequence state, and response deframing above TCP. Ethernet/TCP reliability,
+socket establishment, credentials, and live exchange connectivity are not
+implemented.
 
-`market_parser_100g_ingress.sv` exposes a MAC-style RX stream:
+## Verification Evidence
 
-| Signal | Direction | Width | Purpose |
-| :--- | :--- | ---: | :--- |
-| `s_axis_rx_tvalid` | input | 1 | RX beat valid. |
-| `s_axis_rx_tready` | output | 1 | Ingress FIFO can accept a beat. |
-| `s_axis_rx_tdata` | input | 512 | RX packet data. |
-| `s_axis_rx_tkeep` | input | 64 | Valid byte lanes. |
-| `s_axis_rx_tlast` | input | 1 | End of packet/frame. |
-| `s_axis_rx_tuser_bad_frame` | input | 1 | Bad-frame marker from MAC/FCS layer. |
+The checked-in Questa regression contains 38 self-checking configurations and
+covers:
 
-The testbench drives a MoldUDP64/ITCH packet as consecutive 512-bit beats and
-checks that the ingress side accepts the burst without stalls.
+- Golden ITCH packets, dense tiny messages, cross-beat fields, malformed and
+  truncated frames, randomized backpressure, and FIFO pressure.
+- No-idle MTU bursts, packet-atomic overflow, loss injection, feed timeout,
+  replay rebuild, activation, and session recovery.
+- A/B duplicate suppression, skew, failover, divergence, and gap handling.
+- Multi-symbol book replay, strategy and risk gating, lifecycle state, exact
+  OUCH bytes, Soup session behavior, and closed-loop acceptance/fill feedback.
 
-## What Is Ready
+The Python exchange model adds deterministic and seeded-adversarial venue
+behavior. It conserves all accepted shares across 1,500 orders and five seeds
+and separately verifies 120 cancellations under response backpressure.
 
-- Synthesizable 512-bit AXI-stream-style ingress boundary.
-- Wide-beat FIFO between the MAC-facing stream and parser path.
-- Ingress observability counters:
-  - accepted beats
-  - accepted packets
-  - backpressure cycles
-  - bad-frame beats
-  - FIFO level
-- Regression coverage for a full packet delivered as a no-stall 512-bit burst.
-- No-`tready` CMAC bridge coverage for contiguous full-depth packets, FIFO
-  occupancy high-water telemetry, and packet-atomic overflow rollback.
-- Immediate fail-closed feed invalidation and bounded-book clearing when the
-  no-`tready` CMAC packet buffer loses a packet.
-- Configurable feed-liveness timeout with a saturating idle-cycle counter,
-  distinct fault history, fail-closed book clearing, and software recovery.
-- Two-phase feed recovery that rebuilds book state with quotes suppressed and
-  requires explicit activation before the feed becomes tradable.
-- Recovery-driven MoldUDP64 sequence re-baselining for snapshot or replay
-  traffic that starts independently of the failed live-feed sequence.
-- MoldUDP64 session-continuity tracking that invalidates the feed even when a
-  restarted session presents a numerically contiguous sequence.
-- Explicit MoldUDP64 end-of-session handling that makes the feed non-tradable,
-  clears bounded books, and records a distinct management-plane cause.
-- A 64-beat no-backpressure CMAC burst buffer feeding a 32-beat per-packet
-  parser store, verified with two contiguous 1462-byte Ethernet frames and 200
-  total ITCH messages without overflow or dropped beats.
-- Qualified feed activation that requires applied rebuild traffic and exposes
-  premature activation attempts through status and counter telemetry.
-- Same normalized parser output checked against generated reference vectors.
-- First-beat parallel boundary scanner for MoldUDP64 sequence/message count and
-  early ITCH message-length candidates.
-- Multi-beat 512-bit descriptor frontend that carries packet byte offset across
-  beats and emits message descriptors for downstream parallel field extraction.
-- Parallel 512-bit event extractor that consumes descriptors plus a
-  parameterized packet window and emits the same normalized event format as the
-  golden parser.
-- Integrated `market_parser_512_pipeline` path that emits normalized events
-  from 512-bit input beats using the descriptor frontend, window buffer, and
-  extractor.
-- Staged coarse/fine field alignment in the integrated pipeline so parallel
-  extraction no longer packs directly from a full dynamic packet window in one
-  cycle.
-- Cut-through regression proving the first mixed-packet event appears before
-  packet end and remains stable while later 512-bit beats are accepted.
-- `market_parser_512_pipeline_fifo` wrapper that queues normalized events
-  independently from downstream consumer readiness.
-- `market_parser_512_system` wrapper that ties the 512-bit parser path to an
-  AXI-Lite management plane for pre-hardware software-style observability.
-- SystemVerilog regression for mixed messages, output backpressure stability,
-  bad-frame propagation, and truncated-packet/incomplete-window handling.
-- Extraction-window sweep regression for 128-, 256-, and 512-byte packet-local
-  windows.
-- Event FIFO regression that stalls the consumer, queues two mixed-message
-  packets, then drains and compares all 16 events against golden vectors.
-- Back-to-back no-idle packet regression that drives repeated mixed packets
-  while event readiness randomly stalls.
-- FIFO-pressure regression that fills the event FIFO, offers another packet,
-  and verifies event integrity plus nonzero backpressure accounting.
-- Dense tiny-message regression that packs ten 12-byte System Event messages
-  into a few 512-bit beats, including a descriptor whose payload crosses a beat
-  boundary.
-- AXI-Lite system regression covering enable/disable, readable counters,
-  software-visible counter clear, sticky error flag clearing, FIFO status, and
-  FIFO read-count behavior.
-- cocotb regression covering the golden packet, repeated randomized mixed
-  packets, and bad/truncated packet flag behavior.
-- Verilator tooling hook for open-source linting.
-- Vivado out-of-context synthesis script for `market_parser_512_system` or any
-  selected parser top.
-- Routed Vivado implementation harness for the full strategy path, closing the
-  3.102 ns / 322 MHz U50-class 100G target.
+## Timing Evidence
 
-## Remaining Production Qualification
+All measurements use Vivado 2024.2 and `xcu50-fsvh2104-2-e`.
 
-The byte-serial parser remains the golden correctness model, while the 512-bit
-parallel path is the implementation datapath. The repository proves cut-through
-events, no-idle MTU bursts, packet-atomic overflow handling, backpressure, and
-routed native-clock closure. It does not yet prove indefinite worst-case live
-feed operation or exchange connectivity.
+| Boundary | Flow | Clock | WNS | Resources |
+| :--- | :--- | ---: | ---: | :--- |
+| 512-bit parser pipeline | OOC | 500.0 MHz | `+0.030 ns` | 12,278 LUTs, 12,700 registers |
+| Redundant A/B packet-to-book | OOC | 363.6 MHz | `+0.009 ns` | 28,096 LUTs, 27,625 registers, 17 BRAM |
+| Packet-to-intent | OOC | 400.0 MHz | `+0.014 ns` | 27,474 LUTs, 27,307 registers, 8.5 BRAM |
+| Packet-to-Soup/OUCH | OOC | 322.4 MHz | `+0.012 ns` | 33,210 LUTs, 35,049 registers, 8.5 BRAM |
+| Packet-to-Soup/OUCH harness | Routed | 322.4 MHz | `+0.075 ns` | 26,227 LUTs, 30,185 registers, 8.5 BRAM |
+| Generated CAUI-4 CMAC plus parser | Routed | 322.4 MHz | `+0.071 ns` | 17,074 LUTs, 18,502 registers, 8.5 BRAM |
 
-The next realism steps are:
+The generated CMAC design has zero black boxes, zero routing errors, and a
+clean final DRC report. Bitstream generation is not claimed because the
+available `cmac_usplus` license is limited to `Design_Linking`.
 
-1. Extend the two-frame MTU test into long randomized bursts with occupancy,
-   overflow, recovery, and loss-injection coverage.
-2. Add cycle-accurate latency histograms from packet acceptance to book update,
-   order emission, acknowledgment, and fill reconciliation.
-3. Run randomized multi-session Soup replay with reconnects, malformed sequence
-   text, heartbeat jitter, and transport interruptions.
-4. Connect the logical Soup packet interface to a host or TCP-offload boundary
-   and validate software-visible session and risk controls.
-5. Generate and load a board bitstream once the CMAC encrypted-IP entitlement
-   permits bitstream output.
+## Remaining Qualification
 
-## Honest Interview Summary
-
-This repository is ready to discuss as a closed-loop 100G-facing FPGA trading
-datapath: packet buffering, parallel ITCH parsing, feed protection, multi-symbol
-books, decisions, lifecycle state, independent risk, OUCH/Soup framing,
-management telemetry, model-based verification, and routed timing evidence are
-all present. The remaining gap is production qualification and deployment, not
-basic parser or gateway architecture.
+The next production-oriented work is constrained-random long-burst replay,
+functional coverage, protocol assertions, latency distributions, host/TCP
+integration, and hardware replay after a bitstream-authorized CMAC license is
+available. The repository demonstrates architecture, correctness regression,
+and routed timing; it is not a programmed trading NIC or live exchange client.

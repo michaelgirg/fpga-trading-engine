@@ -20,8 +20,10 @@ rtl/market_parser_multi_symbol_top_of_book.sv
 rtl/market_parser_100g_strategy_top.sv
 rtl/market_parser_100g_multi_strategy_top.sv
 rtl/market_parser_cmac_axis_rx_bridge.sv
+rtl/market_parser_moldudp64_ab_arbiter.sv
 rtl/market_parser_100g_cmac_axis_strategy_top.sv
 rtl/market_parser_100g_cmac_axis_multi_strategy_top.sv
+rtl/market_parser_100g_ab_multi_strategy_top.sv
 rtl/market_parser_signal_engine.sv
 rtl/market_parser_100g_cmac_axis_decision_top.sv
 rtl/market_parser_order_manager.sv
@@ -30,6 +32,7 @@ rtl/market_parser_order_command_fifo.sv
 rtl/market_parser_ouch5_codec.sv
 rtl/market_parser_soupbintcp_client.sv
 rtl/market_parser_ouch5_gateway.sv
+rtl/market_parser_order_latency_monitor.sv
 rtl/market_parser_100g_cmac_axis_order_top.sv
 rtl/market_parser_100g_cmac_axis_egress_top.sv
 rtl/market_parser_100g_ouch5_top.sv
@@ -45,6 +48,8 @@ verification/market_parser_axis_adapter_tb.sv
 verification/market_parser_100g_ingress_tb.sv
 verification/market_parser_100g_cmac_system_tb.sv
 verification/market_parser_cmac_axis_rx_bridge_tb.sv
+verification/market_parser_moldudp64_ab_arbiter_tb.sv
+verification/market_parser_100g_ab_multi_strategy_top_tb.sv
 verification/market_parser_512_boundary_scan_tb.sv
 verification/market_parser_512_frontend_tb.sv
 verification/market_parser_512_event_extract_tb.sv

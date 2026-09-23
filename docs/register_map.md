@@ -88,15 +88,5 @@ for `CMAC_AXIS_FIFO[15:0]` and `EVENT_FIFO_STATUS[31:16]` to reach zero before
 writing `CONTROL[2]`. This keeps pre-fault buffered work out of the rebuild
 stream without resetting parser counters or AXI-Lite configuration.
 
-The event payload still exits through the normalized event stream. A future
-software-only demo wrapper may add memory-mapped event-data pop registers, but
-the pre-hardware production path keeps the high-rate event data on ready/valid
-streaming signals.
-
-## Planned Extensions
-
-Future hardware wrappers can add separate ingress beat, ingress packet,
-ingress backpressure, and frontend-specific counters if the parser is split
-across multiple independently clocked blocks. The current implemented
-pre-hardware system keeps those observations at the integrated parser/FIFO
-boundary.
+The event payload exits through the normalized ready/valid event stream rather
+than memory-mapped pop registers.

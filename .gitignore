@@ -10,6 +10,14 @@ xsim.dir/
 *.wdb
 *.vcd
 *.wlf
+*.zip
+*.tar
+*.tar.gz
+*.bit
+*.bin
+*.dcp
+*.ltx
+*.xsa
 transcript
 dfx_runtime.txt
 __pycache__/
@@ -18,7 +26,17 @@ verification/cocotb/modelsim.ini
 verification/cocotb/results.xml
 verification/cocotb/sim_build*/
 
-# Local class/course references. Keep these on disk, but do not publish them.
+# Vivado generated projects, IP products, and caches
+*.cache/
+*.gen/
+*.hw/
+*.ip_user_files/
+*.runs/
+*.sim/
+*.srcs/
+*.xpr
+
+# Local reference material. Keep these on disk, but do not publish them.
 refernces/
 references/
 

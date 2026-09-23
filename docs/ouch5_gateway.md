@@ -90,16 +90,18 @@ implementation cannot optimize away the Soup deframer or lifecycle feedback.
 
 The complete `market_parser_100g_ouch5_top` with client-generated session
 control closes the 3.102 ns constraint on `xcu50-fsvh2104-2-e` with WNS
-`+0.055 ns` and TNS `0.000 ns`. The passing 322.4 MHz result includes the packet
+`+0.012 ns` and TNS `0.000 ns`. The passing 322.4 MHz result includes the packet
 parser, guarded multi-symbol book, decision engine, lifecycle manager, final
-risk guard, command FIFO, OUCH codec, and Soup logical-packet boundary.
+risk guard, command FIFO, OUCH codec, Soup logical-packet boundary, and passive
+order-path latency telemetry.
 
 ## Routed Implementation
 
 The compact `market_parser_100g_ouch5_impl_harness` closes post-route at 3.102
-ns / 322.4 MHz with WNS `+0.020 ns`, TNS `0.000 ns`, WHS `+0.010 ns`, and THS
-`0.000 ns`. It uses 23,470 LUTs, 25,801 registers, 8.5 BRAM tiles, and zero
+ns / 322.4 MHz with WNS `+0.075 ns`, TNS `0.000 ns`, WHS `+0.010 ns`, and THS
+`0.000 ns`. It uses 26,227 LUTs, 30,185 registers, 8.5 BRAM tiles, and zero
 DSPs. This run includes client-generated login, heartbeat, logout, reconnect
-sequence state, the full packet-to-OUCH path, and acceptance/fill feedback.
+sequence state, the full packet-to-OUCH path, acceptance/fill feedback, and
+order-latency telemetry.
 The harness is a deterministic logical exchange model above TCP, not a live
 venue certification or hardware-traffic result.

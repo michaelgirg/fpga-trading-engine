@@ -59,10 +59,18 @@ multi-symbol packet vectors through the full packet-to-order chain, then
 checks order emission, acknowledgment, partial-fill position updates,
 kill-switch cancellation, and final working-order state.
 
-`tools/exchange_simulator.py` provides a Python 3.6-compatible deterministic
-exchange model with configurable response latency, rejects, partial fills, and
-cancel acknowledgments. `verification/test_exchange_simulator.py` verifies the
-model independently.
+`tools/exchange_simulator.py` provides Python 3.6-compatible deterministic and
+seeded-adversarial exchange models. The adversarial mode varies response
+latency, injects rejects, splits fills, and holds due events behind a ready
+boundary. `verification/test_exchange_simulator.py` independently verifies
+reproducibility, response ordering, exact reject accounting, and share
+conservation across 1,500 orders and five seeds. A separate 120-order replay
+checks randomized cancel acknowledgments under response backpressure.
+
+`market_parser_order_latency_monitor` passively correlates risk-approved new
+orders with their logical Soup wire transfer, first ACK, and first fill. Its
+measurement boundary and local cycle results are documented in
+`docs/order_latency.md`.
 
 The compact `market_parser_100g_cmac_axis_order_impl_harness` embeds a known
 packet replay and deterministic exchange responder so synthesis and routed

@@ -60,8 +60,8 @@ The current smoke case proves:
 
 ## Vivado Timing Result
 
-School Vivado 2024.2 OOC synthesis closes `market_parser_100g_strategy_top` on
-the U50-class `xcu50-fsvh2104-2-e` part at the 3.102 ns / 322 MHz 100G
+Vivado 2024.2 OOC synthesis closes `market_parser_100g_strategy_top` on the
+`xcu50-fsvh2104-2-e` part at the 3.102 ns / 322 MHz 100G
 user-clock target. After adding a one-deep register slice between the UDP
 payload stripper and parser system, the combined packet-to-book path also
 closes at 2.350 ns / 425 MHz:
@@ -90,13 +90,7 @@ this top. It routes normalized events by stock locate into independent
 iterative books and merges their quote updates into one ordered stream. The
 Python golden replay interleaves three symbols across three raw Ethernet
 frames and checks eight quotes, exact Replace reference behavior, one
-untracked symbol, one unknown event, and aggregate counters. Its Vivado timing
-and utilization are intentionally recorded only after a separate school OOC
-run.
-
-## Next Timing Check
-
-The current full-top timing edge is between 2.350 ns and 2.300 ns. Since
-2.300 ns misses by only 26 ps, pull that critical path before any deeper RTL
-change. The 2.000 ns parser-core result remains a parser pipeline headline, not
-a requirement for this full packet-to-book shell.
+untracked symbol, one unknown event, and aggregate counters. The guarded
+four-symbol source top closes OOC at 2.500 ns / 400 MHz; the redundant A/B
+variant closes at 2.750 ns / 363.6 MHz. See `timing_matrix.md` for measured
+resources and margins.
