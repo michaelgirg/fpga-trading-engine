@@ -1,6 +1,6 @@
 param(
-    [string]$Top = "market_parser_512_system",
-    [string]$Part = $(if ($env:MARKET_PARSER_PART) { $env:MARKET_PARSER_PART } else { "xc7z020clg484-1" }),
+    [string]$Top = "market_parser_512_pipeline",
+    [string]$Part = $(if ($env:MARKET_PARSER_PART) { $env:MARKET_PARSER_PART } else { "xcu50-fsvh2104-2-e" }),
     [string]$ClockPeriodNs = $(if ($env:MARKET_PARSER_CLOCK_PERIOD_NS) { $env:MARKET_PARSER_CLOCK_PERIOD_NS } else { "3.102" }),
     [string]$Directive = $(if ($env:MARKET_PARSER_SYNTH_DIRECTIVE) { $env:MARKET_PARSER_SYNTH_DIRECTIVE } else { "Default" }),
     [string]$Vivado = ""

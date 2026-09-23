@@ -28,10 +28,3 @@ project.
   https://www.arista.com/en/solutions/electronic-trading
 - Intel FPGA financial services:
   https://www.intel.com/content/www/us/en/fpga-solutions/financial-services/overview.html
-
-## ZedBoard
-
-- Digilent ZedBoard:
-  https://digilent.com/shop/zedboard-zynq-7000-arm-fpga-soc-development-board/
-- AMD Zynq-7000 TRM:
-  https://docs.amd.com/r/en-US/ug585-zynq-7000-SoC-TRM

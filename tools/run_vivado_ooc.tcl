@@ -7,7 +7,7 @@ if {$argc >= 1} {
 } elseif {[info exists ::env(MARKET_PARSER_TOP)]} {
     set top_name $::env(MARKET_PARSER_TOP)
 } else {
-    set top_name market_parser_512_system
+    set top_name market_parser_512_pipeline
 }
 
 if {$argc >= 2} {
@@ -15,7 +15,7 @@ if {$argc >= 2} {
 } elseif {[info exists ::env(MARKET_PARSER_PART)]} {
     set part_name $::env(MARKET_PARSER_PART)
 } else {
-    set part_name xc7z020clg484-1
+    set part_name xcu50-fsvh2104-2-e
 }
 
 if {$argc >= 3} {

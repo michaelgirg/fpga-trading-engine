@@ -28,9 +28,9 @@ establishment remain external.
 Verification combines Python reference models with self-checking SystemVerilog
 testbenches, randomized AXI backpressure, malformed/truncated traffic, dense
 messages, no-idle MTU bursts, FIFO pressure, feed recovery, lifecycle races,
-risk rejects, exact protocol-byte checks, assertions, scoreboards, and telemetry
-accounting. The checked-in Questa regression compiles with zero errors and zero
-warnings and reports zero failed testbenches.
+risk rejects, exact protocol-byte checks, scoreboards, and telemetry accounting.
+The checked-in Questa regression runs 38 self-checking configurations with zero
+compile errors, zero compile warnings, and zero failed tests.
 
 On `xcu50-fsvh2104-2-e`, the parser pipeline closes 2.000 ns / 500 MHz OOC.
 The complete packet-to-Soup/OUCH compact harness closes post-route at 3.102 ns
@@ -56,6 +56,6 @@ the CMAC encrypted-IP entitlement.
 The Soup boundary consumes complete logical packets above TCP; the project does
 not implement a TCP stack or live exchange connectivity. Routed results use a
 compact deterministic harness, and no bitstream has been loaded onto hardware.
-The next realism work is longer randomized multi-session replay, latency
-histograms from market packet to order emission and fill reconciliation, and
-host/transport integration once suitable hardware and licensing are available.
+The next realism work is constrained-random full-path replay, functional
+coverage, protocol assertions, latency histograms, and host/transport
+integration once suitable hardware and licensing are available.

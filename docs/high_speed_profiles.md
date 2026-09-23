@@ -9,8 +9,7 @@
 | CMAC AXIS RX | 512 bits | 64 bytes | No-`tready` packet bridge, Ethernet/IPv4/UDP strip, and guarded parser path. |
 | OUCH/Soup logical packets | 512 bits | 64 bytes | Backpressured order/session messages above TCP transport. |
 
-The ZedBoard profile is a functional demo path, not a 100G networking target.
-The U50-class 512-bit path is the HFT reference design.
+The XCU50 512-bit path is the maintained high-speed reference design.
 
 ## Implemented High-Speed Path
 
