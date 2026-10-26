@@ -58,7 +58,8 @@ module market_parser_100g_ouch5_impl_harness_tb;
               "compact OUCH implementation status reflects activity");
 
         $display("Tests failed: %0d", failed);
-        $finish;
+        if (failed == 0) $finish;
+        else $fatal(1, "market_parser_100g_ouch5_impl_harness_tb failed");
     end
 endmodule
 `default_nettype wire

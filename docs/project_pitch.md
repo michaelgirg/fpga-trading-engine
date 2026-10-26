@@ -29,7 +29,7 @@ Verification combines Python reference models with self-checking SystemVerilog
 testbenches, randomized AXI backpressure, malformed/truncated traffic, dense
 messages, no-idle MTU bursts, FIFO pressure, feed recovery, lifecycle races,
 risk rejects, exact protocol-byte checks, scoreboards, and telemetry accounting.
-The checked-in Questa regression runs 38 self-checking configurations with zero
+The checked-in Questa regression runs 43 self-checking configurations with zero
 compile errors, zero compile warnings, and zero failed tests.
 
 On `xcu50-fsvh2104-2-e`, the parser pipeline closes 2.000 ns / 500 MHz OOC.

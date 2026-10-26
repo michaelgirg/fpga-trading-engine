@@ -39,6 +39,8 @@ Vivado output or machine-specific setup.
 
 ## Results And Reproduction
 
+- [Verification](verification.md): failure handling, seeded full-path scenarios,
+  book throughput benchmark, and local reproduction.
 - [Timing matrix](timing_matrix.md): measured OOC and routed results.
 - [Implementation timing](implementation_timing.md): non-project Vivado flow
   and report conventions.

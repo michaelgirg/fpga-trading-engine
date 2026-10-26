@@ -291,7 +291,8 @@ module market_parser_order_manager_tb;
               "cancel and fill lifecycle counters are exact");
 
         $display("Tests failed: %0d", failed);
-        $finish;
+        if (failed == 0) $finish;
+        else $fatal(1, "market_parser_order_manager_tb failed");
     end
 endmodule
 

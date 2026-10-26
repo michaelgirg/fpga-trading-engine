@@ -282,7 +282,8 @@ module market_parser_100g_ab_multi_strategy_top_tb #(
               "merged feed preserves end-to-end parser and book accounting");
 
         $display("Tests failed: %0d", failed);
-        $finish;
+        if (failed == 0) $finish;
+        else $fatal(1, "market_parser_100g_ab_multi_strategy_top_tb failed");
     end
 endmodule
 `default_nettype wire

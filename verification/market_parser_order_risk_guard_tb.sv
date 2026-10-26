@@ -169,7 +169,8 @@ module market_parser_order_risk_guard_tb;
               "risk rejection counters are exact by cause");
 
         $display("Tests failed: %0d", failed);
-        $finish;
+        if (failed == 0) $finish;
+        else $fatal(1, "market_parser_order_risk_guard_tb failed");
     end
 endmodule
 `default_nettype wire

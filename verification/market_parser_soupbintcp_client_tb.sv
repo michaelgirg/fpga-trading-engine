@@ -334,7 +334,8 @@ module market_parser_soupbintcp_client_tb;
               "session, transmit, and sequence counters are exact");
 
         $display("Tests failed: %0d", failed);
-        $finish;
+        if (failed == 0) $finish;
+        else $fatal(1, "market_parser_soupbintcp_client_tb failed");
     end
 endmodule
 `default_nettype wire

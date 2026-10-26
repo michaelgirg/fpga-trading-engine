@@ -274,7 +274,8 @@ module market_parser_ouch5_gateway_tb;
               "venue response counters are exact");
 
         $display("Tests failed: %0d", failed);
-        $finish;
+        if (failed == 0) $finish;
+        else $fatal(1, "market_parser_ouch5_gateway_tb failed");
     end
 endmodule
 `default_nettype wire

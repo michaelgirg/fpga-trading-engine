@@ -286,7 +286,8 @@ module market_parser_ouch5_codec_tb;
               "decode counters are exact");
 
         $display("Tests failed: %0d", failed);
-        $finish;
+        if (failed == 0) $finish;
+        else $fatal(1, "market_parser_ouch5_codec_tb failed");
     end
 endmodule
 `default_nettype wire

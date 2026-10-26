@@ -75,9 +75,9 @@ cancel acknowledgments while the response interface is backpressured.
 
 ## Hardware Status
 
-The pipelined telemetry RTL and compact OUCH harness pass all 36 local Questa
-testbenches with zero compile errors, zero compile warnings, and zero failed
-tests. The Python exchange suite passes all eight tests and both files parse
+The Questa regression contains 43 configurations, including three seeded
+packet-to-order replays. It compiles with zero errors and warnings and reports
+zero failed checks. The Python exchange suite passes all eight tests and both files parse
 with Python 3.6 grammar. U50 OOC synthesis and routed implementation are the
 hardware checks for the current Soup sequence-commit revision; both now pass
 at the native 3.102 ns clock.
