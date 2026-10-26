@@ -1,7 +1,10 @@
 `timescale 1ns / 100ps
 `default_nettype none
 
-module market_parser_100g_ouch5_top_tb;
+module market_parser_100g_ouch5_top_tb #(
+    parameter int SEED = 7,
+    parameter int STRESS_ROUNDS = 0
+);
     localparam realtime CLK_PERIOD = 3.102ns;
     localparam realtime HALF_CLK_PERIOD = CLK_PERIOD / 2.0;
     localparam logic [3:0] LAST_BEAT_INDEX = 4'd8;
@@ -22,6 +25,12 @@ module market_parser_100g_ouch5_top_tb;
     logic [63:0] soup_rx_keep;
     logic soup_rx_last;
     logic gateway_session_active;
+    logic kill_switch;
+    logic [31:0] order_quantity_cfg;
+    logic [31:0] rejected_order_count;
+    logic [31:0] cancel_ack_count;
+    logic [31:0] ouch_encoded_cancel_count;
+    logic soup_tx_last;
     logic [127:0] position_by_symbol;
     logic [3:0] working_order_mask;
     logic [3:0] live_order_mask;
@@ -103,7 +112,7 @@ module market_parser_100g_ouch5_top_tb;
         soup_rx_data = data;
         soup_rx_keep = keep;
         soup_rx_last = last;
-        while (!soup_rx_ready) @(negedge clk);
+        do @(posedge clk); while (!soup_rx_ready);
         @(negedge clk);
         soup_rx_valid = 1'b0;
     endtask
@@ -137,6 +146,7 @@ module market_parser_100g_ouch5_top_tb;
             send_soup_beat(frame, mask(total_bytes), 1'b1);
         end else begin
             send_soup_beat(frame, 64'hffff_ffff_ffff_ffff, 1'b0);
+            if (STRESS_ROUNDS != 0) repeat (choose(12)) @(negedge clk);
             frame = '0;
             for (int i = 0; i < 3; i++) begin
                 frame[i*8 +: 8] = payload[(61+i)*8 +: 8];
@@ -173,10 +183,10 @@ module market_parser_100g_ouch5_top_tb;
         .clk(clk), .rst(rst), .feed_recover(1'b0), .feed_activate(1'b0),
         .rx_axis_tvalid(rx_axis_tvalid), .rx_axis_tdata(rx_axis_tdata),
         .rx_axis_tkeep(rx_axis_tkeep), .rx_axis_tlast(rx_axis_tlast),
-        .rx_axis_tuser(1'b0), .strategy_enable(1'b1), .kill_switch(1'b0),
+        .rx_axis_tuser(1'b0), .strategy_enable(1'b1), .kill_switch(kill_switch),
         .position_clear(1'b0), .max_spread_ticks(32'd100),
         .min_top_shares(32'd1), .imbalance_shift(3'd1),
-        .order_quantity(32'd2), .max_abs_position(32'd10),
+        .order_quantity(order_quantity_cfg), .max_abs_position(32'd10),
         .egress_risk_enable(1'b1), .max_egress_order_quantity(32'd10),
         .min_egress_order_price(32'd1),
         .max_egress_order_price(32'hffff_ffff),
@@ -190,7 +200,7 @@ module market_parser_100g_ouch5_top_tb;
         .soup_logout_valid(1'b0), .soup_logout_ready(),
         .soup_tx_valid(soup_tx_valid), .soup_tx_ready(soup_tx_ready),
         .soup_tx_data(soup_tx_data), .soup_tx_keep(soup_tx_keep),
-        .soup_tx_last(), .soup_rx_valid(soup_rx_valid),
+        .soup_tx_last(soup_tx_last), .soup_rx_valid(soup_rx_valid),
         .soup_rx_ready(soup_rx_ready), .soup_rx_data(soup_rx_data),
         .soup_rx_keep(soup_rx_keep), .soup_rx_last(soup_rx_last),
         .s_axi_awaddr(12'd0), .s_axi_awvalid(1'b0), .s_axi_awready(),
@@ -209,7 +219,8 @@ module market_parser_100g_ouch5_top_tb;
         .outstanding_order_count(outstanding_order_count),
         .accepted_intent_count(), .busy_intent_count(),
         .new_command_count(), .acknowledged_order_count(acknowledged_order_count),
-        .rejected_order_count(), .cancel_command_count(), .cancel_ack_count(),
+        .rejected_order_count(rejected_order_count), .cancel_command_count(),
+        .cancel_ack_count(cancel_ack_count),
         .lifecycle_fill_count(lifecycle_fill_count),
         .protocol_error_count(protocol_error_count),
         .generated_intent_count(generated_intent_count),
@@ -223,7 +234,7 @@ module market_parser_100g_ouch5_top_tb;
         .price_reject_count(), .outstanding_reject_count(),
         .rate_reject_count(), .last_local_reject_reason(),
         .ouch_encoded_new_count(ouch_encoded_new_count),
-        .ouch_encoded_cancel_count(), .ouch_encode_reject_count(),
+        .ouch_encoded_cancel_count(ouch_encoded_cancel_count), .ouch_encode_reject_count(),
         .transport_reject_count(),
         .ouch_decoded_event_count(ouch_decoded_event_count),
         .soup_heartbeat_count(),
@@ -246,6 +257,8 @@ module market_parser_100g_ouch5_top_tb;
         .latency_anomaly_count(latency_anomaly_count)
     );
 
+    `include "verification/ouch5_seeded_scenarios.svh"
+
     initial begin
         logic [511:0] payload;
         logic [31:0] order_id;
@@ -254,6 +267,8 @@ module market_parser_100g_ouch5_top_tb;
         int wait_cycles;
 
         failed = 0;
+        kill_switch = 1'b0;
+        order_quantity_cfg = 32'd2;
         rst = 1'b1;
         rx_axis_tvalid = 1'b0;
         rx_axis_tdata = '0;
@@ -267,6 +282,9 @@ module market_parser_100g_ouch5_top_tb;
         repeat (5) @(posedge clk);
         rst = 1'b0;
 
+        if (STRESS_ROUNDS != 0) begin
+            run_seeded_scenarios();
+        end else begin
         send_login_accepted();
         check(gateway_session_active,
               "Soup login activates packet-to-order processing");
@@ -344,9 +362,11 @@ module market_parser_100g_ouch5_top_tb;
         $display("Order latency: new-to-wire=%0d, new-to-ACK=%0d, new-to-first-fill=%0d cycles",
                  new_to_tx_last_cycles, new_to_ack_last_cycles,
                  new_to_fill_last_cycles);
+        end
 
         $display("Tests failed: %0d", failed);
-        $finish;
+        if (failed == 0) $finish;
+        else $fatal(1, "market_parser_100g_ouch5_top_tb failed");
     end
 endmodule
 `default_nettype wire

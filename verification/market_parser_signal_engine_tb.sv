@@ -310,7 +310,8 @@ module market_parser_signal_engine_tb;
         check(!intent_valid, "balanced FIFO burst emits no intent");
 
         $display("Tests failed: %0d", failed);
-        $finish;
+        if (failed == 0) $finish;
+        else $fatal(1, "market_parser_signal_engine_tb failed");
     end
 endmodule
 

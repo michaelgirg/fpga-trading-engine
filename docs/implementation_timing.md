@@ -86,7 +86,7 @@ The matrix summary uses the post-route `timing_summary.rpt`.
 
 ## Regression Policy
 
-Run the 38-configuration Questa regression and Python model tests before a
+Run the 43-configuration Questa regression and Python model tests before a
 timing sweep. Rerun the 500 MHz parser-core OOC check when parser internals
 change, and rerun the 322.4 MHz complete routed harness when changes affect the
 ingress buffer, feed guards, books, decisions, lifecycle, risk, OUCH, Soup, or

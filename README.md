@@ -8,13 +8,17 @@ decision and risk logic, and emits SoupBinTCP-framed OUCH 5.0 orders.
 ```text
 100G RX AXIS
   -> packet buffer and UDP strip
-  -> redundant A/B MoldUDP64 arbitration
   -> parallel ITCH parser
   -> guarded multi-symbol top of book
   -> quote decision and position risk
   -> order lifecycle and final egress risk
   -> SoupBinTCP / OUCH 5.0 gateway
 ```
+
+The redundant A/B feed top is a separate packet-to-book integration. The
+generated vendor-CMAC harness is a separate receive-to-book boundary with TX
+held idle; the complete Soup/OUCH top uses source-level RX AXIS and logical
+transport interfaces.
 
 ## Highlights
 
@@ -41,12 +45,23 @@ decision and risk logic, and emits SoupBinTCP-framed OUCH 5.0 orders.
 
 ## Verification
 
-The checked-in Questa regression runs 38 self-checking configurations. It
+The checked-in Questa regression runs 43 self-checking configurations. It
 covers parser correctness, malformed and truncated packets, dense messages,
 randomized backpressure, FIFO pressure, AXI-Lite control, book replay, feed
 faults and recovery, A/B duplicate suppression and failover, strategy and risk
 gating, order lifecycle events, exact protocol bytes, and closed-loop
 packet-to-fill behavior.
+
+Three seeds add 96 complete packet-to-order scenarios covering all four
+symbols, both directions, rejects, full fills, split fills, and partial-fill
+cancellation. Market prices, quantities, ingress gaps, output stalls, response
+delays, and two-beat response gaps vary reproducibly. Every scenario checks
+encoded order fields, position, lifecycle state, counters, and latency samples.
+Each scenario resets the DUT; continuous-session stress remains future work.
+
+The runner rejects fatal checks, unexpected stops, and tests exceeding 5 ms
+of simulated time. Its separate self-test checks both successful completion
+and deliberately failing cases. See [verification details](docs/verification.md).
 
 The Python models add deterministic and seeded-adversarial exchange behavior.
 The exchange regression conserves all accepted shares across 1,500 orders and

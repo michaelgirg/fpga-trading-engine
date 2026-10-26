@@ -6,16 +6,8 @@ if {[file exists work]} {
 vlib work
 vlog -sv rtl/market_parser_pkg.sv rtl/market_parser.sv rtl/market_parser_axis_adapter.sv rtl/market_parser_64.sv rtl/market_parser_axis_register_slice.sv rtl/market_parser_100g_ingress.sv rtl/market_parser_udp_payload_strip.sv rtl/market_parser_512_boundary_scan.sv rtl/market_parser_512_frontend.sv rtl/market_parser_512_event_extract.sv rtl/market_parser_512_window_buffer.sv rtl/market_parser_512_pipeline.sv rtl/market_parser_event_fifo.sv rtl/market_parser_512_pipeline_fifo.sv rtl/market_parser_axi_lite_regs.sv rtl/market_parser_512_system.sv rtl/market_parser_100g_cmac_system.sv rtl/market_parser_top_of_book.sv rtl/market_parser_multi_symbol_top_of_book.sv rtl/market_parser_100g_strategy_top.sv rtl/market_parser_100g_multi_strategy_top.sv rtl/market_parser_cmac_axis_rx_bridge.sv rtl/market_parser_moldudp64_ab_arbiter.sv rtl/market_parser_100g_cmac_axis_strategy_top.sv rtl/market_parser_100g_cmac_axis_multi_strategy_top.sv rtl/market_parser_100g_ab_multi_strategy_top.sv rtl/market_parser_signal_engine.sv rtl/market_parser_100g_cmac_axis_decision_top.sv rtl/market_parser_order_manager.sv rtl/market_parser_order_risk_guard.sv rtl/market_parser_ouch5_codec.sv rtl/market_parser_soupbintcp_client.sv rtl/market_parser_100g_cmac_axis_order_top.sv rtl/market_parser_100g_cmac_axis_egress_top.sv rtl/market_parser_100g_strategy_impl_harness.sv rtl/market_parser_100g_cmac_axis_impl_harness.sv rtl/market_parser_100g_cmac_axis_decision_impl_harness.sv rtl/market_parser_100g_cmac_axis_order_impl_harness.sv rtl/market_parser_100g_cmac_axis_egress_impl_harness.sv verification/market_parser_tb.sv verification/market_parser_64_tb.sv verification/market_parser_axis_adapter_tb.sv verification/market_parser_100g_ingress_tb.sv verification/market_parser_100g_cmac_system_tb.sv verification/market_parser_cmac_axis_rx_bridge_tb.sv verification/market_parser_moldudp64_ab_arbiter_tb.sv verification/market_parser_100g_ab_multi_strategy_top_tb.sv verification/market_parser_512_boundary_scan_tb.sv verification/market_parser_512_frontend_tb.sv verification/market_parser_512_event_extract_tb.sv verification/market_parser_512_pipeline_tb.sv verification/market_parser_512_pipeline_fifo_tb.sv verification/market_parser_512_system_tb.sv verification/market_parser_top_of_book_tb.sv verification/market_parser_multi_symbol_top_of_book_tb.sv verification/market_parser_100g_strategy_top_tb.sv verification/market_parser_100g_multi_strategy_top_tb.sv verification/market_parser_signal_engine_tb.sv verification/market_parser_100g_cmac_axis_decision_top_tb.sv verification/market_parser_order_manager_tb.sv verification/market_parser_order_risk_guard_tb.sv verification/market_parser_order_risk_integration_tb.sv verification/market_parser_ouch5_codec_tb.sv verification/market_parser_soupbintcp_client_tb.sv verification/market_parser_100g_cmac_axis_order_top_tb.sv verification/market_parser_100g_cmac_axis_decision_impl_harness_tb.sv verification/market_parser_100g_cmac_axis_order_impl_harness_tb.sv verification/market_parser_100g_cmac_axis_egress_impl_harness_tb.sv
 
-proc run_test {args} {
-    eval vsim -onfinish stop $args
-    run -all
-    set status [runStatus -full]
-    if {[llength $status] < 3 || [lindex $status 2] ne {$finish}} {
-        puts stderr "REGRESSION ERROR: $args stopped with status: $status"
-        quit -code 1
-    }
-    quit -sim
-}
+source verification/questa_test_runner.tcl
+vlog -sv verification/market_parser_book_throughput_tb.sv
 
 vlog -sv rtl/market_parser_order_command_fifo.sv rtl/market_parser_ouch5_gateway.sv rtl/market_parser_order_latency_monitor.sv rtl/market_parser_100g_ouch5_top.sv rtl/market_parser_100g_ouch5_impl_harness.sv verification/market_parser_order_command_fifo_tb.sv verification/market_parser_ouch5_gateway_tb.sv verification/market_parser_order_latency_monitor_tb.sv verification/market_parser_100g_ouch5_top_tb.sv verification/market_parser_100g_ouch5_impl_harness_tb.sv
 
@@ -38,6 +30,8 @@ run_test -GEXTRACTION_WINDOW_BYTES=512 market_parser_512_pipeline_tb
 run_test market_parser_512_pipeline_fifo_tb
 run_test market_parser_512_system_tb
 run_test market_parser_top_of_book_tb
+run_test -GORDER_TABLE_DEPTH=8 market_parser_book_throughput_tb
+run_test -GORDER_TABLE_DEPTH=16 market_parser_book_throughput_tb
 run_test market_parser_multi_symbol_top_of_book_tb
 run_test market_parser_100g_strategy_top_tb
 run_test market_parser_100g_multi_strategy_top_tb
@@ -52,9 +46,14 @@ run_test market_parser_order_command_fifo_tb
 run_test market_parser_ouch5_gateway_tb
 run_test market_parser_order_latency_monitor_tb
 run_test market_parser_100g_ouch5_top_tb
+foreach seed {7 17 101} {
+    # Questa 2021.2 needs visibility enabled to avoid a stress-task vopt crash.
+    run_test -voptargs=+acc -GSEED=$seed -GSTRESS_ROUNDS=32 market_parser_100g_ouch5_top_tb
+}
 run_test market_parser_100g_ouch5_impl_harness_tb
 run_test market_parser_100g_cmac_axis_order_top_tb
 run_test market_parser_100g_cmac_axis_decision_impl_harness_tb
 run_test market_parser_100g_cmac_axis_order_impl_harness_tb
 run_test market_parser_100g_cmac_axis_egress_impl_harness_tb
+echo "REGRESSION COMPLETE: $regression_pass_count configurations passed"
 quit -code 0

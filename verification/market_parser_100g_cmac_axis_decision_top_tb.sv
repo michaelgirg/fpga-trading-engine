@@ -235,7 +235,8 @@ module market_parser_100g_cmac_axis_decision_top_tb #(
               "intents do not change position before fill acknowledgment");
 
         $display("Tests failed: %0d", failed);
-        $finish;
+        if (failed == 0) $finish;
+        else $fatal(1, "market_parser_100g_cmac_axis_decision_top_tb failed");
     end
 endmodule
 

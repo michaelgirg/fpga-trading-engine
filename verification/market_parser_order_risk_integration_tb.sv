@@ -300,7 +300,8 @@ module market_parser_order_risk_integration_tb;
               "only the intended risk rule fires");
 
         $display("Tests failed: %0d", failed);
-        $finish;
+        if (failed == 0) $finish;
+        else $fatal(1, "market_parser_order_risk_integration_tb failed");
     end
 endmodule
 

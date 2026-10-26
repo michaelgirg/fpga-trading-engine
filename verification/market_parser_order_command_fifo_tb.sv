@@ -120,7 +120,8 @@ module market_parser_order_command_fifo_tb;
               "FIFO drains without stale commands");
 
         $display("Tests failed: %0d", failed);
-        $finish;
+        if (failed == 0) $finish;
+        else $fatal(1, "market_parser_order_command_fifo_tb failed");
     end
 endmodule
 `default_nettype wire

@@ -295,7 +295,8 @@ module market_parser_moldudp64_ab_arbiter_tb;
               "selection and duplicate telemetry matches the exercised traffic");
 
         $display("Tests failed: %0d", failed);
-        $finish;
+        if (failed == 0) $finish;
+        else $fatal(1, "market_parser_moldudp64_ab_arbiter_tb failed");
     end
 endmodule
 `default_nettype wire

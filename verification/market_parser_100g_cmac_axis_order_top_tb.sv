@@ -329,7 +329,8 @@ module market_parser_100g_cmac_axis_order_top_tb #(
               "well-formed exchange replay produces no protocol errors");
 
         $display("Tests failed: %0d", failed);
-        $finish;
+        if (failed == 0) $finish;
+        else $fatal(1, "market_parser_100g_cmac_axis_order_top_tb failed");
     end
 endmodule
 

@@ -68,7 +68,7 @@ implemented.
 
 ## Verification Evidence
 
-The checked-in Questa regression contains 38 self-checking configurations and
+The checked-in Questa regression contains 43 self-checking configurations and
 covers:
 
 - Golden ITCH packets, dense tiny messages, cross-beat fields, malformed and
@@ -78,6 +78,14 @@ covers:
 - A/B duplicate suppression, skew, failover, divergence, and gap handling.
 - Multi-symbol book replay, strategy and risk gating, lifecycle state, exact
   OUCH bytes, Soup session behavior, and closed-loop acceptance/fill feedback.
+- 96 seeded packet-to-order scenarios with all four symbols, both directions,
+  rejects, split fills, partial-fill cancels, delays, and output backpressure.
+
+The iterative book benchmark measures one update every 35 clocks at depth 16
+and every 19 clocks at depth 8 under an always-ready quote sink. At a nominal
+3.102 ns period these correspond to 9.211 and 16.967 million updates/s for
+this single-symbol workload. This is a book-processing measurement, separate
+from the wide RX interface clock. See `verification.md` for its boundaries.
 
 The Python exchange model adds deterministic and seeded-adversarial venue
 behavior. It conserves all accepted shares across 1,500 orders and five seeds
